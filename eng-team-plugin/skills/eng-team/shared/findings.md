@@ -21,6 +21,14 @@ Adjust by stage: a gap that is High in production can be Low in prototype. Say s
 - `needs-evidence` — cannot be verified from available material; name who must provide what
 - `pass` — only list when the user asks for a full control map; must cite evidence
 
+## Pack provenance and severity cap
+Every finding derived from a pack names it in `Refs` as `pack:<id>(<tier>/<status>)`.
+Findings whose only basis is an `unreviewed` pack are capped at **High** — unless the check quotes a regulation article verbatim with its citation, in which case Critical is allowed.
+
+## Agent return markers
+Agents that write (builder, tester, tech-writer) end with `Status: DONE | BLOCKED | HARD-STOP`.
+Any agent that hits a hard stop returns a line `HARD-STOP: <reason>` — the orchestrator pauses regardless of autonomy.
+
 ## Finding format
 
 ```
@@ -33,7 +41,7 @@ Adjust by stage: a gap that is High in production can be Low in prototype. Say s
 - Refs: OWASP A01 / GDPR Art. 32 / DORA Art. 9 / CWE-639 (only what applies)
 ```
 
-Role prefixes: SEC, CMP, DAT, PLT, SRE, QA, INT, AI, PRD, LEAD.
+Role prefixes: SEC, CMP, DAT, PLT, SRE, QA, INT, AI, PRD, LEAD, RES, ARC, BLD, TST, DOC.
 
 ## Report template (lead)
 

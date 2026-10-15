@@ -1,29 +1,6 @@
 # Project profile (scope contract)
 
-Fill this before dispatching roles. Mark each field `inferred` (with source file) or `stated` (by user). Unknown fields that change role activation must be asked.
-
-```yaml
-name:
-mode: plan | review | gate
-stage: prototype | pilot | production | scale
-criticality: low | important | critical      # DORA: supports a critical or important function?
-type: internal-tool | data-pipeline | client-website | b2c-app | b2b-saas | api-platform | ml-system
-users: internal | external-business | consumers | public-anonymous
-tenancy: single | multi-tenant
-data_classes: [none, personal, special-category, financial, credentials, children, health]
-regulated:
-  financial_entity: yes | no                 # bank/insurer/investment etc. → DORA applies
-  nis2_entity: yes | no | unknown            # essential/important entity
-  ai_act_role: none | provider | deployer
-  ai_high_risk_use: yes | no                 # e.g. life/health insurance pricing, credit scoring, HR
-residency: eu-only | eea | global | contract-specific
-payments: none | via-psp | stores-card-data
-ai_usage: none | llm-api | self-hosted-model | ml-predictions
-stacks: [azure, gcp, databricks, wordpress, web]   # add others as free text
-deploy_target:
-priorities_override:                         # default: security > compliance > data > reliability > ux > cost
-out_of_scope:
-```
+Field definitions live in `templates/profile.md`; the project's filled copy is `.eng-team/profile.md`.
 
 ## Role activation matrix
 
@@ -37,9 +14,16 @@ out_of_scope:
 | sre | `stage` ≥ pilot, or `criticality` ≥ important |
 | integration-engineer | Exposes or consumes APIs/webhooks, OAuth, or `payments` ≠ none, or type = b2b-saas/api-platform |
 | ai-engineer | `ai_usage` ≠ none |
-| product-engineer | Has a user interface or sends user-facing email/notifications |
+| product-engineer | `has_ui: yes` or sends user-facing email/notifications |
+| researcher | Any phase needs a pack with no tier match, or the research phase runs |
+| architect | Discover and architect phases |
+| builder | Build phase |
+| tester | Test phase |
+| tech-writer | Document phase |
 
 ## Compliance profile selection
+
+Selection is by each pack's `applies_when` frontmatter (see `templates/pack.md`); the table below documents the intent.
 
 | File | Load when |
 |---|---|
@@ -49,6 +33,12 @@ out_of_scope:
 | `compliance/eu-ai-act.md` | `ai_act_role` ≠ none |
 | `compliance/eu-accessibility.md` | consumer-facing UI or public-sector customer |
 | `compliance/us-optional.md` | only if user states US customers, HIPAA, PCI or SOC 2 |
+
+## Pack resolution
+
+1. For each need, look in `.eng-team/packs/` (tier project), then the federation standards repo `packs/` (tier federation), then the plugin `stacks/ compliance/ practices/` (tier plugin). The first pack whose `applies_when` evaluates true wins per `id`.
+2. If a profile `stacks` / `jurisdictions` / `frameworks` value matches no pack, the researcher builds a project pack.
+3. Record every pack used in `state.md` → "Packs in use".
 
 ## Stage gates (what "required" means)
 
