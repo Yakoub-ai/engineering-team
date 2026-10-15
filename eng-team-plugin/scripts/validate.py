@@ -86,13 +86,29 @@ def md_files(root):
 
 
 def main(argv):
-    args = [a for a in argv if not a.startswith("--only")]
-    only = next((a.split("=", 1)[1] if "=" in a else argv[argv.index(a) + 1]
-                 for a in argv if a.startswith("--only")), None)
-    if only and only in args:
-        args.remove(only)
+    args, only, i = [], None, 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--only":
+            if i + 1 >= len(argv) or not argv[i + 1].strip():
+                print("usage: --only requires a value (comma-separated check names)", file=sys.stderr)
+                return 2
+            only = argv[i + 1]
+            i += 1
+        elif a.startswith("--only="):
+            only = a.split("=", 1)[1]
+            if not only.strip():
+                print("usage: --only requires a value (comma-separated check names)", file=sys.stderr)
+                return 2
+        else:
+            args.append(a)
+        i += 1
     root = pathlib.Path(args[0] if args else pathlib.Path(__file__).resolve().parent.parent)
     run = set(only.split(",")) if only else set(CHECKS)
+    for name in sorted(run):
+        if name not in CHECKS:
+            print(f"usage: unknown check '{name}' (valid: {', '.join(CHECKS)})", file=sys.stderr)
+            return 2
     skill = root / "skills" / "eng-team"
     errors = []
 

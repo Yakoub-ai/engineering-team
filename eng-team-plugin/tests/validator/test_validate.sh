@@ -89,8 +89,19 @@ expect_fail() {   # $1 = check name, $2 = mutation (bash run inside plugin dir)
   else echo "FAIL expected '$1' error, got rc=$rc:"; echo "$out"; fails=$((fails+1)); fi
 }
 
+expect_exit() {   # $1 = label, $2 = expected rc, $3 = mutation, rest = validator args
+  local label="$1" want="$2" mut="$3"; shift 3
+  local d; d="$(mktemp -d)"; make_good "$d"
+  (cd "$d" && eval "$mut")
+  "$VALIDATE" "$d" "$@" >/dev/null 2>&1; local rc=$?
+  if [ $rc -eq "$want" ]; then echo "ok   $label"
+  else echo "FAIL $label: expected rc=$want, got rc=$rc"; fails=$((fails+1)); fi
+}
+
 expect_pass
-expect_fail rights       "sed -i.bak 's/tools: Read, Grep, Glob$/tools: Read, Grep, Glob, Write/' agents/eng-architect.md"
+expect_exit "--only unknown check exits 2" 2 ":" --only refz
+expect_exit "--only filters to named check" 0 "echo 'See \`phases/missing.md\`.' >> skills/eng-team/SKILL.md" --only packs
+expect_fail rights      "sed -i.bak 's/tools: Read, Grep, Glob$/tools: Read, Grep, Glob, Write/' agents/eng-architect.md"
 expect_fail refs         "echo 'See \`phases/missing.md\`.' >> skills/eng-team/SKILL.md"
 expect_fail applies      "sed -i.bak 's/profile.stacks contains/profile.cloud contains/' skills/eng-team/stacks/azure.md"
 expect_fail packs        "sed -i.bak '/^review_by:/d' skills/eng-team/stacks/azure.md"
