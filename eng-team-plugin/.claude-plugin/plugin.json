@@ -1,0 +1,6 @@
+{
+  "name": "eng-team",
+  "version": "1.0.0",
+  "description": "Hierarchical engineering review team: eng-lead orchestrator + 9 read-only specialist reviewers (security, EU compliance, data, platform, SRE, QA, integrations, AI, product).",
+  "author": { "name": "George Yakoub" }
+}
