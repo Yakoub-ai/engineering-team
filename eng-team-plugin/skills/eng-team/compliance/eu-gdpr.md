@@ -1,3 +1,19 @@
+---
+id: eu-gdpr
+kind: compliance
+status: reviewed
+tier: plugin
+sources:
+  - title: Regulation (EU) 2016/679 (GDPR)
+    url: https://eur-lex.europa.eu/eli/reg/2016/679/oj
+    accessed: 2026-10-15
+  - title: IMY
+    url: https://www.imy.se/
+    accessed: 2026-10-15
+reviewed_by: George Yakoub
+review_by: 2027-04-15
+applies_when: NOT profile.data_classes contains "none"
+---
 # Compliance profile: GDPR (Regulation (EU) 2016/679) + Swedish specifics
 
 Supervisor (SE): IMY. Use alongside the cross-cutting checks in `roles/compliance-officer.md`.

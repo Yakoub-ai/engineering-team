@@ -1,3 +1,16 @@
+---
+id: wordpress
+kind: stack
+status: reviewed
+tier: plugin
+sources:
+  - title: WordPress hardening
+    url: https://developer.wordpress.org/advanced-administration/security/hardening/
+    accessed: 2026-10-15
+reviewed_by: George Yakoub
+review_by: 2027-04-15
+applies_when: profile.stacks contains "wordpress"
+---
 # Stack pack: WordPress (incl. JetEngine/Crocoblock-style builds)
 
 Look in `wp-config.php`, `wp-content/themes/*`, `wp-content/plugins/*` (custom ones especially), `mu-plugins`, `.htaccess`/nginx config, `composer.json`, deploy scripts.

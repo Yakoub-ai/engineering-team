@@ -1,3 +1,16 @@
+---
+id: gcp
+kind: stack
+status: reviewed
+tier: plugin
+sources:
+  - title: Google Cloud Architecture Framework
+    url: https://cloud.google.com/architecture/framework
+    accessed: 2026-10-15
+reviewed_by: George Yakoub
+review_by: 2027-04-15
+applies_when: profile.stacks contains "gcp"
+---
 # Stack pack: Google Cloud (GCP)
 
 Look in Terraform, `cloudbuild.yaml`, GitHub Actions, `app.yaml`, Cloud Run/Functions configs, IAM bindings.

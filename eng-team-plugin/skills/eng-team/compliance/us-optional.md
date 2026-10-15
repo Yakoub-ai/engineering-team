@@ -1,3 +1,22 @@
+---
+id: us-optional
+kind: compliance
+status: reviewed
+tier: plugin
+sources:
+  - title: AICPA SOC 2
+    url: https://www.aicpa-cima.com/topic/audit-assurance/audit-and-assurance-greater-than-soc-2
+    accessed: 2026-10-15
+  - title: HHS HIPAA
+    url: https://www.hhs.gov/hipaa/
+    accessed: 2026-10-15
+  - title: PCI SSC
+    url: https://www.pcisecuritystandards.org/
+    accessed: 2026-10-15
+reviewed_by: George Yakoub
+review_by: 2027-04-15
+applies_when: profile.jurisdictions contains "us" OR profile.frameworks contains "pci-dss" OR profile.frameworks contains "hipaa" OR profile.frameworks contains "soc2"
+---
 # Compliance profile: US / international (opt-in only)
 
 Load only when the user states US customers or a specific framework.

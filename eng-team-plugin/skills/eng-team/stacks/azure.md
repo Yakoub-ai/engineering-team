@@ -1,3 +1,19 @@
+---
+id: azure
+kind: stack
+status: reviewed
+tier: plugin
+sources:
+  - title: Azure Well-Architected Framework
+    url: https://learn.microsoft.com/azure/well-architected/
+    accessed: 2026-10-15
+  - title: Azure security benchmark
+    url: https://learn.microsoft.com/security/benchmark/azure/
+    accessed: 2026-10-15
+reviewed_by: George Yakoub
+review_by: 2027-04-15
+applies_when: profile.stacks contains "azure"
+---
 # Stack pack: Azure
 
 Applies to every role. Look in Bicep/ARM/Terraform, Azure DevOps YAML, app settings, `local.settings.json`, `appsettings*.json`.

@@ -1,3 +1,19 @@
+---
+id: databricks
+kind: stack
+status: reviewed
+tier: plugin
+sources:
+  - title: Databricks lakehouse architecture
+    url: https://docs.databricks.com/aws/en/lakehouse-architecture/
+    accessed: 2026-10-15
+  - title: Databricks security best practices
+    url: https://docs.databricks.com/aws/en/security/
+    accessed: 2026-10-15
+reviewed_by: George Yakoub
+review_by: 2027-04-15
+applies_when: profile.stacks contains "databricks"
+---
 # Stack pack: Databricks
 
 Look in `databricks.yml` (Asset Bundles), `resources/*.yml`, notebooks (`.py`, `.ipynb`, `.sql`), job/cluster JSON, Terraform `databricks_*` resources.

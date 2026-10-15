@@ -1,3 +1,16 @@
+---
+id: eu-dora
+kind: compliance
+status: reviewed
+tier: plugin
+sources:
+  - title: Regulation (EU) 2022/2554 (DORA)
+    url: https://eur-lex.europa.eu/eli/reg/2022/2554/oj
+    accessed: 2026-10-15
+reviewed_by: George Yakoub
+review_by: 2027-04-15
+applies_when: profile.regulated.financial_entity == "yes"
+---
 # Compliance profile: DORA (Regulation (EU) 2022/2554)
 
 Applies from 17 Jan 2025 to financial entities (banks, insurers/reinsurers, investment firms, payment institutions, etc.). Supervisor (SE): Finansinspektionen. For these entities DORA is **lex specialis** over NIS2 for ICT risk and incident reporting.

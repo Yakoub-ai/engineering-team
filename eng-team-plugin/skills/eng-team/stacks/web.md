@@ -1,3 +1,19 @@
+---
+id: web
+kind: stack
+status: reviewed
+tier: plugin
+sources:
+  - title: OWASP ASVS
+    url: https://owasp.org/www-project-application-security-verification-standard/
+    accessed: 2026-10-15
+  - title: OWASP Top 10
+    url: https://owasp.org/www-project-top-ten/
+    accessed: 2026-10-15
+reviewed_by: George Yakoub
+review_by: 2027-04-15
+applies_when: profile.stacks contains "web" OR profile.has_ui == "yes" OR profile.type == "api-platform"
+---
 # Stack pack: Generic web app (any framework)
 
 Use for Node/Python/.NET/Java/PHP web apps and SPAs when no more specific pack applies — or alongside one.

@@ -1,3 +1,16 @@
+---
+id: eu-ai-act
+kind: compliance
+status: reviewed
+tier: plugin
+sources:
+  - title: Regulation (EU) 2024/1689 (AI Act)
+    url: https://eur-lex.europa.eu/eli/reg/2024/1689/oj
+    accessed: 2026-10-15
+reviewed_by: George Yakoub
+review_by: 2027-04-15
+applies_when: profile.regulated.ai_act_role != "none"
+---
 # Compliance profile: EU AI Act (Regulation (EU) 2024/1689, as amended by the 2026 AI Omnibus)
 
 Timeline (verify before relying on it — dates have moved before):

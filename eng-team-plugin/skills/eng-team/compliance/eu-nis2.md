@@ -1,3 +1,16 @@
+---
+id: eu-nis2
+kind: compliance
+status: reviewed
+tier: plugin
+sources:
+  - title: Directive (EU) 2022/2555 (NIS2)
+    url: https://eur-lex.europa.eu/eli/dir/2022/2555/oj
+    accessed: 2026-10-15
+reviewed_by: George Yakoub
+review_by: 2027-04-15
+applies_when: profile.regulated.nis2_entity != "no" AND profile.regulated.financial_entity != "yes"
+---
 # Compliance profile: NIS2 (Directive (EU) 2022/2555)
 
 Sweden: transposed by **Cybersäkerhetslagen (SFS 2025:1506)**, in force 15 Jan 2026; incident reporting obligations applied from that date. Covers medium-sized+ operators in Annex I/II sectors; Swedish law takes a whole-organisation approach. Financial entities under DORA → use `eu-dora.md` instead for overlapping areas.
