@@ -12,11 +12,11 @@ Scaffold `.eng-team/` in the target project: a filled profile (the scope contrac
 
 ## Steps
 
-1. If `.eng-team/` already exists, do not overwrite anything. Run the State integrity check from `shared/orchestration.md`, report the current phase and gate statuses, and stop.
+1. If `.eng-team/state.md` already exists, do not overwrite anything. Run the State integrity check from `shared/orchestration.md`, report the current phase and gate statuses, and stop.
 2. Infer every profile field you can from the repo. After each inferred value add the trailing comment `# inferred: <file>`. Never guess a field the repo does not show.
 3. For each `# required` field you could not infer, ask the user, one field per message, showing the template default as `(Recommended)` and one line on why it matters. Mark answered fields `# stated`. Accept "don't know" for `regulated.nis2_entity` as `unknown`.
 4. `owner` is required. If the user cannot or does not answer it: set `owner: unassigned`, add an Open question `Q-n | Who owns this? | Accepted risks and approvals need a named human | init`, and add an Assumptions row `No accountable owner yet | low | an owner is named | agent`.
-5. Write `.eng-team/profile.md` from `templates/profile.md` and `.eng-team/state.md` from `templates/state.md`. In state.md set `autonomy` to the profile value and `updated` to today (YYYY-MM-DD), and keep the Log line `- YYYY-MM-DD /eng-init — state created` with today's date.
+5. Write `.eng-team/profile.md` from `templates/profile.md` and `.eng-team/state.md` from `templates/state.md`. If `profile.md` already exists but `state.md` does not, keep `profile.md` and create `state.md` only. In state.md set `autonomy` to the profile value and `updated` to today (YYYY-MM-DD), and keep the Log line `- YYYY-MM-DD /eng-init — state created` with today's date.
 6. Add the line `.eng-team/.cache/` to the repository `.gitignore` (create the file if missing; do not add it twice).
 7. Show the profile to the user as one compact block. Say it is the scope contract and how to change it (edit `.eng-team/profile.md` or tell you).
 8. Check the exit criteria. If they pass, set the init gate to `passed` with Evidence `.eng-team/profile.md`, and set `current_phase: discover`.

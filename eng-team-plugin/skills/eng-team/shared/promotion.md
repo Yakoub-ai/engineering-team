@@ -6,5 +6,5 @@ Used by `/eng-promote <pack-id>`. Promotes a reviewed project pack to the federa
 2. Refuse if `reviewed_by` is empty: "A human must review this pack and set reviewed_by before promotion."
 3. Check each source URL resolves (WebFetch). On failure, list the URL and stop.
 4. Resolve `profile.standards` to a **local path**. If it is a URL, ask the user for a local clone path, since this procedure never clones for writing.
-5. Write a copy to `<standards>/packs/<id>.md` with `tier: federation` and `status: reviewed`, keeping `sources`, `reviewed_by` and `review_by`.
+5. Confirm the target path `<standards>/packs/<id>.md` with the human before writing. Then write a copy there with `tier: federation` and `status: reviewed`, keeping `sources`, `reviewed_by` and `review_by`.
 6. Print the exact next steps for the human: `git checkout -b promote/<id>`, `git add packs/<id>.md`, `git commit`, then open a PR. **Never push, commit or open PRs yourself.**

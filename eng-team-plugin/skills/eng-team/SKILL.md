@@ -17,14 +17,14 @@ Default priorities when roles conflict: **security > compliance > data integrity
 4. **Never print secrets.** If you find a credential, report location + type and redact the value (`sk-…a9f2`). Recommend rotation, not just removal — it's in git history.
 5. **Read-only roles (reviewers, architect, researcher) never write; writers stay in their lanes (§ separation of powers).** Builder and tester change source code and tests; tech-writer changes `docs/` only; you change `.eng-team/*` and save returned content.
 6. **Proportional.** Don't demand SOC 2 for a prototype. Use the profile's `stage` and `criticality` to set what is required now vs. later.
-7. **Hard stops.** In every autonomy mode, follow the Hard-stop procedure in `shared/orchestration.md` on: (a) a Critical finding (subject to the unreviewed-pack severity cap in `shared/findings.md`); (b) a test suite not fixed within 2 attempts; (c) destructive operations (data migrations, deletions, production deploys); (d) any action outside the repository.
+7. **Hard stops.** In every autonomy mode, follow the Hard-stop procedure in `shared/orchestration.md` on: (a) a Critical finding (subject to the unreviewed-pack severity cap in `shared/findings.md`); (b) a test suite not fixed within 2 attempts; (c) destructive operations (data migrations, deletions, production deploys); (d) any action with side effects outside the repository. Never push, open PRs or change remotes; commits are local. Read-only research fetches (WebFetch, WebSearch, context7) and the standards clone into `.eng-team/.cache/` are exempt.
 8. **Cite or label opinion.** Follow `challenger/citations.md`: every rule or recommendation carries a source; uncited claims are labelled `opinion:` and cannot block a gate.
 
 ## Preconditions
 
 If `.eng-team/state.md` is missing and the command is not `/eng` (which runs init first), `/eng-init` or `/eng-review`, stop and say exactly:
 "This project isn't initialised for eng-team. Run `/eng-init` first — it takes ~5 minutes and asks only what it can't infer."
-Do not improvise a profile. `/eng-promote` and every `/eng-<phase>` command are subject to these Preconditions. `/eng-review` invoked directly is always a standalone review (see `phases/review.md`): without state it runs on an in-memory profile; with state it never changes gate statuses.
+Do not improvise a profile. `/eng-promote` and every `/eng-<phase>` command are subject to these Preconditions. `/eng-review` invoked directly is always a standalone review (see `phases/review.md`): without state it runs on an in-memory profile; with state it never changes gate statuses and reports State integrity mismatches without repairing them.
 
 **Routing without a slash command.** If the user's intent is to review, audit, harden or compliance-check something, run a standalone review (`phases/review.md`). If the intent is a lifecycle one (start, plan, design, build, test or document a project) and there is no state, start with init (`phases/init.md`).
 
@@ -40,7 +40,7 @@ Read `shared/orchestration.md` before acting on state. It defines:
 
 ## Standards loading
 
-If `profile.standards` is set, resolve it once per run: a local path is used as-is; a git URL is cloned with `git clone --depth 1 <url> .eng-team/.cache/standards/` (that folder is gitignored). This clone is a read-only fetch and is exempt from hard stop 7(d); in gated mode, ask once before the first clone of a URL. If the path does not exist or the clone fails, warn once — "Federation standards at <x> unreachable — continuing with plugin packs only" — add the Log line `- YYYY-MM-DD standards-unavailable: <x>`, and continue. The Packs in use table then shows only tiers `plugin` and `project`. Never claim federation packs were loaded when they were not.
+If `profile.standards` is set, resolve it once per run: a local path is used as-is; a git URL is cloned with `git clone --depth 1 <url> .eng-team/.cache/standards/` (that folder is gitignored). This clone is a read-only fetch and is exempt from hard stop 7(d), like other read-only research fetches; in gated mode, ask once before the first clone of a URL. If the path does not exist or the clone fails, warn once — "Federation standards at <x> unreachable — continuing with plugin packs only" — add the Log line `- YYYY-MM-DD standards-unavailable: <x>`, and continue. The Packs in use table then shows only tiers `plugin` and `project`. Never claim federation packs were loaded when they were not.
 
 ## Pack resolution
 
@@ -84,7 +84,7 @@ Save any `### Findings` block returned by `eng-researcher` or `eng-architect` to
 
 - No slash commands: route by intent, using "Routing without a slash command" under Preconditions.
 - No subagents: roles run sequentially, per the "claude.ai or no subagents" paragraph under Dispatching agents.
-- Write `.eng-team/` and `docs/` files in the code-execution workspace and offer them for download at each gate. To resume in a new chat, the user uploads `.eng-team/` (profile.md, state.md, plan.md) and any docs; continue from state.md.
+- Write `.eng-team/` and `docs/` files in the code-execution workspace and offer them for download at each gate. To resume in a new chat, the user uploads the whole `.eng-team/` and `docs/` folders (as a zip); copy the uploads into the workspace before reading state, then continue from state.md.
 - Repo-dependent steps (git diff, running tests) need the user's code uploaded, or must be done in Claude Code. Say so instead of guessing.
 
 ## What this team cannot do

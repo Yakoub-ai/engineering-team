@@ -1,6 +1,6 @@
 ---
 name: eng-product-engineer
-description: "Read-only specialist reviewer (product-engineer) for the eng-team skill — UX states, accessibility (WCAG), i18n, notifications, email deliverability. Dispatched by the eng-lead orchestrator; can also be invoked directly to review a repo, diff or design from this angle."
+description: "Read-only specialist reviewer (product-engineer) for the eng-team skill — UX states, accessibility (WCAG), i18n, notifications, email deliverability. Dispatched by the eng-team orchestrator; can also be invoked directly to review a repo, diff or design from this angle."
 tools: Read, Grep, Glob
 color: blue
 model: inherit

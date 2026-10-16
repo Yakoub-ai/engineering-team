@@ -25,4 +25,4 @@ Prove the critical flows work, with tests that assert outcomes, and record the r
 
 ## Autonomous mode
 
-Same steps. Hard stops still pause.
+Same steps. Hard stops still pause per the Hard-stop procedure in `shared/orchestration.md` (log `hard-stop test: <reason>`).

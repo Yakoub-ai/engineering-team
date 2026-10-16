@@ -1,6 +1,6 @@
 ---
 name: eng-data-engineer
-description: "Read-only specialist reviewer (data-engineer) for the eng-team skill — schema, migrations, integrity, money/time/text correctness, idempotency, pipelines. Dispatched by the eng-lead orchestrator; can also be invoked directly to review a repo, diff or design from this angle."
+description: "Read-only specialist reviewer (data-engineer) for the eng-team skill — schema, migrations, integrity, money/time/text correctness, idempotency, pipelines. Dispatched by the eng-team orchestrator; can also be invoked directly to review a repo, diff or design from this angle."
 tools: Read, Grep, Glob
 color: blue
 model: inherit

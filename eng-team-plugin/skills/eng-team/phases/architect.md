@@ -31,4 +31,4 @@ Choose the simplest design that meets the approved brief, challenge every signif
 
 ## Autonomous mode
 
-Write each challenge response yourself; ADRs get `Decided by: agent`; record `Approved by: agent`. Still stop and ask the human for any one-way-door decision touching data deletion, residency or security boundaries, and for any Critical (hard stops).
+Write each challenge response yourself; ADRs get `Decided by: agent`; record `Approved by: agent`. Still stop and ask the human for any one-way-door decision touching data deletion, residency or security boundaries, and for any Critical (hard stops: follow the Hard-stop procedure in `shared/orchestration.md`, log `hard-stop architect: <reason>`).

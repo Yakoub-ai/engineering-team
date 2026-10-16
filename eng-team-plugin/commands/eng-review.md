@@ -3,7 +3,7 @@ description: "eng-team: standalone review/audit of this repo, PR or design (plan
 argument-hint: "[plan|review|gate] [paths or diff range]"
 ---
 
-First load the **eng-team** skill with the Skill tool (skill `eng-team:eng-team`); it gives you the skill base directory, where `phases/`, `shared/` and `roles/` live. Then use it. Run the **review** phase as defined in `phases/review.md`, following the skill's Preconditions and State integrity (`shared/orchestration.md`) rules.
+First load the **eng-team** skill with the Skill tool (skill `eng-team:eng-team`); it gives you the skill base directory, where `phases/`, `shared/` and `roles/` live. Then use it. Run the **review** phase as defined in `phases/review.md`, following the skill's Preconditions and State integrity (`shared/orchestration.md`) rules. State integrity reports mismatches only and never repairs.
 
 `/eng-review` invoked directly is a standalone review. It works without `/eng-init` (state is optional), never changes gate statuses, and when `.eng-team/state.md` exists it only appends an `adhoc-review:` Log line.
 

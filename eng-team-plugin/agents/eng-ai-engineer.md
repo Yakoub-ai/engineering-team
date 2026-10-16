@@ -1,6 +1,6 @@
 ---
 name: eng-ai-engineer
-description: "Read-only specialist reviewer (ai-engineer) for the eng-team skill — LLM/ML safety: prompt injection, data in prompts, agent permissions, evals, spend, fallbacks. Dispatched by the eng-lead orchestrator; can also be invoked directly to review a repo, diff or design from this angle."
+description: "Read-only specialist reviewer (ai-engineer) for the eng-team skill — LLM/ML safety: prompt injection, data in prompts, agent permissions, evals, spend, fallbacks. Dispatched by the eng-team orchestrator; can also be invoked directly to review a repo, diff or design from this angle."
 tools: Read, Grep, Glob
 color: blue
 model: inherit

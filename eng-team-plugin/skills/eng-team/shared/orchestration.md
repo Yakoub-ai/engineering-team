@@ -4,9 +4,10 @@ Loaded by `SKILL.md`. These are the orchestrator's own procedures for state, ent
 
 ## State integrity
 
-Runs on every start when `.eng-team/state.md` exists (skip it when there is no state). List every mismatch to the user, then repair:
+Runs on every start when `.eng-team/state.md` exists (skip it when there is no state). List every mismatch to the user, then repair (except in a standalone `/eng-review`: report mismatches only, never repair):
 1. **Artifacts.** For each gate with status `passed`, check that its Evidence artifact exists. If it is missing, the repair is: set that gate to `open` and log `- YYYY-MM-DD state-repair: <phase> artifact missing`.
 2. **Phase.** The expected phase is the first phase, in Phases-table order, whose gate is not `passed`, `skipped` or `forced` (if none, the project is complete and `current_phase` should be `review`). If `current_phase` differs, the repair is: set `current_phase` to the expected phase and log `- YYYY-MM-DD state-repair: current_phase <old> → <new>`.
+- Standalone `/eng-review`: report mismatches only; do not modify state.md, apart from the `adhoc-review:` Log line.
 - `gated`: ask the human before each repair and apply what they choose.
 - `autonomous`: apply the repairs and log them.
 Never delete rows from state.md; change statuses and append Log lines only.
@@ -38,6 +39,8 @@ One row per loop in state.md → Loop counters, named `<source>→<target>`: the
 ## Hard-stop procedure
 
 The single procedure for every hard stop: set the current gate to `failed`, add the Log line `- YYYY-MM-DD hard-stop <phase>: <reason>`, and ask the human how to proceed. It applies in every autonomy mode.
+
+**Resume.** After the human decides, set the gate to `in-progress` and continue, or keep it `failed`. Destructive or outside-repository actions are performed by the human, then the agent is re-dispatched.
 
 Triggers: the four hard stops in rule 7 of `SKILL.md`; any agent line starting `HARD-STOP:` (the reason is the text after the colon).
 

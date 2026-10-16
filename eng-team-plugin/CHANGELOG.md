@@ -18,7 +18,7 @@
 ### Changed
 - Packs gained frontmatter (`id, kind, status, tier, sources, reviewed_by, review_by, applies_when`).
 - The orchestrator now drives the lifecycle instead of only reviewing.
-- The `plugin.json` description now reflects 14 agents and 10 commands.
+- The `plugin.json` description now reads: "Full-lifecycle engineering team: interviews and challenges, researches with citations, architects (options, ADRs, C4), builds and tests behind gates or autonomously, documents, and reviews for security and EU/other compliance."
 
 ### Migration (from 1.0.0)
 - `/eng-review` gives the old v1 behaviour (read-only review and gate). It needs no profile and never changes lifecycle gates.

@@ -2,7 +2,7 @@
 
 ## 1. What it is
 
-eng-team is a Claude Code plugin that acts as a full-lifecycle engineering team. An orchestrator (the "engineering lead") interviews you and challenges your assumptions, researches with citations, architects (options, ADRs, C4 diagrams), builds and tests behind gates or autonomously, writes layered docs, and reviews for security and compliance (EU first: GDPR, DORA, NIS2, AI Act, accessibility). It runs 14 agents with strictly separated write rights. All state lives in your project under `.eng-team/`, so work can be resumed at any time. It can also run as a standalone read-only review (`/eng-review`) with no setup.
+eng-team is a Claude Code plugin that acts as a full-lifecycle engineering team. An orchestrator (the "engineering lead") interviews you and challenges your assumptions, researches with citations, architects (options, ADRs, C4 diagrams), builds and tests behind gates or autonomously, writes layered docs, and reviews for security and compliance (EU first: GDPR, DORA, NIS2, AI Act, accessibility). It runs 14 agents with separated write rights, enforced by tool lists for the read-only roles and by prompts for the writers' folder scope. All state lives in your project under `.eng-team/`, so work can be resumed at any time. It can also run as a standalone review (`/eng-review`) with no setup that does not change lifecycle gates.
 
 ```mermaid
 flowchart LR
@@ -35,7 +35,7 @@ claude --plugin-dir /path/to/engineering-team/eng-team-plugin
 /plugin install eng-team@yakoub-ai
 ```
 
-The repository is private, so you must be logged in with `gh auth login` using an account that has access to the Yakoub-ai organisation.
+The repository is private, so you must be logged in with `gh auth login` using an account that has access to the Yakoub-ai organisation. For a private repository, also run `gh auth setup-git`; background plugin updates need a `GITHUB_TOKEN` in your environment.
 
 **(c) Optional: context7 MCP.** The researcher uses the context7 MCP server (`resolve-library-id`, `query-docs`) for library and framework docs when it is installed. Without it, the researcher falls back to fetching vendor docs with WebFetch.
 
@@ -46,7 +46,7 @@ claude.ai has no plugins, slash commands or subagents, only uploaded skills. The
 1. Build the zip: `bash eng-team-plugin/scripts/package-claude-ai.sh` (writes `eng-team-plugin/dist/eng-team-skill.zip`, top-level folder `eng-team/`).
 2. In claude.ai go to Settings > Capabilities > Skills and upload the zip. Code execution must be enabled.
 3. Start with a plain request: "use the eng-team skill to start a new project: ..." or "review this repo with eng-team". Intent is routed without slash commands.
-4. Save and resume: files are written to `.eng-team/` and `docs/` in the code-execution workspace. Download them at each gate. To resume in a new chat, upload `.eng-team/` (profile.md, state.md, plan.md) and any docs; the skill continues from state.md.
+4. Save and resume: files are written to `.eng-team/` and `docs/` in the code-execution workspace. Download them at each gate. To resume in a new chat, upload the whole `.eng-team/` and `docs/` folders (as a zip); the skill copies them into the workspace before reading state, then continues from state.md.
 
 Differences from Claude Code:
 - No context isolation: roles run one after another in the same conversation.
@@ -135,11 +135,11 @@ Reviewers run in three modes: `plan` (during architect, on the design), `gate` (
 
 | Agent | Reads (files and profile fields) | Produces | Write rights | Phases |
 |---|---|---|---|---|
-| `eng-researcher` | profile, the open questions or missing pack needs, `templates/pack.md`, `challenger/citations.md`; profile `stacks`, `jurisdictions`, `frameworks`; official sources via web and context7 | cited findings (`### Findings`), unreviewed project packs (`tier: project`, `status: unreviewed`, <= 60 lines) | none: tools `Read, Grep, Glob, WebFetch, WebSearch` + 4 context7 tools. Lead saves packs to `.eng-team/packs/<id>.md` | research; any phase with a pack miss |
+| `eng-researcher` | profile, the open questions or missing pack needs, `templates/pack.md`, `challenger/citations.md`; profile `stacks`, `jurisdictions`, `frameworks`; official sources via web and context7 | Pack + Note blocks (optional `### Findings`), unreviewed project packs (`tier: project`, `status: unreviewed`, <= 60 lines) | none: tools `Read, Grep, Glob, WebFetch, WebSearch` + 4 context7 tools. Lead saves packs to `.eng-team/packs/<id>.md` | research; any phase with a pack miss |
 | `eng-architect` | brief, profile (`stage`, `criticality`, `data_classes`, `jurisdictions`, `stacks`), packs in use, applicable `practices/*`, `challenger/devils-advocate.md`, `templates/architecture.md`, `templates/adr.md`, the existing repo | 2-3 options with trade-offs, C4 diagrams (Mermaid), ADR drafts with "Challenges raised", NFR targets, implementation plan | none: `Read, Grep, Glob`. Lead saves to `.eng-team/` and `docs/` | discover, architect |
 | `eng-builder` | ONE plan task, the ADRs it cites, stack and practice packs, neighbouring code | code and tests for that task; `Status: DONE / BLOCKED / HARD-STOP` | `Read, Grep, Glob, Write, Edit, Bash` (source code, test-first) | build |
 | `eng-tester` | brief, code, `practices/testing-pyramid.md`, profile `tenancy` | flow-to-test table, missing integration/contract/e2e/authZ tests, run results (date, commit, counts) | `Read, Grep, Glob, Write, Edit, Bash` | test |
-| `eng-tech-writer` | all `templates/*`, profile `audiences`, ADRs, state.md, `.eng-team/test-results.md`, review findings, the code, and the commit sha given by the lead | `docs/` (brief, architecture, ADRs formatting, testing, runbook, `docs/compliance/evidence-log.md`, index), updated in place preserving human edits | `Read, Grep, Glob, Write, Edit` (no Bash; the only writer of `docs/`) | document |
+| `eng-tech-writer` | all `templates/*`, profile `audiences`, ADRs, state.md, `.eng-team/test-results.md`, review findings, the code, and the commit sha given by the lead | `docs/` (brief, architecture, ADRs formatting, testing, runbook, `docs/compliance/evidence-log.md`, index), updated in place preserving human edits | `Read, Grep, Glob, Write, Edit` (no Bash; the only agent that writes `docs/`; the lead saves the brief, ADRs, architecture and review reports) | document |
 | `eng-security-engineer` | role file, `shared/findings.md`, profile, state, selected packs (web/cloud stack, `practices/secure-sdlc.md`); code, config, CI | findings with `path:line` evidence (secrets redacted), severity, owner | `Read, Grep, Glob` | architect (plan), build (gate), review |
 | `eng-compliance-officer` | same, plus compliance packs (GDPR, DORA, NIS2, AI Act, accessibility); profile `data_classes`, `jurisdictions`, `residency`, `regulated.*` | compliance findings quoting articles, evidence-log inputs | `Read, Grep, Glob` | architect (plan), build (gate), review |
 | `eng-data-engineer` | same; profile `payments`, `data_classes`; schemas, migrations, pipelines | integrity, money/time/text, idempotency findings | `Read, Grep, Glob` | when a store, pipeline or payments exist |

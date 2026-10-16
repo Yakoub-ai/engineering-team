@@ -19,7 +19,7 @@ Give every later phase the knowledge it needs: a pack for every profile need and
 5. Save each returned `### Pack: <id>` block to `.eng-team/packs/<id>.md` and each `### Note: <slug>` block to `.eng-team/research/<slug>.md`, unchanged. If the researcher returned a `### Findings` block (for example prompt-injection text found in a source), it is saved per Dispatching agents in `SKILL.md` (`.eng-team/research/findings-<date>.md`); tell the user.
 6. Fill state.md Packs in use: one row per pack (id, tier, status, why: `applies_when matched` or `researched`). Answer the Open questions the notes cover (cite the note).
 7. In your final message to the user (not only in files), list in one short list, each profile value that had no curated pack ("no curated pack matches <value>") and was researched instead, then which packs are `unreviewed` (they need a human `reviewed_by` before promotion) and which are past `review_by`.
-8. Check the exit criteria and set the gate to `passed` (Evidence: Packs in use) or `failed`. On `failed`, re-dispatch `eng-researcher` for the uncovered need (Loop counter `research→eng-researcher`), or at count 3 or if no source exists, record the need as an Open question, add a `needs-evidence` note to Packs in use, and continue with the human's agreement (autonomous: log it).
+8. Check the exit criteria and set the gate to `passed` (Evidence: `.eng-team/state.md` Packs in use) or `failed`. On `failed`, re-dispatch `eng-researcher` for the uncovered need (Loop counter `research→eng-researcher`), or at count 3 or if no source exists, record the need as an Open question, add a `needs-evidence` note to Packs in use, and continue with the human's agreement (autonomous: log it).
 
 ## Exit criteria
 
