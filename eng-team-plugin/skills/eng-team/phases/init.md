@@ -24,7 +24,7 @@ Scaffold `.eng-team/` in the target project: a filled profile (the scope contrac
 ## Exit criteria
 
 - Every `# required` field in `.eng-team/profile.md` has a non-empty value.
-- `owner` is a name or role, or `unassigned` only when autonomy is `autonomous` (in `gated` mode `unassigned` fails the gate: ask again).
+- `owner` is a name or role, or `unassigned` only when autonomy is `autonomous`; any other field may be `unknown` only when autonomy is `autonomous`. In `gated` mode `unassigned` or `unknown` fails the gate: ask again.
 - `.eng-team/state.md` exists with all 8 gate rows.
 - `.gitignore` contains `.eng-team/.cache/`.
 
@@ -35,4 +35,8 @@ Do not wait for answers. Fill each unanswered required field with a conservative
 - `criticality: important`
 - `data_classes: [personal]`
 - `jurisdictions: [eu]`
+- `name`: the repository folder name.
+- `summary`, `type`, `users`: derived from the user's request and the README.
 - any other required field: its template default; `owner` per step 4.
+
+If a field is still unknown after this, set it to the literal `unknown`, add an Open question for it and an Assumptions row (`<field> not known at init | low | the human states it | agent`).

@@ -24,13 +24,15 @@ Default priorities when roles conflict: **security > compliance > data integrity
 
 If `.eng-team/state.md` is missing and the command is not `/eng-init` or `/eng-review`, stop and say exactly:
 "This project isn't initialised for eng-team. Run `/eng-init` first — it takes ~5 minutes and asks only what it can't infer."
-Do not improvise a profile. `/eng-review` without state runs v1-style on an in-memory profile (see `phases/review.md`).
+Do not improvise a profile. `/eng-review` invoked directly is always a standalone review (see `phases/review.md`): without state it runs v1-style on an in-memory profile; with state it never changes gate statuses.
 
 ## State integrity
 
-On every start (any command), read `.eng-team/state.md` and compute the expected phase: the first phase, in the order of the Phases table, whose gate status is not `passed`, `skipped` or `forced` (if none, the project is complete and `current_phase` should be `review`). If `current_phase` differs, or a gate is `passed` without the artifact its exit criteria require, list each mismatch to the user. Then:
-- `gated`: ask which is right, and update state.md to the answer.
-- `autonomous`: set `current_phase` to the earliest unpassed gate and add a Log line `- YYYY-MM-DD state-repair: <what changed>`.
+Runs on every start when `.eng-team/state.md` exists (skip it when there is no state). List every mismatch to the user, then repair:
+1. **Artifacts.** For each gate with status `passed`, check that its Evidence artifact exists. If it is missing, the repair is: set that gate to `open` and log `- YYYY-MM-DD state-repair: <phase> artifact missing`.
+2. **Phase.** The expected phase is the first phase, in Phases-table order, whose gate is not `passed`, `skipped` or `forced` (if none, the project is complete and `current_phase` should be `review`). If `current_phase` differs, the repair is: set `current_phase` to the expected phase and log `- YYYY-MM-DD state-repair: current_phase <old> → <new>`.
+- `gated`: ask the human before each repair and apply what they choose.
+- `autonomous`: apply the repairs and log them.
 Never delete rows from state.md; change statuses and append Log lines only.
 
 ## Standards loading
@@ -39,7 +41,7 @@ If `profile.standards` is set, resolve it once per run: a local path is used as-
 
 ## Pack resolution
 
-Follow `shared/project-profile.md` → Pack resolution (project → federation → plugin, first `applies_when` match per `id` wins). Evaluate `applies_when` this way: `always` is true; `NOT` applies to the single comparison that follows it; `AND` binds tighter than `OR`; parentheses group; `contains` tests list membership, or substring for a string field; an unknown or empty field is false for `==` and `contains` and true for `!=`.
+Follow `shared/project-profile.md` → Pack resolution (project → federation → plugin, first `applies_when` match per `id` wins). Evaluate `applies_when` this way: `always` is true; `NOT` applies to the single comparison that follows it, or to a parenthesised group (`NOT ( … )` is allowed); `AND` binds tighter than `OR`; parentheses group; `contains` tests list membership, or substring for a string field; an unknown or empty field is false for `==` and `contains` and true for `!=`.
 For any profile `stacks`, `jurisdictions` or `frameworks` value with no matching pack, dispatch `eng-researcher` and save each returned pack to `.eng-team/packs/<id>.md`. Never skip a miss silently. Record every pack in state.md → Packs in use and tell the user which packs are `unreviewed` and which are past `review_by`.
 
 ## Phases
@@ -55,9 +57,11 @@ For any profile `stacks`, `jurisdictions` or `frameworks` value with no matching
 | 6 | document | `phases/document.md` | eng-tech-writer | docs match code (writer cites `path:line`) |
 | 7 | review | `phases/review.md` | activated reviewers | no open Critical/High, or accepted risk signed in state.md |
 
-- **Entry.** `/eng` resumes from `current_phase` and runs phases in order. `/eng-<phase>` runs one phase and refuses, naming the blocking gate, if any earlier gate is `open` or `failed`. With `--force` it runs anyway: set each skipped earlier gate to `forced` and log `- YYYY-MM-DD forced <phase>: <reason>`.
+- **Entry.** `/eng` resumes from `current_phase` and runs phases in order. `/eng-<phase>` runs one phase and refuses, naming the blocking gate, unless every earlier gate is `passed`, `skipped` or `forced`. With `--force "<reason>"` it runs anyway: set each earlier gate that is not `passed|skipped` to `forced` and log `- YYYY-MM-DD forced <phase>: <reason>`. A gate becomes `skipped` only when a human runs a phase command with `--skip "<reason>"` in gated mode; log `- YYYY-MM-DD skipped <phase>: <reason>`. Exception: `/eng-review` invoked directly never refuses and never changes gates (see Preconditions).
 - **Running a phase.** Set its gate to `in-progress`, follow its file, then check every exit criterion yourself. Never trust an agent's "done". All pass → `passed` (with evidence, approver, date) and advance `current_phase`. Any fail → `failed`.
-- **Loops.** A failed gate returns to its source phase (review → build, test → build, build task → builder). Increment the row `<from>→<to>` in Loop counters on each return. At count 3, stop and escalate to the human in every mode.
+- **Loop-back.** When a gate fails back to an earlier phase (test → build, review → build): (a) append one fix task `F<n>` per Critical/High finding or failing flow to `.eng-team/plan.md`, each with the acceptance check "the finding or failure no longer reproduces"; (b) set the failing gate to `failed`; (c) set the target gate and every gate between it and the failing one to `open`, logging `- YYYY-MM-DD reopened: <phase> — <finding ids>`; (d) set `current_phase` to the target. Fix tasks run through the normal build flow, including the gate-mode reviewer spot-check.
+- **Loop counters.** One row per loop, named `<source>→<target>`: the source is a phase (`test`) or a phase and plan task (`build:<task id>`); the target is a phase for a loop-back (`test→build`, `review→build`) or an agent for a re-dispatch inside a phase (`research→eng-researcher`, `architect→eng-architect`, `build:<task id>→eng-builder`, `test→eng-tester`, `document→eng-tech-writer`). Increment on each return. At count 3, stop and escalate to the human in every mode.
+- **Critical findings** (after the severity cap in `shared/findings.md`) never loop automatically: set the gate to `failed`, log it, and ask the human in every mode to choose fix (loop-back or re-dispatch) or accept the risk (a named human, never while `owner` is `unassigned` or `unknown`). Only High findings loop automatically.
 - `/eng-promote` is separate: see `shared/promotion.md`.
 
 ## Autonomy
@@ -74,7 +78,7 @@ Hard stops (rule 7) apply in both modes. When any agent returns a line starting 
 - the mode and scope (paths, plan task, or diff range)
 - for reviewers, architect and researcher: "Return output only in the format from your role file and shared/findings.md. Do not modify files."
 
-Agents cannot spawn agents and cannot talk to the user; you stay in the main thread and run every user conversation (interview, devil's-advocate, approvals) yourself. `roles/lead-architecture.md` holds your own checks; run them yourself in the review phase.
+Save any `### Findings` block returned by `eng-researcher` or `eng-architect` to `.eng-team/research/findings-<YYYY-MM-DD>.md` (append if the file exists); the review phase reads it. Agents cannot spawn agents and cannot talk to the user; you stay in the main thread and run every user conversation (interview, devil's-advocate, approvals) yourself. `roles/lead-architecture.md` holds your own checks; run them yourself in the review phase.
 
 **claude.ai or no subagents:** run roles **sequentially** in this conversation. For each role: read its file, do the work, record the output, then drop the role mindset before the next. Tell the user once that this run isn't context-isolated; for high-stakes work, recommend re-running in Claude Code.
 
