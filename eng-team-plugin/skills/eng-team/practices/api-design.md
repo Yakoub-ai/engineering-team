@@ -7,14 +7,20 @@ sources:
   - title: Google API Improvement Proposals (AIP)
     url: https://google.aip.dev/general
     accessed: 2026-10-16
-  - title: Microsoft REST API Guidelines
-    url: https://github.com/microsoft/api-guidelines
+  - title: Microsoft Azure REST API Guidelines
+    url: https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md
     accessed: 2026-10-16
   - title: RFC 9457 Problem Details for HTTP APIs
     url: https://www.rfc-editor.org/rfc/rfc9457
     accessed: 2026-10-16
   - title: RFC 8594 The Sunset HTTP Header Field
     url: https://www.rfc-editor.org/rfc/rfc8594
+    accessed: 2026-10-16
+  - title: OWASP API Security Top 10 2023, API1 Broken Object Level Authorization
+    url: https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/
+    accessed: 2026-10-16
+  - title: The OAuth 2.1 Authorization Framework (IETF draft)
+    url: https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/
     accessed: 2026-10-16
 reviewed_by: George Yakoub
 review_by: 2027-04-15
@@ -25,34 +31,36 @@ applies_when: profile.type == "api-platform" OR profile.type == "b2b-saas" OR pr
 Applies to any HTTP/REST API the system exposes or consumes. Look in OpenAPI files, route definitions, controllers, API gateway config, SDKs.
 
 **Resource naming & versioning**
-- Resources are nouns with consistent, hierarchical names; standard methods (get/list/create/update/delete) map to HTTP verbs, custom actions are the exception — [Google AIP-121/122/131-136](https://google.aip.dev/general)
-- A version identifier exists from day one, and breaking changes ship only in a new version — [Google AIP-180/185](https://google.aip.dev/general), [Microsoft REST API Guidelines](https://github.com/microsoft/api-guidelines)
-- Stability level (alpha/beta/stable) is stated per API or field so consumers know what may change — [Google AIP-181](https://google.aip.dev/general)
+- Resources are named consistently as nouns in a hierarchy of collections — [AIP-122](https://google.aip.dev/122), [AIP-121](https://google.aip.dev/121)
+- Use the standard methods (get/list/create/update/delete) before inventing custom actions — [AIP-131](https://google.aip.dev/131)
+- A version identifier exists from the start; breaking changes ship only in a new major version — [AIP-185](https://google.aip.dev/185), [AIP-180](https://google.aip.dev/180)
+- Stability level (alpha/beta/stable) is stated so consumers know what may change — [AIP-181](https://google.aip.dev/181)
 
 **Errors**
-- Error bodies use `application/problem+json` with `type`, `title`, `status`, `detail`, `instance`; no stack traces or internals in `detail` — [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)
-- One error shape across the whole API, with stable machine-readable codes — [Google AIP-193](https://google.aip.dev/general)
+- Error bodies use `application/problem+json` with `type`, `title`, `status`, `detail`, `instance`; keep internals out of `detail` — [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)
+- One error shape across the API, with stable machine-readable codes — [AIP-193](https://google.aip.dev/193)
 
 **Pagination, filtering, limits**
-- Every list endpoint is paginated with a bounded default and maximum page size; no unbounded lists — [Google AIP-158](https://google.aip.dev/general), [Microsoft REST API Guidelines](https://github.com/microsoft/api-guidelines)
-- Filtering and ordering are documented and validated server-side — [Google AIP-160](https://google.aip.dev/general)
-- Throttled clients get a clear signal to back off (for example `Retry-After`) — [Microsoft REST API Guidelines](https://github.com/microsoft/api-guidelines)
+- List endpoints are paginated with a default and maximum page size — [AIP-158](https://google.aip.dev/158)
+- Filtering is documented and validated server-side — [AIP-160](https://google.aip.dev/160)
+- Throttled clients get a back-off signal such as `Retry-After` — [Azure REST API Guidelines](https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md)
 
 **Idempotency**
-- Create and other non-idempotent calls accept a client-supplied request ID or idempotency key so retries are safe — [Google AIP-155](https://google.aip.dev/general), [Microsoft REST API Guidelines](https://github.com/microsoft/api-guidelines)
-- Retry guidance (which errors are retryable) is documented for clients — [Google AIP-194](https://google.aip.dev/general)
+- Create and other non-idempotent calls accept a client-supplied request ID so retries are safe — [AIP-155](https://google.aip.dev/155), [Azure REST API Guidelines](https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md)
+- Retryable errors and retry behaviour are documented for clients — [AIP-194](https://google.aip.dev/194)
 
-**Auth (needs-evidence where config is external)**
-- Every endpoint has an explicit authN/authZ decision; scopes are least-privilege per operation, and object-level checks happen on every resource access — [Google AIP-211](https://google.aip.dev/general)
-- Needs-evidence: token-based auth (OAuth 2.1 style, scoped tokens) is configured in the identity provider and declared in the API contract; the sources below do not specify flows — [Google AIP-211](https://google.aip.dev/general)
+**Auth**
+- Authorization is checked per object on every request, not only per endpoint (BOLA) — [OWASP API1:2023](https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/)
+- Needs-evidence: token auth follows OAuth 2.1 (authorization code with PKCE, no implicit grant) with least-privilege scopes, configured in the identity provider — [OAuth 2.1 draft](https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/)
+- Permission checks are explicit per operation — [AIP-211](https://google.aip.dev/211)
 
 **Deprecation & sunset**
-- Deprecated endpoints announce a `Sunset` header with the removal date and link to migration docs — [RFC 8594](https://www.rfc-editor.org/rfc/rfc8594)
-- Removal happens only after the announced sunset date and a compatibility window — [Google AIP-180](https://google.aip.dev/general)
+- Deprecated endpoints send a `Sunset` header with the removal date — [RFC 8594](https://www.rfc-editor.org/rfc/rfc8594)
+- opinion: link migration docs from the deprecation notice and remove only after the sunset date has passed.
 
 **Contract**
-- An OpenAPI (or equivalent) description is the source of truth; code, docs and SDKs are generated or checked against it in CI — [Microsoft REST API Guidelines](https://github.com/microsoft/api-guidelines)
-- Breaking-change detection runs on the contract in CI — [Google AIP-180](https://google.aip.dev/general)
+- opinion: an OpenAPI description is the source of truth, and CI checks code and docs against it.
+- opinion: CI runs breaking-change detection on the contract; compatibility rules are in AIP-180.
 
 ## Severity hints
-Unauthenticated or missing object-level authZ on a data endpoint → High. Unbounded list endpoint on a growing table → Medium. Non-idempotent payment/create call with no idempotency key → Medium. Missing Sunset header on a deprecation → Low.
+Unauthenticated or missing object-level authZ on a data endpoint → High. Unbounded list endpoint on a growing table → Medium. Non-idempotent payment/create call with no request ID → Medium. Missing Sunset header on a deprecation → Low.
