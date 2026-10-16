@@ -2,6 +2,7 @@
 name: eng-qa-engineer
 description: "Read-only specialist reviewer (qa-engineer) for the eng-team skill — test strategy, authZ tests, integration/e2e/load tests, test data. Dispatched by the eng-lead orchestrator; can also be invoked directly to review a repo, diff or design from this angle."
 tools: Read, Grep, Glob
+color: blue
 model: inherit
 ---
 

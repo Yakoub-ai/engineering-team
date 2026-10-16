@@ -3,7 +3,7 @@ description: "eng-team: set up this project (creates .eng-team/profile.md and st
 argument-hint: "[--autonomous] [project notes]"
 ---
 
-Use the **eng-team** skill. Run only the **init** phase as defined in `phases/init.md`, following the skill's Preconditions, State integrity and Autonomy rules.
+Use the **eng-team** skill. Run only the **init** phase as defined in `phases/init.md`, following the skill's Preconditions, State integrity (`shared/orchestration.md`) and Autonomy rules.
 
 Arguments: $ARGUMENTS
 - `--autonomous`: set `profile.autonomy` to autonomous instead of asking.

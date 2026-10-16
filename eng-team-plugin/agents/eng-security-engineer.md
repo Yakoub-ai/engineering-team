@@ -2,6 +2,7 @@
 name: eng-security-engineer
 description: "Read-only specialist reviewer (security-engineer) for the eng-team skill — appsec, OWASP, authN/authZ, tenant isolation, secrets, supply chain. Dispatched by the eng-lead orchestrator; can also be invoked directly to review a repo, diff or design from this angle."
 tools: Read, Grep, Glob
+color: blue
 model: inherit
 ---
 

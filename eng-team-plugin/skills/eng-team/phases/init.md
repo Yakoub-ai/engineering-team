@@ -12,7 +12,7 @@ Scaffold `.eng-team/` in the target project: a filled profile (the scope contrac
 
 ## Steps
 
-1. If `.eng-team/` already exists, do not overwrite anything. Run the State integrity check from `SKILL.md`, report the current phase and gate statuses, and stop.
+1. If `.eng-team/` already exists, do not overwrite anything. Run the State integrity check from `shared/orchestration.md`, report the current phase and gate statuses, and stop.
 2. Infer every profile field you can from the repo. After each inferred value add the trailing comment `# inferred: <file>`. Never guess a field the repo does not show.
 3. For each `# required` field you could not infer, ask the user, one field per message, showing the template default as `(Recommended)` and one line on why it matters. Mark answered fields `# stated`. Accept "don't know" for `regulated.nis2_entity` as `unknown`.
 4. `owner` is required. If the user cannot or does not answer it: set `owner: unassigned`, add an Open question `Q-n | Who owns this? | Accepted risks and approvals need a named human | init`, and add an Assumptions row `No accountable owner yet | low | an owner is named | agent`.

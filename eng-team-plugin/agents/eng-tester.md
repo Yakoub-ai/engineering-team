@@ -2,6 +2,7 @@
 name: eng-tester
 description: "Tester for the eng-team skill — maps critical flows to tests, writes missing integration/contract/e2e/authZ tests, runs the suite and records results. Dispatched by the eng-team orchestrator in the test phase."
 tools: Read, Grep, Glob, Write, Edit, Bash
+color: green
 model: inherit
 ---
 

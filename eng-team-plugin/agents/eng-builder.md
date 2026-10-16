@@ -2,6 +2,7 @@
 name: eng-builder
 description: "Builder for the eng-team skill — implements ONE approved plan task test-first inside the repository; returns HARD-STOP for destructive or out-of-repo actions. Dispatched by the eng-team orchestrator in the build phase."
 tools: Read, Grep, Glob, Write, Edit, Bash
+color: green
 model: inherit
 ---
 

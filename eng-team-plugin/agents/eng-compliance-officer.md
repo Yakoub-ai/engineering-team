@@ -2,6 +2,7 @@
 name: eng-compliance-officer
 description: "Read-only specialist reviewer (compliance-officer) for the eng-team skill — GDPR, DORA, NIS2, EU AI Act, accessibility, data residency, retention, audit trails. Dispatched by the eng-lead orchestrator; can also be invoked directly to review a repo, diff or design from this angle."
 tools: Read, Grep, Glob
+color: blue
 model: inherit
 ---
 

@@ -2,6 +2,7 @@
 name: eng-integration-engineer
 description: "Read-only specialist reviewer (integration-engineer) for the eng-team skill — APIs, webhooks, OAuth, third-party resilience, billing/VAT. Dispatched by the eng-lead orchestrator; can also be invoked directly to review a repo, diff or design from this angle."
 tools: Read, Grep, Glob
+color: blue
 model: inherit
 ---
 

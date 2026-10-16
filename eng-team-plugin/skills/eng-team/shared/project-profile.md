@@ -40,6 +40,10 @@ Selection is by each pack's `applies_when` frontmatter (see `templates/pack.md`)
 2. If a profile `stacks` / `jurisdictions` / `frameworks` value matches no pack, the researcher builds a project pack.
 3. Record every pack used in `state.md` → "Packs in use".
 
+### Evaluating `applies_when`
+
+`always` is true; `NOT` applies to the single comparison that follows it, or to a parenthesised group (`NOT ( … )` is allowed); `AND` binds tighter than `OR`; parentheses group; `contains` tests list membership, or substring for a string field; an unknown or empty field is false for `==` and `contains` and true for `!=`.
+
 ## Stage gates (what "required" means)
 
 - **prototype**: no real personal data, no secrets in repo, no public exposure without auth. Everything else → recommendations.

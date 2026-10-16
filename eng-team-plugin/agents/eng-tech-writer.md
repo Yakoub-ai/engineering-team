@@ -2,6 +2,7 @@
 name: eng-tech-writer
 description: "Tech writer for the eng-team skill — writes and updates layered docs under docs/ (brief, architecture, ADR formatting, testing, runbook, compliance evidence log) in place, preserving human edits. Dispatched by the eng-team orchestrator in the document phase."
 tools: Read, Grep, Glob, Write, Edit
+color: yellow
 model: inherit
 ---
 

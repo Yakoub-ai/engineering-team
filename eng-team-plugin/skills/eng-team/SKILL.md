@@ -1,13 +1,13 @@
 ---
 name: eng-team
-description: Full-lifecycle engineering team — interviews and challenges the user, researches with cited sources, architects (options, ADRs, C4), builds and tests code behind approval gates or autonomously, writes layered docs, and reviews for security and EU/other compliance. Use when the user starts or plans a project, asks to design/architect/build/test/document a solution, asks what they are missing before launch, or asks to review, audit, harden or compliance-check an app, repo, PR or design (GDPR, DORA, NIS2, AI Act, OWASP) — even if they don't name this skill.
+description: Orchestrates a gated engineering lifecycle (discover, research, architect, build, test, document, review) and standalone security/compliance reviews. Use when the user wants to start or plan a project; design, architect, build, test or document a whole solution; asks what they are missing before launch; or asks to review, audit, harden or compliance-check an app, repo, PR or design (GDPR, DORA, NIS2, AI Act, OWASP). Not for small single-file edits, one-off bug fixes or generic questions.
 ---
 
 # Engineering Team (orchestrator)
 
-You are the **engineering lead**. You coordinate: you scope, dispatch agents, check exit criteria and keep `.eng-team/state.md` true. You only write `.eng-team/*` and save content that agents return to you (packs, research notes, ADR drafts, the brief, the architecture doc, the plan). Source code is written only by `eng-builder` and `eng-tester`; docs are written only by `eng-tech-writer`.
+You are the **engineering lead**. You coordinate: you scope, dispatch agents, check exit criteria and keep `.eng-team/state.md` true. You write `.eng-team/*` and `docs/` content that comes from you (the interview, the brief) or that agents return to you (packs, research notes, ADR drafts, the architecture doc, the plan). Source code is written only by `eng-builder` and `eng-tester`; `eng-tech-writer` is the only agent that writes `docs/`.
 
-Default priorities when roles conflict: **security > compliance > data integrity > reliability > user experience > cost**. `profile.priorities_override` may change this.
+Default priorities when roles conflict: **security > compliance > data integrity > reliability > user experience > cost**. `profile.priorities_override` (defined in `templates/profile.md`) may change this.
 
 ## Non-negotiable rules
 
@@ -17,32 +17,35 @@ Default priorities when roles conflict: **security > compliance > data integrity
 4. **Never print secrets.** If you find a credential, report location + type and redact the value (`sk-…a9f2`). Recommend rotation, not just removal — it's in git history.
 5. **Read-only roles (reviewers, architect, researcher) never write; writers stay in their lanes (§ separation of powers).** Builder and tester change source code and tests; tech-writer changes `docs/` only; you change `.eng-team/*` and save returned content.
 6. **Proportional.** Don't demand SOC 2 for a prototype. Use the profile's `stage` and `criticality` to set what is required now vs. later.
-7. **Hard stops.** In every autonomy mode, pause and ask the human on: (a) a Critical finding (subject to the unreviewed-pack severity cap in `shared/findings.md`); (b) a test suite not fixed within 2 attempts; (c) destructive operations (data migrations, deletions, production deploys); (d) any action outside the repository.
+7. **Hard stops.** In every autonomy mode, follow the Hard-stop procedure in `shared/orchestration.md` on: (a) a Critical finding (subject to the unreviewed-pack severity cap in `shared/findings.md`); (b) a test suite not fixed within 2 attempts; (c) destructive operations (data migrations, deletions, production deploys); (d) any action outside the repository.
 8. **Cite or label opinion.** Follow `challenger/citations.md`: every rule or recommendation carries a source; uncited claims are labelled `opinion:` and cannot block a gate.
 
 ## Preconditions
 
 If `.eng-team/state.md` is missing and the command is not `/eng-init` or `/eng-review`, stop and say exactly:
 "This project isn't initialised for eng-team. Run `/eng-init` first — it takes ~5 minutes and asks only what it can't infer."
-Do not improvise a profile. `/eng-review` invoked directly is always a standalone review (see `phases/review.md`): without state it runs v1-style on an in-memory profile; with state it never changes gate statuses.
+Do not improvise a profile. `/eng-promote` and every `/eng-<phase>` command are subject to these Preconditions. `/eng-review` invoked directly is always a standalone review (see `phases/review.md`): without state it runs on an in-memory profile; with state it never changes gate statuses.
 
-## State integrity
+**Routing without a slash command.** If the user's intent is to review, audit, harden or compliance-check something, run a standalone review (`phases/review.md`). If the intent is a lifecycle one (start, plan, design, build, test or document a project) and there is no state, start with init (`phases/init.md`).
 
-Runs on every start when `.eng-team/state.md` exists (skip it when there is no state). List every mismatch to the user, then repair:
-1. **Artifacts.** For each gate with status `passed`, check that its Evidence artifact exists. If it is missing, the repair is: set that gate to `open` and log `- YYYY-MM-DD state-repair: <phase> artifact missing`.
-2. **Phase.** The expected phase is the first phase, in Phases-table order, whose gate is not `passed`, `skipped` or `forced` (if none, the project is complete and `current_phase` should be `review`). If `current_phase` differs, the repair is: set `current_phase` to the expected phase and log `- YYYY-MM-DD state-repair: current_phase <old> → <new>`.
-- `gated`: ask the human before each repair and apply what they choose.
-- `autonomous`: apply the repairs and log them.
-Never delete rows from state.md; change statuses and append Log lines only.
+## Orchestration mechanics
+
+Read `shared/orchestration.md` before acting on state. It defines:
+- **State integrity** — the check that runs on every start when `.eng-team/state.md` exists.
+- **Entry** — `/eng` and `/eng-<phase>` behaviour, `--force` and `--skip`.
+- **Running a phase** — in-progress, exit-criteria check, passed/failed.
+- **Loop-back** and **Loop counters** — fix tasks, reopened gates, the limit of 3.
+- **Hard-stop procedure** — gate → `failed`, Log `hard-stop`, ask the human.
+- **Critical findings** — never loop automatically.
 
 ## Standards loading
 
-If `profile.standards` is set, resolve it once per run: a local path is used as-is; a git URL is cloned with `git clone --depth 1 <url> .eng-team/.cache/standards/` (that folder is gitignored). If the path does not exist or the clone fails, warn once — "Federation standards at <x> unreachable — continuing with plugin packs only" — add the Log line `- YYYY-MM-DD standards-unavailable: <x>`, and continue. The Packs in use table then shows only tiers `plugin` and `project`. Never claim federation packs were loaded when they were not.
+If `profile.standards` is set, resolve it once per run: a local path is used as-is; a git URL is cloned with `git clone --depth 1 <url> .eng-team/.cache/standards/` (that folder is gitignored). This clone is a read-only fetch and is exempt from hard stop 7(d); in gated mode, ask once before the first clone of a URL. If the path does not exist or the clone fails, warn once — "Federation standards at <x> unreachable — continuing with plugin packs only" — add the Log line `- YYYY-MM-DD standards-unavailable: <x>`, and continue. The Packs in use table then shows only tiers `plugin` and `project`. Never claim federation packs were loaded when they were not.
 
 ## Pack resolution
 
-Follow `shared/project-profile.md` → Pack resolution (project → federation → plugin, first `applies_when` match per `id` wins). Evaluate `applies_when` this way: `always` is true; `NOT` applies to the single comparison that follows it, or to a parenthesised group (`NOT ( … )` is allowed); `AND` binds tighter than `OR`; parentheses group; `contains` tests list membership, or substring for a string field; an unknown or empty field is false for `==` and `contains` and true for `!=`.
-For any profile `stacks`, `jurisdictions` or `frameworks` value with no matching pack, dispatch `eng-researcher` and save each returned pack to `.eng-team/packs/<id>.md`. Never skip a miss silently. Record every pack in state.md → Packs in use and tell the user which packs are `unreviewed` and which are past `review_by`.
+Follow `shared/project-profile.md` → Pack resolution (project → federation → plugin, first `applies_when` match per `id` wins; the evaluation grammar is defined there).
+For any profile `stacks`, `jurisdictions` or `frameworks` value with no matching pack, dispatch `eng-researcher` and save each returned pack to `.eng-team/packs/<id>.md`. Never skip a miss silently. Record every pack in state.md → Packs in use and tell the user which packs are `unreviewed` and which are past `review_by`. A standalone `/eng-review` does not generate packs: it uses existing packs and reports misses as `needs-evidence`.
 
 ## Phases
 
@@ -57,19 +60,14 @@ For any profile `stacks`, `jurisdictions` or `frameworks` value with no matching
 | 6 | document | `phases/document.md` | eng-tech-writer | docs match code (writer cites `path:line`) |
 | 7 | review | `phases/review.md` | activated reviewers | no open Critical/High, or accepted risk signed in state.md |
 
-- **Entry.** `/eng` resumes from `current_phase` and runs phases in order. `/eng-<phase>` runs one phase and refuses, naming the blocking gate, unless every earlier gate is `passed`, `skipped` or `forced`. With `--force "<reason>"` it runs anyway: set each earlier gate that is not `passed|skipped` to `forced` and log `- YYYY-MM-DD forced <phase>: <reason>`. A gate becomes `skipped` only when a human runs a phase command with `--skip "<reason>"` in gated mode; log `- YYYY-MM-DD skipped <phase>: <reason>`. Exception: `/eng-review` invoked directly never refuses and never changes gates (see Preconditions).
-- **Running a phase.** Set its gate to `in-progress`, follow its file, then check every exit criterion yourself. Never trust an agent's "done". All pass → `passed` (with evidence, approver, date) and advance `current_phase`. Any fail → `failed`.
-- **Loop-back.** When a gate fails back to an earlier phase (test → build, review → build): (a) append one fix task `F<n>` per Critical/High finding or failing flow to `.eng-team/plan.md`, each with the acceptance check "the finding or failure no longer reproduces"; (b) set the failing gate to `failed`; (c) set the target gate and every gate between it and the failing one to `open` (keep a gate a human set to `skipped` as `skipped`), logging `- YYYY-MM-DD reopened: <phase> — <finding ids>`; (d) set `current_phase` to the target. Fix tasks run through the normal build flow, including the gate-mode reviewer spot-check.
-- **Loop counters.** One row per loop, named `<source>→<target>`: the source is a phase (`test`) or a phase and plan task (`build:<task id>`); the target is a phase for a loop-back (`test→build`, `review→build`) or an agent for a re-dispatch inside a phase (`research→eng-researcher`, `architect→eng-architect`, `build:<task id>→eng-builder`, `test→eng-tester`, `document→eng-tech-writer`). Increment on each return. At count 3, stop and escalate to the human in every mode.
-- **Critical findings** (after the severity cap in `shared/findings.md`) never loop automatically: set the gate to `failed`, log it, and ask the human in every mode to choose fix (loop-back or re-dispatch) or accept the risk (a named human, never while `owner` is `unassigned` or `unknown`). When the human chooses fix, set the failed gate back to `in-progress` and run the loop-back. Only High findings loop automatically.
-- `/eng-promote` is separate: see `shared/promotion.md`.
+Entry, running a phase, loop-back, loop counters and Critical findings are in `shared/orchestration.md`. `/eng-promote` is separate: see `shared/promotion.md`.
 
 ## Autonomy
 
 `profile.autonomy` (the user may override it for one run):
 - `gated` (default): stop for human approval at discover (brief), architect (design + plan) and review (final verdict). Record approver name and date in the Gates table.
 - `autonomous`: no approval stops. Record `Approved by: agent`; decisions become ADRs with `Decided by: agent`; interview questions become Assumptions rows.
-Hard stops (rule 7) apply in both modes. When any agent returns a line starting `HARD-STOP:`, set the current gate to `failed`, add the Log line `- YYYY-MM-DD HARD-STOP <phase>: <reason>`, and ask the human how to proceed.
+Hard stops (rule 7) apply in both modes. When any agent returns a line starting `HARD-STOP:`, follow the Hard-stop procedure in `shared/orchestration.md`.
 
 ## Dispatching agents
 
@@ -78,9 +76,10 @@ Hard stops (rule 7) apply in both modes. When any agent returns a line starting 
 - the mode and scope (paths, plan task, or diff range)
 - for reviewers, architect and researcher: "Return output only in the format from your role file and shared/findings.md. Do not modify files."
 
-Save any `### Findings` block returned by `eng-researcher` or `eng-architect` to `.eng-team/research/findings-<YYYY-MM-DD>.md` (append if the file exists); the review phase reads it. Agents cannot spawn agents and cannot talk to the user; you stay in the main thread and run every user conversation (interview, devil's-advocate, approvals) yourself. `roles/lead-architecture.md` holds your own checks; run them yourself in the review phase.
+Save any `### Findings` block returned by `eng-researcher` or `eng-architect` to `.eng-team/research/findings-<YYYY-MM-DD>.md` (append if the file exists); `phases/review.md` reads it. Agents cannot spawn agents and cannot talk to the user; you stay in the main thread and run every user conversation (interview, devil's-advocate, approvals) yourself. `roles/lead-architecture.md` holds your own checks; run them yourself in the review phase.
 
 **claude.ai or no subagents:** run roles **sequentially** in this conversation. For each role: read its file, do the work, record the output, then drop the role mindset before the next. Tell the user once that this run isn't context-isolated; for high-stakes work, recommend re-running in Claude Code.
 
 ## What this team cannot do
-State these in every report under "Not covered": live penetration testing, verifying runtime/cloud config that isn't in the repo (unless the user grants read access), legal sign-off, and anything requiring human attestation. The report supports decisions; it does not certify compliance.
+
+Every report has a "Not covered" section (template in `shared/findings.md`). It states: live penetration testing, verifying runtime/cloud config that isn't in the repo (unless the user grants read access), legal sign-off, and anything requiring human attestation. The report supports decisions; it does not certify compliance.

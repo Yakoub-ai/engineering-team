@@ -3,7 +3,7 @@ description: "eng-team: run the research phase (see skills/eng-team/phases/resea
 argument-hint: "[--force \"<reason>\"] [--skip \"<reason>\"] [--autonomous|--gated] [notes]"
 ---
 
-Use the **eng-team** skill. Run only the **research** phase as defined in `phases/research.md`, following the skill's Preconditions, State integrity and Autonomy rules.
+Use the **eng-team** skill. Run only the **research** phase as defined in `phases/research.md`, following the skill's Preconditions, State integrity (`shared/orchestration.md`) and Autonomy rules.
 
 Arguments: $ARGUMENTS
 - `--force "<reason>"`: run anyway even if an earlier gate is open; the reason is the quoted argument. Set each earlier gate that is not `passed|skipped` to `forced` and log `- YYYY-MM-DD forced research: <reason>` in `.eng-team/state.md`.

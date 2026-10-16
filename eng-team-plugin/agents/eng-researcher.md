@@ -2,6 +2,7 @@
 name: eng-researcher
 description: "Researcher for the eng-team skill — finds cited, official-source facts and builds unreviewed project packs (stack, compliance, practice) when no curated pack matches. Read and web only; returns content, never writes files. Dispatched by the eng-team orchestrator."
 tools: Read, Grep, Glob, WebFetch, WebSearch, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
+color: cyan
 model: inherit
 ---
 
