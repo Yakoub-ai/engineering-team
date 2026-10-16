@@ -24,7 +24,7 @@ Scaffold `.eng-team/` in the target project: a filled profile (the scope contrac
 ## Exit criteria
 
 - Every `# required` field in `.eng-team/profile.md` has a non-empty value.
-- `owner` is a name or role, or `unassigned` only when autonomy is `autonomous`; any other field may be `unknown` only when autonomy is `autonomous`. In `gated` mode `unassigned` or `unknown` fails the gate: ask again.
+- `owner` is a name or role, or `unassigned` only when autonomy is `autonomous`; any other field may be `unknown` only when autonomy is `autonomous`, except a field whose enum includes `unknown` (currently `regulated.nis2_entity`), where `unknown` is always valid. In `gated` mode `unassigned`, or `unknown` in a field whose enum does not include it, fails the gate: ask again.
 - `.eng-team/state.md` exists with all 8 gate rows.
 - `.gitignore` contains `.eng-team/.cache/`.
 
