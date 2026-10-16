@@ -9,3 +9,5 @@ jobs:
         with: { python-version: "3.12" }
       - name: Validator self-tests
         run: bash eng-team-plugin/tests/validator/test_validate.sh
+      - name: Validate plugin structure
+        run: bash eng-team-plugin/scripts/validate.sh eng-team-plugin

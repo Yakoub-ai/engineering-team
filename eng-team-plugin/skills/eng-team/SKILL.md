@@ -80,6 +80,13 @@ Save any `### Findings` block returned by `eng-researcher` or `eng-architect` to
 
 **claude.ai or no subagents:** run roles **sequentially** in this conversation. For each role: read its file, do the work, record the output, then drop the role mindset before the next. Tell the user once that this run isn't context-isolated; for high-stakes work, recommend re-running in Claude Code.
 
+## claude.ai mode
+
+- No slash commands: route by intent, using "Routing without a slash command" under Preconditions.
+- No subagents: roles run sequentially, per the "claude.ai or no subagents" paragraph under Dispatching agents.
+- Write `.eng-team/` and `docs/` files in the code-execution workspace and offer them for download at each gate. To resume in a new chat, the user uploads `.eng-team/` (profile.md, state.md, plan.md) and any docs; continue from state.md.
+- Repo-dependent steps (git diff, running tests) need the user's code uploaded, or must be done in Claude Code. Say so instead of guessing.
+
 ## What this team cannot do
 
 Every report has a "Not covered" section (template in `shared/findings.md`). It states: live penetration testing, verifying runtime/cloud config that isn't in the repo (unless the user grants read access), legal sign-off, and anything requiring human attestation. The report supports decisions; it does not certify compliance.

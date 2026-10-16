@@ -37,6 +37,19 @@ LLM graders use a 2-of-3 haiku judge, so borderline cases are noisy. Re-run a fa
 
 ## Final scores
 
+### Targeted re-run, 2026-10-16
+
+Model sonnet, 1 run per case.
+
+| Case | Score | Cost |
+|---|---|---|
+| h-state-inconsistent | 1.00 | $0.12 |
+| d-build-without-init | 1.00 | $0.07 |
+| b-review-planted | 1.00 | $0.24 |
+| c-autonomous-halt | 1.00 | $0.28 |
+
+### Earlier full run (history)
+
 Date 2026-10-16, base commit 4ffc907 (suite committed on top of it), model sonnet, 1 run per case, total cost $2.83.
 
 | Case | Score | Note |

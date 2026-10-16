@@ -3,3 +3,4 @@
 .superpowers/
 __pycache__/
 eng-team-plugin/tests/evals/results/
+eng-team-plugin/dist/

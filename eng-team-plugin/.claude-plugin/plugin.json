@@ -1,7 +1,11 @@
 {
   "name": "eng-team",
-  "version": "1.0.0",
-  "description": "Hierarchical engineering review team: eng-lead orchestrator + 9 read-only specialist reviewers (security, EU compliance, data, platform, SRE, QA, integrations, AI, product).",
-  "author": { "name": "George Yakoub" },
-  "experimental": { "evals": "tests/evals" }
+  "version": "2.0.0",
+  "description": "Full-lifecycle engineering team: interviews and challenges, researches with citations, architects (options, ADRs, C4), builds and tests behind gates or autonomously, documents, and reviews for security and EU/other compliance.",
+  "author": {
+    "name": "George Yakoub"
+  },
+  "experimental": {
+    "evals": "tests/evals"
+  }
 }
