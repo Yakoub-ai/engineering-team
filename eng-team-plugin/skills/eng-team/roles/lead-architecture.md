@@ -9,6 +9,7 @@ Run by the lead itself (not dispatched). Focus: can someone other than the origi
 - Code review required on every change (branch protection); branching strategy defined (trunk-based or short-lived branches).
 - Dependencies and framework within supported/security-patched versions; an upgrade cadence exists (Renovate/Dependabot).
 - Key decisions recorded as ADRs with reasons (short is fine).
+- Architecture matches the accepted ADRs in docs/adr/ and docs/architecture.md; drift between code and accepted decisions is a finding (LEAD).
 - README gets a new engineer running locally in < 1 hour (env sample without secrets, one setup command, seed data).
 - Ownership: repo, cloud, domains, third-party accounts in the organisation's name; ≥ 2 people with admin; bus factor > 1.
 - AI-written code: evidence of human review on security-sensitive paths (auth, payments, data deletion, migrations).

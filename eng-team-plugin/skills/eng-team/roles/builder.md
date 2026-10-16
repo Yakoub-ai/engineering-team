@@ -22,6 +22,7 @@
 - Files changed (paths).
 - Test command and result summary.
 - `Status: DONE | BLOCKED | HARD-STOP`, then `Scope: <task id>`.
+- On a hard stop, also emit the line `HARD-STOP: <reason>`.
 
 ## Stop hints
 A failing suite after 2 fix attempts → `HARD-STOP: tests failing`. Ambiguous task → `Status: BLOCKED` with the question.
