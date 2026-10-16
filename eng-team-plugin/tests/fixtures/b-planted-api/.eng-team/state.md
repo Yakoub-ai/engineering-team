@@ -12,7 +12,7 @@ updated: 2026-10-16
 | research | passed | docs/research.md | Test Owner | 2026-10-16 |
 | architect | passed | docs/architecture.md | Test Owner | 2026-10-16 |
 | build | passed | src/server.js | Test Owner | 2026-10-16 |
-| test | passed | npm test (node --test) | Test Owner | 2026-10-16 |
+| test | passed | test/server.test.js | Test Owner | 2026-10-16 |
 | document | open | | | |
 | review | open | | | |
 
