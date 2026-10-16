@@ -2,3 +2,4 @@
 .claude/settings.local.json
 .superpowers/
 __pycache__/
+eng-team-plugin/tests/evals/results/

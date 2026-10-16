@@ -22,7 +22,7 @@ Default priorities when roles conflict: **security > compliance > data integrity
 
 ## Preconditions
 
-If `.eng-team/state.md` is missing and the command is not `/eng-init` or `/eng-review`, stop and say exactly:
+If `.eng-team/state.md` is missing and the command is not `/eng` (which runs init first), `/eng-init` or `/eng-review`, stop and say exactly:
 "This project isn't initialised for eng-team. Run `/eng-init` first — it takes ~5 minutes and asks only what it can't infer."
 Do not improvise a profile. `/eng-promote` and every `/eng-<phase>` command are subject to these Preconditions. `/eng-review` invoked directly is always a standalone review (see `phases/review.md`): without state it runs on an in-memory profile; with state it never changes gate statuses.
 
@@ -45,7 +45,7 @@ If `profile.standards` is set, resolve it once per run: a local path is used as-
 ## Pack resolution
 
 Follow `shared/project-profile.md` → Pack resolution (project → federation → plugin, first `applies_when` match per `id` wins; the evaluation grammar is defined there).
-For any profile `stacks`, `jurisdictions` or `frameworks` value with no matching pack, dispatch `eng-researcher` and save each returned pack to `.eng-team/packs/<id>.md`. Never skip a miss silently. Record every pack in state.md → Packs in use and tell the user which packs are `unreviewed` and which are past `review_by`. A standalone `/eng-review` does not generate packs: it uses existing packs and reports misses as `needs-evidence`.
+For any profile `stacks`, `jurisdictions` or `frameworks` value with no matching pack, dispatch `eng-researcher` and save each returned pack to `.eng-team/packs/<id>.md`. Never skip a miss silently: tell the user which value had no matching pack (for example "no curated pack matches sap-btp"). Record every pack in state.md → Packs in use and tell the user which packs are `unreviewed` and which are past `review_by`. A standalone `/eng-review` does not generate packs: it uses existing packs and reports misses as `needs-evidence`.
 
 ## Phases
 

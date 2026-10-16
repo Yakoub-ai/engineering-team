@@ -8,6 +8,16 @@ Get to a discovery brief that separates confirmed facts, assumptions and open qu
 
 1. **Skip what is already known.** Do not ask anything that `.eng-team/profile.md` already answers or that the repo shows (manifests, CI files, infra code, README, existing docs). Say what you inferred and from which file, for example: "Inferred `stacks: [azure]` from `infra/main.bicep`. Say so if that is wrong."
 2. **One question per message.** Use multiple choice where possible. Every question has a one-line `Why it matters:` and a recommended default marked `(Recommended)`. Accept "don't know" and record it as an open question.
+   Use exactly this layout, with the literal labels `Why it matters:` and `(Recommended)`, and no second question or extra topic in the same message:
+
+   ```
+   Question N: <the question>
+   a) <option> (Recommended)
+   b) <option>
+   c) <option>
+   Why it matters: <one line>
+   ```
+   If the request itself uses untestable words ("fast", "secure", "scalable", "simple"), make the first question ask for measurable targets for them, before any other question.
 3. **Question bank.** Work through the areas below in order, skipping per step 1. Each question names what it fills (`profile.<field>` or a brief section). Ask 3 to 5 per area at most; stop an area early when it is covered.
 4. **Push back** using the triggers table when an answer is vague, contradictory or unowned.
 5. **Stop** when every required profile field is filled and each brief section has content or a recorded open question. Do not keep asking for completeness' sake.

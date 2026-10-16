@@ -1,0 +1,53 @@
+# eng-team eval suite
+
+Eight end-to-end cases for `claude plugin eval` (CLI 2.1.301). Each case is a directory with `prompt.md` (frontmatter plus the user prompt), `graders/*.md` (llm, regex, tool_used, tool_order, file_exists) and, where it needs a project on disk, `case.yaml` plus `scaffold.sh`. The manifest opts in via `experimental.evals` in `.claude-plugin/plugin.json`.
+
+| Case | Checks |
+|---|---|
+| a-discover-gated | gated discover asks one question with `Why it matters:` and a `(Recommended)` option, and challenges "fast and secure" |
+| b-review-planted | review finds planted defects |
+| c-autonomous-halt | autonomous mode still halts at hard stops |
+| d-build-without-init | build refuses without `.eng-team/state.md` |
+| e-unknown-stack-research | research writes an unreviewed project pack for an unknown stack and says no curated pack matched |
+| f-missing-standards | missing standards are reported |
+| g-docs-preserve | document phase preserves existing docs |
+| h-state-inconsistent | inconsistent state is flagged, nothing built unasked |
+
+## How scaffolding works
+
+- Scaffolding runs only with `--scaffold`. Without it the agent starts in an empty workspace.
+- `case.yaml` sets `context.scaffold_script: scaffold.sh`. The script runs with the run workspace as its cwd. `$0` is the absolute path of the script, so fixtures are located with `"$(dirname "$0")/../../fixtures"` (that is `tests/fixtures/`).
+- Scaffolds copy a fixture into the workspace (`cp -R fixture/. .`). Case a also builds an initialised, gated `.eng-team/` (copied from the `c-autonomous` fixture, `autonomy: gated`, init gate passed) because gated init asks one profile question per turn and a single-turn eval would never reach discover.
+- Graders with `target: {source: file, path: ...}` read files the agent created in the workspace, for example `.eng-team/packs/sap-btp.md`.
+- Commands do not run as slash commands in a single prompt, so prompts name the intent and a `tool_used` Skill grader checks the skill fired. Commands and the plugin must load the skill explicitly (`eng-team:eng-team`) to learn its base directory.
+- Research cases (e) dispatch researcher subagents and can exceed the 300 s default, so that case sets `timeout_seconds: 900`.
+
+## Running
+
+From `eng-team-plugin/`:
+
+```
+claude plugin eval . --model sonnet --ablation none --runs 1 --concurrency 1 \
+  --no-publish --trust-plugin --scaffold --allow-tools Bash Write Edit --max-cost-usd 6
+```
+
+Add `--case <name>` for a single case and `--keep-temp` to keep each sandbox with its `trace.jsonl`. `--ablation none` skips the no-plugin baseline, which would double the cost. Results go to `tests/evals/results/<timestamp>/` (git-ignored); `aggregate-result.json` holds grader verdicts and `report.html` the human report.
+
+LLM graders use a 2-of-3 haiku judge, so borderline cases are noisy. Re-run a failing case once before changing anything.
+
+## Final scores
+
+Date 2026-10-16, base commit 4ffc907 (suite committed on top of it), model sonnet, 1 run per case, total cost $2.83.
+
+| Case | Score | Note |
+|---|---|---|
+| a-discover-gated | 0.80 | `asks-with-why-and-recommendation` judged PASS FAIL FAIL; the same case scored 1.00 in an isolated run just before |
+| b-review-planted | 1.00 | |
+| c-autonomous-halt | 1.00 | hit the 300 s timeout but graders passed |
+| d-build-without-init | 1.00 | |
+| e-unknown-stack-research | 1.00 | |
+| f-missing-standards | 1.00 | |
+| g-docs-preserve | 1.00 | |
+| h-state-inconsistent | 0.67 | `does-not-build-unasked` judged PASS FAIL FAIL; scored 1.00 in the previous full run, not investigated |
+
+Known flaky: a (judge-sensitive on the question format), h (judge), c (close to the timeout).
