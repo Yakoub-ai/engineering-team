@@ -1,5 +1,6 @@
 ---
 type: llm
+target: trace
 weight: 1
 ---
-Any architecture decision records (ADRs) the agent wrote carry "Decided by: agent" (or an equivalent Decided by column value of "agent"). If the agent wrote no ADRs at all, this criterion passes.
+In the trace, every ADR file the agent wrote under docs/adr/ contains 'Decided by: agent'. If no ADRs were written, pass.

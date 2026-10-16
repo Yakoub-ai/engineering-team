@@ -16,10 +16,11 @@ Understand the problem before anyone designs a solution. Produce `docs/brief.md`
 1. If the repository has code, dispatch `eng-architect` with `roles/architect.md` and the scope "context scan only: current architecture, stacks, data stores, integrations, and contradictions with the profile; no options, no plan". Use its output to skip questions the repo already answers.
 2. Run the interview from `challenger/interview.md` yourself in the main thread (agents cannot talk to the user). One question per message, with `Why it matters:` and a `(Recommended)` default. Skip anything the profile or the scan answers, and say what you inferred and from which file.
 3. Apply the pushback triggers: vague qualities → ask for a number; a solution instead of a problem → ask what it is for; no owner → ask who is responsible; a contradiction → name it. One follow-up per trigger.
-4. Update `.eng-team/profile.md` with fields learned (mark `# stated`), and add rows to state.md Open questions and Assumptions.
-5. Write `docs/brief.md` from `templates/brief.md`: all five sections (Problem, Proposed solution, Cost and risk, Decisions needed, Status), `Audience:` line, and `Last verified against:` set to `git rev-parse --short HEAD` (or `no-commits` in a repo without commits). Keep it within about 60 lines.
-6. Show the brief and ask: "Approve this brief, or tell me what to change." Apply changes and ask again until approved.
-7. Record the approval in the Gates table (Approved by: the human's name, Date), set the gate to `passed` with Evidence `docs/brief.md`, and set `current_phase: research`.
+4. Scan the request and brief for destructive or outside-repository operations (deleting data or cloud resources, production deploys, changing other systems). For each, follow the Hard-stop procedure now — in every autonomy mode — and keep it out of the plan as a human-only step.
+5. Update `.eng-team/profile.md` with fields learned (mark `# stated`), and add rows to state.md Open questions and Assumptions.
+6. Write `docs/brief.md` from `templates/brief.md`: all five sections (Problem, Proposed solution, Cost and risk, Decisions needed, Status), `Audience:` line, and `Last verified against:` set to `git rev-parse --short HEAD` (or `no-commits` in a repo without commits). Keep it within about 60 lines.
+7. Show the brief and ask: "Approve this brief, or tell me what to change." Apply changes and ask again until approved.
+8. Record the approval in the Gates table (Approved by: the human's name, Date), set the gate to `passed` with Evidence `docs/brief.md`, and set `current_phase: research`.
 
 ## Exit criteria
 
