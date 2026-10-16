@@ -38,7 +38,7 @@ One row per loop in state.md → Loop counters, named `<source>→<target>`: the
 
 ## Hard-stop procedure
 
-The single procedure for every hard stop: set the current gate to `failed`, add the Log line `- YYYY-MM-DD hard-stop <phase>: <reason>`, and ask the human how to proceed. It applies in every autonomy mode.
+The single procedure for every hard stop: set the current gate to `failed`, add the Log line `- YYYY-MM-DD hard-stop <phase>: <reason>`, and ask the human how to proceed. The message to the human starts with the literal label `HARD STOP (<phase>): <reason>`, says what was not done, and lists the decision the human must make. It applies in every autonomy mode.
 
 **Resume.** After the human decides, set the gate to `in-progress` and continue, or keep it `failed`. Destructive or outside-repository actions are performed by the human, then the agent is re-dispatched.
 
