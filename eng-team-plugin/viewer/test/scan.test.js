@@ -64,4 +64,25 @@ test('parseGitignore handles anchors, dir-only and globs', () => {
   assert.ok(ig('tmp', true));
   assert.ok(!ig('tmp', false));
   assert.ok(ig('docs/a/b/gen.md', false));
+  assert.ok(ig('docs/gen.md', false));
+  assert.ok(!ig('docs/xgen.md', false));
+  assert.ok(ig('docs/a/gen.md', false));
+});
+
+test('secret-named directories and lockfiles are excluded', () => {
+  const dir = copyFixture();
+  try {
+    fs.mkdirSync(path.join(dir, '.env.d'));
+    fs.writeFileSync(path.join(dir, '.env.d', 'x.md'), '# x');
+    fs.mkdirSync(path.join(dir, 'keys.key'));
+    fs.writeFileSync(path.join(dir, 'keys.key', 'x.md'), '# x');
+    for (const f of ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'poetry.lock', 'Cargo.lock', 'composer.lock', 'Gemfile.lock', 'my.lock']) {
+      fs.writeFileSync(path.join(dir, f), 'x');
+    }
+    const paths = scanProject(dir).map((e) => e.path);
+    assert.ok(!paths.some((p) => p.startsWith('.env.d') || p.startsWith('keys.key') || /lock/.test(p)), paths.join());
+    assert.equal(classify('package-lock.json'), null);
+  } finally {
+    cleanup(dir);
+  }
 });

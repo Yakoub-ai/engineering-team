@@ -102,11 +102,14 @@ export function topNeighbours(vectors, { k = 5, threshold = 0.35, filter } = {})
       postings.get(term).push([id, w]);
     }
   }
+  // Very common terms add little signal and make candidate generation O(N^2).
+  const maxDf = vectors.size * 0.5;
+  for (const [term, list] of postings) if (list.length > maxDf) postings.delete(term);
   const result = new Map();
   for (const [id, vec] of vectors) {
     const acc = new Map();
     for (const [term, w] of Object.entries(vec)) {
-      for (const [other, ow] of postings.get(term)) {
+      for (const [other, ow] of postings.get(term) || []) {
         if (other !== id) acc.set(other, (acc.get(other) || 0) + w * ow);
       }
     }

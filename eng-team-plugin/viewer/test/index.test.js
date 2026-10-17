@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { buildIndex, saveIndex, loadIndex, updateIndex, reindexFile, search } from '../lib/index.js';
 import { copyFixture, cleanup, FIXTURE } from './helpers.js';
@@ -155,6 +156,111 @@ test('search ranks the expected doc first and honours kinds and limit', () => {
     assert.equal(search(idx, 'sqlite', { kinds: ['decision'] })[0].node.kind, 'decision');
     assert.equal(search(idx, 'orders', { limit: 1 }).length, 1);
     assert.deepEqual(search(idx, 'xyznonexistentterm'), []);
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('plan-task ids do not fan out across plans', () => {
+  const dir = copyFixture();
+  try {
+    const p2 = 'docs/engineering/plans/2026-02-02-other.md';
+    fs.writeFileSync(path.join(dir, p2), '# Other plan\n\n### T1: Different\n\nbody\n');
+    fs.writeFileSync(path.join(dir, 'docs/engineering/handovers/0002-a.md'), '# H2\n\nFinished T1 today.\n');
+    fs.writeFileSync(path.join(dir, 'docs/engineering/handovers/0003-b.md'), '# H3\n\nFinished T1 per [plan](../plans/2026-02-02-other.md).\n');
+    const idx = buildIndex(dir);
+    const plan = 'docs/engineering/plans/2026-01-01-demo.md';
+    const h2 = 'docs/engineering/handovers/0002-a.md';
+    const h3 = 'docs/engineering/handovers/0003-b.md';
+    assert.ok(!idx.edges.some((e) => e.from === h2 && e.type === 'id'), 'ambiguous T1 gets no edge');
+    assert.ok(hasEdge(idx, h3, `${p2}#T1`, 'id'));
+    assert.ok(!hasEdge(idx, h3, `${plan}#T1`, 'id'));
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('a single plan defining T2 resolves for an unlinked mention', () => {
+  const dir = copyFixture();
+  try {
+    fs.writeFileSync(path.join(dir, 'docs/note.md'), '# Note\n\nT2 is blocked.\n');
+    assert.ok(hasEdge(buildIndex(dir), 'docs/note.md', 'docs/engineering/plans/2026-01-01-demo.md#T2', 'id'));
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('ambiguous finding ids prefer linked files, else add no edge', () => {
+  const dir = copyFixture();
+  try {
+    fs.writeFileSync(path.join(dir, 'docs/security/second.md'), '# Second\n\n### SEC-001: Other\n\nx\n');
+    fs.writeFileSync(path.join(dir, 'docs/m1.md'), '# M1\n\nSee SEC-001.\n');
+    fs.writeFileSync(path.join(dir, 'docs/m2.md'), '# M2\n\nSee SEC-001 in [r](security/second.md).\n');
+    const idx = buildIndex(dir);
+    assert.ok(!idx.edges.some((e) => e.from === 'docs/m1.md' && e.type === 'id'));
+    assert.ok(hasEdge(idx, 'docs/m2.md', 'docs/security/second.md#SEC-001', 'id'));
+    assert.ok(!hasEdge(idx, 'docs/m2.md', 'docs/security/report.md#SEC-001', 'id'));
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('bare NNNN-slug in a handover is not an ADR mention; exact decision basename is', () => {
+  const dir = copyFixture();
+  try {
+    const h = 'docs/engineering/handovers/0002-x.md';
+    const dec = 'docs/engineering/decisions/0001-use-sqlite.md';
+    fs.writeFileSync(path.join(dir, h), '# H\n\nSee handover 0001-lead for context.\n');
+    let idx = buildIndex(dir);
+    assert.ok(!idx.edges.some((e) => e.from === h && e.type === 'id'));
+    fs.writeFileSync(path.join(dir, h), '# H\n\nSee 0001-use-sqlite for context.\n');
+    idx = buildIndex(dir);
+    assert.ok(hasEdge(idx, h, dec, 'id'));
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('symlinked cache dir is not written through', () => {
+  const dir = copyFixture();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-view-out-'));
+  try {
+    fs.mkdirSync(path.join(dir, '.eng-team'), { recursive: true });
+    fs.symlinkSync(outside, path.join(dir, '.eng-team', '.cache'));
+    const idx = buildIndex(dir);
+    const logged = [];
+    const realWrite = process.stderr.write;
+    process.stderr.write = (chunk) => { logged.push(String(chunk)); return true; };
+    try {
+      saveIndex(dir, idx);
+      assert.equal(loadIndex(dir), null);
+    } finally {
+      process.stderr.write = realWrite;
+    }
+    assert.deepEqual(fs.readdirSync(outside), []);
+    assert.ok(logged.some((l) => l.includes('unsafe index cache path')));
+  } finally {
+    cleanup(dir);
+    cleanup(outside);
+  }
+});
+
+test('index from another project or with a bad shape is ignored', () => {
+  const dir = copyFixture();
+  try {
+    const idx = buildIndex(dir);
+    saveIndex(dir, idx);
+    const file = path.join(dir, '.eng-team', '.cache', 'index', 'index.json');
+    const write = (o) => fs.writeFileSync(file, JSON.stringify(o));
+    assert.ok(loadIndex(dir));
+    write({ ...idx, project: '/somewhere/else' });
+    assert.equal(loadIndex(dir), null);
+    write({ ...idx, nodes: [{ id: 1, path: 'x' }] });
+    assert.equal(loadIndex(dir), null);
+    write({ ...idx, edges: [{ from: 'a' }] });
+    assert.equal(loadIndex(dir), null);
+    write({ ...idx, files: [] });
+    assert.equal(loadIndex(dir), null);
   } finally {
     cleanup(dir);
   }

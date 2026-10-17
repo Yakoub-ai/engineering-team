@@ -3,6 +3,7 @@ import path from 'node:path';
 
 export const MAX_BYTES = 512 * 1024;
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'dist', 'build']);
+const LOCKFILES = new Set(['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'poetry.lock', 'Cargo.lock', 'composer.lock', 'Gemfile.lock']);
 const CODE_EXT = new Set([
   'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'py', 'go', 'rb', 'java', 'kt', 'cs', 'php', 'rs',
   'sh', 'sql', 'tf', 'yaml', 'yml', 'toml', 'json',
@@ -16,6 +17,7 @@ const CODE_EXT = new Set([
 export function classify(rel) {
   if (rel === '.eng-team/state.md') return { type: 'state', kind: 'state' };
   const base = path.posix.basename(rel);
+  if (LOCKFILES.has(base) || base.endsWith('.lock')) return null;
   if (rel.endsWith('.md')) return { type: 'doc', kind: docKind(rel) };
   const ext = path.posix.extname(base).slice(1).toLowerCase();
   if (base === 'Dockerfile' || CODE_EXT.has(ext)) return { type: 'code', kind: 'code' };
@@ -37,9 +39,14 @@ function globToRegex(glob) {
   for (let i = 0; i < glob.length; i++) {
     const c = glob[i];
     if (c === '*' && glob[i + 1] === '*') {
-      re += '.*';
-      i++;
-      if (glob[i + 1] === '/') i++;
+      while (glob[i + 2] === '*') i++;
+      if (glob[i + 2] === '/') {
+        re += '(?:.*/)?';
+        i += 2;
+      } else {
+        re += '.*';
+        i++;
+      }
     } else if (c === '*') re += '[^/]*';
     else if (c === '?') re += '[^/]';
     else re += c.replace(/[.+^${}()|[\]\\]/g, '\\$&');
@@ -97,7 +104,7 @@ function walk(root, relDir, ignored, out) {
     const rel = relDir ? `${relDir}/${ent.name}` : ent.name;
     if (ent.isSymbolicLink()) continue;
     if (ent.isDirectory()) {
-      if (SKIP_DIRS.has(ent.name) || rel === '.eng-team/.cache' || ignored(rel, true)) continue;
+      if (SKIP_DIRS.has(ent.name) || isSecretName(ent.name) || rel === '.eng-team/.cache' || ignored(rel, true)) continue;
       walk(root, rel, ignored, out);
     } else if (ent.isFile()) {
       addFile(root, rel, ent.name, ignored, out);

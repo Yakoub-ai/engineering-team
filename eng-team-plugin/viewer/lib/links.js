@@ -56,24 +56,37 @@ const pad4 = (n) => String(n).padStart(4, '0');
 /**
  * Extract unresolved mentions from markdown.
  * @param {string} text
- * @returns {{links: string[], refs: string[], ids: string[]}}
+ * @returns {{links: string[], refs: string[], ids: string[], slugs: string[]}} slugs are bare
+ *   `NNNN-slug` tokens; callers match them only against existing decision file names
  */
 export function extractMentions(text) {
   const links = new Set();
-  for (const m of text.matchAll(/\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) {
+  for (const m of text.matchAll(/\[[^\]]{0,300}\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) {
     const target = m[1].split('#')[0].split('?')[0];
     if (target && !/^[a-z][a-z0-9+.-]*:/i.test(target)) links.add(safeDecode(target));
   }
   const refs = new Set();
-  for (const m of text.matchAll(/(?<![\w/.@-])((?:\.{1,2}\/)?[\w@.-]+(?:\/[\w@.-]+)*\.\w+):\d+\b/g)) refs.add(clean(m[1]));
-  for (const m of text.matchAll(/`([\w@./-]+\.\w+)(?::\d+)?`/g)) refs.add(clean(m[1]));
+  for (const token of text.split(/[\s`'"()[\]<>,]+/)) {
+    if (token.length > 300) continue;
+    const m = PATH_LINE_RE.exec(token.replace(/[.;!?]+$/, ''));
+    if (m) refs.add(clean(m[1]));
+  }
+  for (const m of text.matchAll(/`([^`\n]{1,300})`/g)) {
+    const r = PATH_RE.exec(m[1]);
+    if (r) refs.add(clean(r[1]));
+  }
   const ids = new Set();
-  for (const m of text.matchAll(/\bADR-(\d{1,4})\b/g)) ids.add(`ADR-${pad4(m[1])}`);
-  for (const m of text.matchAll(/\b(\d{4})-[a-z]/g)) ids.add(`ADR-${m[1]}`);
+  for (const m of text.matchAll(/\bADR[-\s](\d{1,4})\b/g)) ids.add(`ADR-${pad4(m[1])}`);
+  for (const m of text.matchAll(/decisions\/(\d{1,4})-/g)) ids.add(`ADR-${pad4(m[1])}`);
+  const slugs = new Set();
+  for (const m of text.matchAll(/(?<![\w-])(\d{4}-[a-z][a-z0-9]*(?:-[a-z0-9]+)*)/g)) slugs.add(m[1]);
   for (const m of text.matchAll(MENTION_RE)) ids.add(m[0]);
-  return { links: [...links], refs: [...refs], ids: [...ids] };
+  return { links: [...links], refs: [...refs], ids: [...ids], slugs: [...slugs] };
 }
 
+const PATH_PART = '((?:\\.{1,2}\\/)?(?:[\\w@-][\\w@.-]*\\/)*[\\w@-][\\w@.-]*\\.\\w+)';
+const PATH_LINE_RE = new RegExp(`^${PATH_PART}:\\d+$`);
+const PATH_RE = new RegExp(`^${PATH_PART}(?::\\d+)?$`);
 const clean = (p) => p.replace(/^\.\//, '');
 
 function safeDecode(s) {

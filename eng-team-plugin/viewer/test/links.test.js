@@ -18,11 +18,13 @@ test('extractItems ignores plan-task ids outside plans', () => {
 });
 
 test('extractMentions finds links, refs and ids', () => {
-  const md = 'See [a](./x.md#top) and [web](https://e.com). Code at `src/a.js:3` and src/b.js:10, plus `docs/y.md`. ADR-0003, 0004-foo, SEC-002, Q-1.';
+  const md = 'See [a](./x.md#top) and [web](https://e.com). Code at `src/a.js:3` and src/b.js:10, plus `docs/y.md`. ADR-0003, ADR 0005, decisions/0004-foo.md, 0009-bare, SEC-002, Q-1.';
   const m = extractMentions(md);
   assert.deepEqual(m.links, ['./x.md']);
   assert.deepEqual([...m.refs].sort(), ['docs/y.md', 'src/a.js', 'src/b.js']);
-  for (const id of ['ADR-0003', 'ADR-0004', 'SEC-002', 'Q-1']) assert.ok(m.ids.includes(id), id);
+  for (const id of ['ADR-0003', 'ADR-0005', 'ADR-0004', 'SEC-002', 'Q-1']) assert.ok(m.ids.includes(id), id);
+  assert.ok(!m.ids.includes('ADR-0009'), 'bare NNNN-slug is not an ADR id');
+  assert.ok(m.slugs.includes('0009-bare'));
 });
 
 test('extractImports handles js and python relative imports only', () => {
@@ -30,4 +32,12 @@ test('extractImports handles js and python relative imports only', () => {
   assert.deepEqual(extractImports(js, 'js'), ['./a.js', '../b', './c']);
   const py = 'import os\nfrom .mod import x\nfrom ..pkg.sub import y\nfrom . import z\n';
   assert.deepEqual(extractImports(py, 'py'), ['.mod', '..pkg.sub', '.:z']);
+});
+
+test('extractMentions is linear on pathological input', () => {
+  const t0 = Date.now();
+  extractMentions('a/'.repeat(25000) + '!');
+  extractMentions('`' + 'a.'.repeat(25000));
+  extractMentions('['.repeat(20000));
+  assert.ok(Date.now() - t0 < 200, `took ${Date.now() - t0}ms`);
 });

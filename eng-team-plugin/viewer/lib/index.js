@@ -12,8 +12,6 @@ const LEXICAL_K = 5;
 const JS_EXT = new Set(['js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx']);
 const JS_RESOLVE_EXT = ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.json'];
 
-const indexFile = (projectDir) => path.join(projectDir, '.eng-team', '.cache', 'index', 'index.json');
-
 /* ---------- parsing one file ---------- */
 
 function langOf(rel) {
@@ -61,7 +59,7 @@ function parseFile(entry, text) {
     }, item.text));
   }
   const mentions = extractMentions(text);
-  for (const key of ['links', 'refs', 'ids']) if (mentions[key].length) raw[key] = mentions[key];
+  for (const key of ['links', 'refs', 'ids', 'slugs']) if (mentions[key].length) raw[key] = mentions[key];
   return { nodes, raw };
 }
 
@@ -114,6 +112,25 @@ function definitionMaps(nodes) {
   return defs;
 }
 
+const isPlanTaskId = (id) => /^(?:[TF]\d+|R-\d+)$/.test(id);
+
+/**
+ * Decide which definitions a mentioned ID points at. Plan-task IDs repeat in
+ * every plan, so they resolve only through explicit links or a unique plan.
+ */
+function resolveIdTargets(id, from, defIds, explicitTargets, kindByPath) {
+  if (!defIds.length || defIds.some((d) => d.split('#')[0] === from)) return [];
+  const linked = defIds.filter((d) => explicitTargets.has(d.split('#')[0]));
+  if (isPlanTaskId(id)) {
+    const inPlans = linked.filter((d) => kindByPath.get(d.split('#')[0]) === 'plan');
+    if (inPlans.length) return inPlans;
+    const plans = defIds.filter((d) => kindByPath.get(d.split('#')[0]) === 'plan');
+    return plans.length === 1 && defIds.length === 1 ? plans : [];
+  }
+  if (defIds.length === 1) return defIds;
+  return linked;
+}
+
 function explicitEdges(nodes, files) {
   const edges = new Map();
   const add = (from, to, type) => {
@@ -121,19 +138,32 @@ function explicitEdges(nodes, files) {
   };
   const fileSet = new Set(nodes.filter((n) => !n.id.includes('#')).map((n) => n.path));
   const defs = definitionMaps(nodes);
+  const kindByPath = new Map(nodes.filter((n) => n.id === n.path).map((n) => [n.path, n.kind]));
   for (const n of nodes) if (n.id.includes('#')) add(n.path, n.id, 'contains');
   for (const [from, info] of Object.entries(files)) {
     if (!fileSet.has(from)) continue;
+    const explicitTargets = new Set();
     for (const t of info.links || []) {
       const to = resolveFrom(from, t);
-      if (to && fileSet.has(to)) add(from, to, 'link');
+      if (to && fileSet.has(to)) {
+        add(from, to, 'link');
+        explicitTargets.add(to);
+      }
     }
     for (const r of info.refs || []) {
       const to = [resolveFrom('', r), resolveFrom(from, r)].find((c) => c && fileSet.has(c));
-      if (to) add(from, to, 'ref');
+      if (to) {
+        add(from, to, 'ref');
+        explicitTargets.add(to);
+      }
     }
     for (const id of info.ids || []) {
-      for (const to of defs.get(id) || []) if (to.split('#')[0] !== from) add(from, to, 'id');
+      for (const to of resolveIdTargets(id, from, defs.get(id) || [], explicitTargets, kindByPath)) add(from, to, 'id');
+    }
+    for (const slug of info.slugs || []) {
+      for (const n of nodes) {
+        if (n.kind === 'decision' && n.id === n.path && path.posix.basename(n.path, '.md') === slug) add(from, n.id, 'id');
+      }
     }
     for (const spec of info.imports || []) {
       const to = resolveImport(from, spec, fileSet);
@@ -246,29 +276,110 @@ export function buildIndex(projectDir, { embedder = null, previous = null } = {}
   return build(path.resolve(projectDir), previous, new Set());
 }
 
+const CACHE_PARTS = ['.eng-team', '.cache', 'index'];
+
+function warn(msg) {
+  process.stderr.write(`eng-team-viewer: ${msg}\n`);
+}
+
+/**
+ * Check every component of the cache dir is a real directory inside the
+ * project root (no symlinks). Optionally creates missing components.
+ * @returns {string|null} cache dir, or null when missing/unsafe
+ */
+function safeCacheDir(root, create) {
+  let realRoot;
+  try {
+    realRoot = fs.realpathSync(root);
+  } catch {
+    return null;
+  }
+  let cur = root;
+  for (const part of CACHE_PARTS) {
+    cur = path.join(cur, part);
+    let st = null;
+    try {
+      st = fs.lstatSync(cur);
+    } catch { /* missing */ }
+    if (!st && create) {
+      fs.mkdirSync(cur);
+      st = fs.lstatSync(cur);
+    }
+    if (!st) return null;
+    const inside = !st.isSymbolicLink() && st.isDirectory() && isInside(realRoot, fs.realpathSync(cur));
+    if (!inside) {
+      warn(`ignoring unsafe index cache path ${cur}`);
+      return null;
+    }
+  }
+  return cur;
+}
+
+function isInside(realRoot, target) {
+  return target === realRoot || target.startsWith(realRoot + path.sep);
+}
+
 /**
  * Persist the index at <project>/.eng-team/.cache/index/index.json.
+ * Skips (logging to stderr) when the cache path is a symlink or escapes the project.
  * @param {string} projectDir
  * @param {object} index
  */
 export function saveIndex(projectDir, index) {
-  const file = indexFile(path.resolve(projectDir));
-  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const root = path.resolve(projectDir);
+  let dir;
+  try {
+    dir = safeCacheDir(root, true);
+  } catch (err) {
+    warn(`cannot prepare index cache: ${err.message}`);
+    return;
+  }
+  if (!dir) return;
+  const file = path.join(dir, 'index.json');
   const { lastUpdate, ...persisted } = index;
-  const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(persisted));
-  fs.renameSync(tmp, file);
+  const tmp = `${file}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+  try {
+    const fd = fs.openSync(tmp, 'wx');
+    try {
+      fs.writeFileSync(fd, JSON.stringify(persisted));
+    } finally {
+      fs.closeSync(fd);
+    }
+    fs.renameSync(tmp, file);
+  } catch (err) {
+    warn(`cannot save index: ${err.message}`);
+    try { fs.rmSync(tmp, { force: true }); } catch { /* ignore */ }
+  }
+}
+
+const isStr = (v) => typeof v === 'string';
+
+function validShape(idx, root) {
+  return Boolean(idx) && idx.version === INDEX_VERSION && idx.project === root
+    && Array.isArray(idx.nodes) && Array.isArray(idx.edges)
+    && idx.files !== null && typeof idx.files === 'object' && !Array.isArray(idx.files)
+    && idx.nodes.every((n) => n && isStr(n.id) && isStr(n.path))
+    && idx.edges.every((e) => e && isStr(e.from) && isStr(e.to));
 }
 
 /**
  * Load the saved index.
  * @param {string} projectDir
- * @returns {object|null} null when missing, unreadable or of another version
+ * @returns {object|null} null when missing, unsafe, unreadable, of another
+ *   version or project, or malformed
  */
 export function loadIndex(projectDir) {
+  const root = path.resolve(projectDir);
   try {
-    const idx = JSON.parse(fs.readFileSync(indexFile(path.resolve(projectDir)), 'utf8'));
-    return idx && idx.version === INDEX_VERSION ? idx : null;
+    const dir = safeCacheDir(root, false);
+    if (!dir) return null;
+    const file = path.join(dir, 'index.json');
+    if (fs.lstatSync(file).isSymbolicLink()) {
+      warn(`ignoring symlinked index file ${file}`);
+      return null;
+    }
+    const idx = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return validShape(idx, root) ? idx : null;
   } catch {
     return null;
   }
