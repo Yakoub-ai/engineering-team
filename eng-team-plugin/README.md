@@ -1,8 +1,95 @@
 # eng-team
 
+**A full-lifecycle engineering team for any project, platform or architecture, packaged as a Claude Code plugin and a claude.ai skill.**
+
+You bring an idea, a repository, a pull request or a design. eng-team:
+
+- interviews you and challenges vague requirements
+- researches with cited official sources
+- proposes and stress-tests architectures
+- builds and tests the solution behind approval gates, or autonomously
+- writes concise layered documentation
+- reviews everything for security and regulatory compliance
+
+It is EU-first (GDPR, DORA, NIS2, AI Act, accessibility) and extends to any other jurisdiction or framework through research on demand.
+
+Contents:
+1. [What it is](#1-what-it-is)
+2. [Use cases and coverage](#2-use-cases-and-coverage)
+3. [How it works](#3-how-it-works)
+4. [Agent handover architecture](#4-agent-handover-architecture)
+5. [Install](#5-install)
+6. [How to use it](#6-how-to-use-it)
+7. [Best practices](#7-best-practices)
+8. [Reference](#8-reference): profile, agents, commands, autonomy, packs, federation, testing, limits
+
+---
+
 ## 1. What it is
 
-eng-team is a Claude Code plugin that acts as a full-lifecycle engineering team. An orchestrator (the "engineering lead") interviews you and challenges your assumptions, researches with citations, architects (options, ADRs, C4 diagrams), builds and tests behind gates or autonomously, writes layered docs, and reviews for security and compliance (EU first: GDPR, DORA, NIS2, AI Act, accessibility). It runs 14 agents with separated write rights, enforced by tool lists for the read-only roles and by prompts for the writers' folder scope. All state lives in your project under `.eng-team/`, so work can be resumed at any time. It can also run as a standalone review (`/eng-review`) with no setup that does not change lifecycle gates.
+eng-team is an **engineering lead (orchestrator) plus 14 specialist agents**. It works like a small senior team:
+
+| Capability | What you get |
+|---|---|
+| **Challenge** | A discovery interview that pushes back on vague words ("fast", "secure", "scalable"), solutions posing as problems, missing owners and contradictions. A devil's-advocate round on every significant decision, recorded in ADRs. |
+| **Research** | Facts from official sources (vendor docs, RFCs, regulation text on EUR-Lex, OWASP, NIST). Every claim is cited, or labelled `opinion:`. Gaps are filled by researched packs flagged `unreviewed` until a human checks them. |
+| **Architecture** | 2–3 options with trade-offs, a recommendation sized to the project's stage, C4 diagrams (Mermaid), ADRs and an implementation plan with an acceptance check per task. |
+| **Build & test** | Test-first implementation one plan task at a time, with a reviewer spot-check after each. Critical flows (money, data access, irreversible actions) are mapped to tests, and the suite is run and recorded. |
+| **Documentation** | Docs-as-code in `docs/`: a 1-page business brief, the architecture, ADRs, the testing strategy, a runbook and a compliance evidence log. Each doc names its audience and the commit it was verified against. |
+| **Review** | Security, compliance, data, platform, SRE, QA, integration, AI and product reviewers. Each finding cites `path:line` evidence. Secrets are never printed. The report includes a "Not covered" section. |
+| **Coaching** | Each recommendation explains *why* and links to a source, so developers learn the practice instead of just following it. |
+
+All progress lives in your project under `.eng-team/` (profile, state, plan, packs, research). Work can therefore be resumed any time, by anyone, in Claude Code or claude.ai.
+
+## 2. Use cases and coverage
+
+### Typical use cases
+
+| You want to… | Start with | Mode |
+|---|---|---|
+| Turn a vague idea into an approved, documented design | `/eng` | gated |
+| Build a small tool or service end to end with tests and docs | `/eng --autonomous` | autonomous |
+| Audit an existing repo before launch ("what are we missing?") | `/eng-review review` | standalone |
+| Check a pull request or branch for security and compliance regressions | `/eng-review gate <diff range>` | standalone |
+| Plan production readiness for a regulated product (finance, health, public sector, AI) | `/eng-init` → `/eng` | gated |
+| Keep a federation of developer groups on the same standards | federation `standards:` repo + `/eng-promote` | any |
+| Document an existing system for business, ops and compliance readers | `/eng-document` | gated |
+
+Project types it is set up for: internal tools, data pipelines, client websites, B2C apps, B2B SaaS, API platforms, ML systems, or `other:<text>`. Stages: prototype → pilot → production → scale. Requirements scale with the stage, so you won't be asked for SOC 2 on a prototype.
+
+### EU regulations (curated, reviewed packs)
+
+Each pack loads automatically when the project profile matches its rule (`applies_when`). Findings quote the article.
+
+| Regulation | Loads when | What it checks (examples) |
+|---|---|---|
+| **GDPR** (Reg. (EU) 2016/679), incl. Swedish specifics (IMY, personnummer) | the project processes any personal data | Lawful basis, minimisation, data-subject rights paths, processors and DPAs, third-country transfers, breach-detection capability, DPIA triggers, erasure in data lakes and backups |
+| **DORA** (Reg. (EU) 2022/2554) | `regulated.financial_entity: yes` | ICT risk management, incident classification and reporting, resilience testing, third-party ICT risk, register of information |
+| **NIS2** (Dir. (EU) 2022/2555) | essential/important entity, or unknown (and not covered by DORA) | Risk-management measures, incident reporting timelines, supply-chain security, management accountability |
+| **AI Act** (Reg. (EU) 2024/1689) | the project is an AI provider or deployer | Role and risk classification, transparency duties, human oversight, data governance, logging, high-risk obligations |
+| **Accessibility** (EAA Dir. (EU) 2019/882, EN 301 549, WCAG) | consumer/public UI or the public sector | WCAG AA conformance, accessibility statement, assistive-technology support |
+
+### Other jurisdictions and frameworks
+
+| Coverage | How |
+|---|---|
+| **SOC 2, HIPAA, PCI DSS, US state privacy** | Curated opt-in pack (`us-optional`), loaded when `jurisdictions` contains `us` or `frameworks` lists them |
+| **Anything else**: UK GDPR, ISO 27001, national laws, sector rules, new platforms | **Research on demand.** The researcher builds a cited project pack from official sources, marked `unreviewed` (its findings are capped at High) until a human reviews it. Reviewed packs can be promoted to your federation repo for everyone to reuse. |
+
+### Engineering frameworks and best practices (cited in every recommendation)
+
+| Area | Sources the team cites |
+|---|---|
+| Application security | OWASP ASVS, OWASP Top 10, OWASP API Security Top 10 |
+| Secure SDLC & supply chain | NIST SSDF (SP 800-218), OWASP SAMM, SLSA v1.2, protected branches |
+| API design | Google AIPs, Microsoft REST API Guidelines, RFC 9457 (problem details), RFC 8594 (Sunset), OAuth 2.1 |
+| Testing | The Practical Test Pyramid, Google Testing Blog, Fowler on non-deterministic tests |
+| Operability | Twelve-Factor App, OpenTelemetry, Google SRE (golden signals, SLOs), USE and RED methods |
+| Decisions | ADRs (Nygard, adr.github.io) with a devil's-advocate round |
+| Cloud & platforms | Azure Well-Architected + security benchmark, Google Cloud Architecture Framework, Databricks lakehouse + security, WordPress hardening, generic web (any framework) |
+| Any other stack (AWS, Kubernetes, SAP, mobile, …) | Research on demand (context7 for library docs when installed) |
+
+## 3. How it works
 
 ```mermaid
 flowchart LR
@@ -18,91 +105,194 @@ flowchart LR
   REV -. fix tasks .-> B
 ```
 
-In `gated` mode the human gates are discover (brief), architect (design + plan) and review (final verdict). In `autonomous` mode those gates are approved by `agent` and recorded as assumptions and ADRs; hard stops still apply (section 8).
+| # | Phase | What happens | Output |
+|---|---|---|---|
+| 0 | **init** | Infers the project profile from manifests, IaC, CI, README and env samples. Asks only for what it can't infer. | `.eng-team/profile.md`, `state.md` |
+| 1 | **discover** | Interview and pushback. Destructive requests are flagged as human-only hard stops. | `docs/brief.md`, open questions, assumptions |
+| 2 | **research** | Resolves packs (project → federation → plugin) and researches gaps with citations. | packs in use, `.eng-team/research/` |
+| 3 | **architect** | Options and trade-offs, devil's advocate, C4, ADRs, plan. Reviewers check the design in `plan` mode. | `docs/architecture.md`, `docs/adr/`, `.eng-team/plan.md` |
+| 4 | **build** | One task at a time, test-first. The lead re-runs each acceptance check itself, and reviewers check the diff in `gate` mode. | code |
+| 5 | **test** | Critical flows mapped to tests, missing tests written, suite run and recorded. | tests, `.eng-team/test-results.md` |
+| 6 | **document** | Docs written or updated in place; human edits are preserved. | `docs/` set |
+| 7 | **review** | Activated reviewers run in parallel, and findings are deduped, verified and ranked. | `docs/reviews/eng-review-<date>.md` |
 
-## 2. Install
+**Gates and loops.**
+- Every phase has checkable exit criteria. The lead verifies them itself instead of trusting an agent's "done".
+- A failed gate loops back to the phase it came from (for example review → build as fix tasks), at most 3 times, then escalates to you.
+- If `state.md` is hand-edited or inconsistent, the lead detects it and repairs it (in gated mode it asks first).
 
-**(a) Local plugin directory**
+**Autonomy.**
+- `gated` (default): you approve the brief, the design and plan, and the final verdict.
+- `autonomous`: no approval stops. Decisions become ADRs marked `Decided by: agent`, and questions become recorded assumptions you can audit later.
+- **Hard stops apply in both modes:** a Critical finding, a test suite not fixed in 2 attempts, a destructive operation (including one *requested* in your brief), and any side effect outside the repository. The team never pushes, opens PRs or changes remotes.
 
+## 4. Agent handover architecture
+
+The lead is the only component that talks to you, owns state and dispatches agents. **Agents never talk to each other directly.** Every handover goes through files the lead controls, so each step is traceable and resumable.
+
+```mermaid
+flowchart TB
+  U([You]) <-->|interview, approvals, hard stops| L
+
+  subgraph Lead["Engineering lead (orchestrator, main thread)"]
+    L[SKILL.md + shared/orchestration.md<br/>phases · gates · loops · hard stops]
+  end
+
+  L <-->|reads/writes, sole writer| S[(.eng-team/<br/>profile · state · plan · packs · research · test-results)]
+  K[(Knowledge packs<br/>project → federation → plugin<br/>stacks · compliance · practices)] -->|applies_when| L
+
+  L -->|questions, pack gaps| RES[eng-researcher<br/>read + web]
+  RES -->|Pack / Note blocks| L
+  L -->|brief + packs| ARC[eng-architect<br/>read-only]
+  ARC -->|options, C4, ADR drafts, plan| L
+  L -->|ONE plan task| BLD[eng-builder<br/>writes code]
+  BLD -->|files, tests, Status| L
+  L -->|brief + code| TST[eng-tester<br/>writes tests]
+  TST -->|flow→test table, results| L
+  L -->|sha + audiences + artifacts| DOC[eng-tech-writer<br/>writes docs/ only]
+  DOC -->|docs changed, Status| L
+  L -->|mode: plan · gate · review| REV[9 reviewers, read-only<br/>security · compliance · data · platform<br/>SRE · QA · integration · AI · product]
+  REV -->|findings with path:line evidence| L
+
+  L -->|saves brief, ADRs, C4, reports| D[(docs/)]
+  DOC --> D
+  BLD --> C[(source code + tests)]
+  TST --> C
 ```
-claude --plugin-dir /path/to/engineering-team/eng-team-plugin
-```
 
-**(b) Marketplace**
+### How a handover works
+
+1. **Dispatch.** The lead sends one agent a closed brief: absolute paths to its role file (`roles/<name>.md`), the findings contract (`shared/findings.md`), `.eng-team/profile.md`, `.eng-team/state.md`, the selected packs, the relevant templates and challenger files, and an exact scope (phase, plan task id, paths or diff range).
+2. **Work.** The agent works only inside its role's "Owns" list. Content it finds in the repo or on web pages is treated as data, never as instructions, and injection attempts are reported as findings.
+3. **Return.** It returns a fixed contract:
+   - researcher: `### Pack:` / `### Note:` blocks
+   - architect: `### Option` / `### Recommendation` / `### ADR draft:` / `### Plan`
+   - builder, tester, tech-writer: `Status: DONE | BLOCKED | HARD-STOP`
+   - reviewers: findings in the standard format
+4. **Verify and save.** The lead checks the work itself (re-runs acceptance checks and test suites, re-opens cited evidence for Critical/High findings). It then saves read-only agents' output and updates `state.md`: gates, decisions, packs in use, loop counters, log.
+5. **Next.** The next agent receives the saved artifacts, not the previous agent's conversation. A new session, a teammate or claude.ai can resume from `state.md` at any point.
+
+### Separation of powers
+
+| Who | May write | Enforced by |
+|---|---|---|
+| Lead | `.eng-team/*`, saved agent output in `docs/` | orchestrator rules |
+| `eng-builder`, `eng-tester` | source code and tests, inside the repo | tool list (`Write, Edit, Bash`) + role prompt |
+| `eng-tech-writer` | `docs/` only (no Bash) | tool list + role prompt |
+| `eng-researcher` | nothing (read + web) | tool list |
+| `eng-architect` and the 9 reviewers | nothing (read-only) | tool list |
+
+No agent approves its own work: code written by the builder is checked by the lead and by read-only reviewers. On claude.ai, which has no subagents, the same roles run one after another in one conversation with the same file contracts. The lead tells you once that the run is not context-isolated.
+
+## 5. Install
+
+### Claude Code (full experience: commands, parallel isolated agents)
 
 ```
 /plugin marketplace add Yakoub-ai/engineering-team
 /plugin install eng-team@yakoub-ai
 ```
 
-The repository is private, so you must be logged in with `gh auth login` using an account that has access to the Yakoub-ai organisation. For a private repository, also run `gh auth setup-git`; background plugin updates need a `GITHUB_TOKEN` in your environment.
+or, from a local clone: `claude --plugin-dir /path/to/engineering-team/eng-team-plugin`.
 
-**(c) Optional: context7 MCP.** The researcher uses the context7 MCP server (`resolve-library-id`, `query-docs`) for library and framework docs when it is installed. Without it, the researcher falls back to fetching vendor docs with WebFetch.
+The repository is private:
+- Log in with `gh auth login` using an account with access to the Yakoub-ai organisation, then run `gh auth setup-git`.
+- Background plugin updates need `GITHUB_TOKEN` in your environment.
+- Optional: install the **context7** MCP server. The researcher uses it for library docs and falls back to WebFetch on vendor docs without it.
 
-## 3. Use on claude.ai
+### claude.ai (uploaded skill)
 
-claude.ai has no plugins, slash commands or subagents, only uploaded skills. The `skills/eng-team/` folder is self-contained, so it can run there with reduced isolation.
+claude.ai has no plugins, slash commands or subagents, but the skill folder is self-contained.
 
-1. Build the zip: `bash eng-team-plugin/scripts/package-claude-ai.sh` (writes `eng-team-plugin/dist/eng-team-skill.zip`, top-level folder `eng-team/`).
-2. In claude.ai go to Settings > Capabilities > Skills and upload the zip. Code execution must be enabled.
-3. Start with a plain request: "use the eng-team skill to start a new project: ..." or "review this repo with eng-team". Intent is routed without slash commands.
-4. Save and resume: files are written to `.eng-team/` and `docs/` in the code-execution workspace. Download them at each gate. To resume in a new chat, upload the whole `.eng-team/` and `docs/` folders (as a zip); the skill copies them into the workspace before reading state, then continues from state.md.
+1. Build the zip: `bash eng-team-plugin/scripts/package-claude-ai.sh` (writes `eng-team-plugin/dist/eng-team-skill.zip`).
+2. In claude.ai: **Settings → Capabilities → Skills → upload** the zip. Code execution must be enabled.
+3. Start with plain language: "use the eng-team skill to start a new project: …" or "review this repo with eng-team".
+4. **Save and resume.** Download `.eng-team/` and `docs/` at each gate. In a new chat, upload both folders as a zip; the skill restores them and continues from `state.md`.
 
-Differences from Claude Code:
-- No context isolation: roles run one after another in the same conversation.
-- No slash commands.
-- No parallel reviewers.
-- Builds and tests only run on code you upload; otherwise do those steps in Claude Code.
+Differences from Claude Code: no context isolation, no slash commands, no parallel reviewers, and build/test steps run only on code you upload.
 
-## 4. Set up for a new project
+## 6. How to use it
 
-1. Open the project folder in Claude Code (with the plugin loaded). The folder can be empty or an existing repo.
-2. Run `/eng-init`. It reads your manifests, IaC, CI files, README and `.env.example` and fills every profile field it can, marking each `# inferred: <file>`.
-3. Answer the questions. You are asked only for required fields it could not infer, one per message, with a recommended default and a line on why it matters. Answers are marked `# stated`. "Don't know" is accepted for `regulated.nis2_entity` (stored as `unknown`). If nobody owns the project yet, `owner` becomes `unassigned` (only passes the gate in autonomous mode).
-4. Check `.eng-team/profile.md`. It is the scope contract. Edit it directly, or tell the lead what to change. `/eng-init` also writes `.eng-team/state.md` (all 8 gates) and adds `.eng-team/.cache/` to `.gitignore`.
-5. Optional: set `standards:` to your federation standards repo (a git URL or a local path; see section 6).
-6. Commit `.eng-team/` (profile, state, packs, research notes, plan) so teammates and future sessions share the same scope and progress.
-7. Run `/eng` to start the lifecycle (or any single `/eng-<phase>` command). `/eng` resumes from `current_phase`, so it is safe to run again after any interruption.
+### Quick start (new or existing project)
 
-If `.eng-team/state.md` is missing, every phase command stops with: "This project isn't initialised for eng-team. Run `/eng-init` first." Only `/eng` (which runs init first), `/eng-init` and `/eng-review` work without it.
+```
+/eng-init        # infers your profile, asks only what it can't infer
+/eng             # runs the lifecycle from wherever you are; safe to re-run
+```
 
-### Example profile (a production invoice API)
+Or in one line: `/eng I want a portal where member organisations upload yearly reports`. Add `--autonomous` to run without approval stops.
 
-This is the profile of the `b-planted-api` test fixture, annotated. The trailing `# stated` / `# inferred: <file>` provenance comments that `/eng-init` adds are omitted here for readability.
+### Step by step
+
+1. Open the project folder in Claude Code. It can be empty or an existing repo.
+2. Run `/eng-init`. It fills every profile field it can infer (`# inferred: <file>`), then asks one question at a time for the rest, each with a recommended default and a line on why it matters.
+3. Check `.eng-team/profile.md`. It is the **scope contract**: it decides which reviewers run and which regulations and practices apply. Edit it directly or ask the lead.
+4. Optional: set `standards:` to your federation standards repo (see [Federation](#federation)).
+5. Commit `.eng-team/`, so teammates and future sessions share the same scope and progress.
+6. Run `/eng`, or a single phase (`/eng-discover`, `/eng-research`, `/eng-architect`, `/eng-build`, `/eng-test`, `/eng-document`).
+7. Answer the challenges, approve the gates, and read `docs/README.md` for the documentation index.
+
+Only an audit? Run `/eng-review` with no setup. It never changes lifecycle gates.
+
+### What you end up with
+
+```
+.eng-team/   profile.md · state.md · plan.md · packs/ · research/ · test-results.md
+docs/        README.md · brief.md · architecture.md · adr/NNNN-*.md · testing.md
+             runbook.md · compliance/evidence-log.md · reviews/eng-review-<date>.md
+```
+
+## 7. Best practices
+
+- **Invest in the profile.** Most quality comes from an accurate `.eng-team/profile.md`: data classes, jurisdictions, regulated status, stage. A wrong `data_classes: [none]` silently skips GDPR.
+- **Start gated, go autonomous later.** Use gated mode for new or regulated work. Use autonomous mode for small, well-understood builds, then read the Assumptions table and the ADRs marked `Decided by: agent`.
+- **Answer challenges with numbers.** "p95 < 300 ms at 50 rps" beats "fast". The team keeps asking until requirements are testable.
+- **Review unreviewed packs.** Researched packs are useful but unverified. Read them against their sources, set `reviewed_by`, then `/eng-promote` the good ones so the whole federation benefits.
+- **Commit `.eng-team/` and `docs/` with the code.** Decisions, assumptions and evidence then travel with the code, and anyone can resume.
+- **Treat `needs-evidence` as a to-do list, not a failure.** Tested restores, pen tests, DPAs and access reviews can't be proven from code. They get a named owner instead.
+- **Don't fight hard stops.** Destructive or outside-repo actions are yours to perform. Do them, then tell the lead to continue.
+- **Use one federation standards repo** for shared packs, conventions and priority order, so decentralised teams stay consistent without a central gatekeeper.
+- **Keep runs lean.** For a quick check use `/eng-review gate <diff>` instead of a full review. Run the eval suite one case at a time (see [Testing](#testing-this-plugin)).
+
+---
+
+## 8. Reference
+
+### Project profile
+
+This is the profile of the `b-planted-api` test fixture, annotated. `/eng-init` adds `# stated` / `# inferred: <file>` provenance comments, which are omitted here.
 
 ```yaml
 name: planted-api              # required. Used in docs and reports.
 summary: Invoice API for small businesses  # required. One sentence: what it does, for whom. Seeds the brief.
 owner: Test Owner              # required. Accountable person. Accepted risks must name a human, never "unassigned".
-stage: production              # required. prototype|pilot|production|scale. production => full role checklists apply; needs-evidence items need owners; activates sre (stage >= pilot).
+stage: production              # required. prototype|pilot|production|scale. production => full role checklists apply; activates sre (stage >= pilot).
 criticality: important         # required. low|important|critical. important => sre active; DORA question: does it support a critical/important function?
 type: api-platform             # required. Matches the web stack pack (api-platform) and activates integration-engineer.
 users: external-business       # required. internal|external-business|consumers|public-anonymous. Drives exposure and authZ depth.
-tenancy: multi-tenant          # optional. multi-tenant => tester writes an authZ matrix (tenant A cannot touch tenant B); security checks tenant isolation.
-data_classes: [personal, financial]  # required. personal => loads GDPR pack; financial + personal => compliance-officer deep mode, data-engineer money/integrity checks.
-jurisdictions: [eu, se]        # required. eu => EU packs. A country code with no matching pack makes the researcher build an unreviewed project pack.
+tenancy: multi-tenant          # optional. multi-tenant => tester writes an authZ matrix; security checks tenant isolation.
+data_classes: [personal, financial]  # required. personal => GDPR pack; financial + personal => compliance deep mode, money/integrity checks.
+jurisdictions: [eu, se]        # required. eu => EU packs. A value with no matching pack makes the researcher build an unreviewed project pack.
 sector:                        # optional. Free text (insurance, public-sector, payments). Context for the researcher.
 frameworks: []                 # optional. pci-dss, hipaa, soc2, iso27001... A value with no pack triggers research.
 regulated:
-  financial_entity: no         # required. yes => loads the DORA pack and activates deep SRE checks. no => DORA skipped.
-  nis2_entity: unknown         # required. yes|no|unknown. yes/unknown (and not DORA) => loads the NIS2 pack, compliance deep mode.
-  ai_act_role: none            # required. none|provider|deployer. Not none => loads the AI Act pack, activates ai-engineer, compliance deep mode.
+  financial_entity: no         # required. yes => DORA pack + deep SRE checks.
+  nis2_entity: unknown         # required. yes|no|unknown. yes/unknown (and not DORA) => NIS2 pack.
+  ai_act_role: none            # required. none|provider|deployer. Not none => AI Act pack + ai-engineer.
   ai_high_risk_use: no         # optional. yes|no. Tightens AI Act checks.
-residency: eu-only             # required. eu-only|eea|global|contract-specific. Checked by compliance-officer and platform-engineer (regions, subprocessors).
-payments: via-psp              # optional. none|via-psp|stores-card-data. Not none => activates data-engineer and integration-engineer.
-ai_usage: none                 # optional. none|llm-api|self-hosted-model|ml-predictions. Not none => activates ai-engineer.
-stacks: [web]                  # required. azure|gcp|databricks|wordpress|web or free text. Selects stack packs; an unknown value (aws, sap-btp) makes the researcher build one.
-deploy_target:                 # optional. Where it runs (e.g. Azure Container Apps). Context for platform-engineer.
-has_ui: no                     # optional. yes => activates product-engineer and loads the accessibility pack.
-autonomy: gated                # required. gated|autonomous. gated => human approves brief, design+plan, final verdict.
-coaching: on                   # optional. on|brief. How much "why this matters" teaching the lead adds.
-audiences: [engineers]         # optional. engineers|business|ops|compliance|executives. The tech-writer writes one doc per audience.
-standards:                     # optional. Git URL or local path of the federation standards repo; empty = none.
+residency: eu-only             # required. eu-only|eea|global|contract-specific. Regions and subprocessors are checked.
+payments: via-psp              # optional. none|via-psp|stores-card-data. Not none => data and integration engineers.
+ai_usage: none                 # optional. none|llm-api|self-hosted-model|ml-predictions. Not none => ai-engineer.
+stacks: [web]                  # required. azure|gcp|databricks|wordpress|web or free text (aws, sap-btp → researched).
+deploy_target:                 # optional. Where it runs. Context for platform-engineer.
+has_ui: no                     # optional. yes => product-engineer + accessibility pack (for consumer/public UIs).
+autonomy: gated                # required. gated|autonomous.
+coaching: on                   # optional. on|brief. How much "why this matters" teaching.
+audiences: [engineers]         # optional. engineers|business|ops|compliance|executives.
+standards:                     # optional. Federation standards repo (git URL or path); empty = none.
 priorities_override:           # optional. Default: security > compliance > data > reliability > ux > cost.
-out_of_scope:                  # optional. Free text; reviewers do not flag these.
+out_of_scope:                  # optional. Reviewers do not flag these.
 ```
-
-### Required vs optional fields
 
 | Field | Required | Allowed values / notes |
 |---|---|---|
@@ -112,102 +302,69 @@ out_of_scope:                  # optional. Free text; reviewers do not flag thes
 | `type` | required | internal-tool, data-pipeline, client-website, b2c-app, b2b-saas, api-platform, ml-system, other:<text> |
 | `users` | required | internal, external-business, consumers, public-anonymous |
 | `data_classes` | required | none, personal, special-category, financial, credentials, children, health |
-| `jurisdictions` | required | `eu` plus country codes or others (uk, us, ...) |
-| `regulated.financial_entity` | required | yes, no |
-| `regulated.nis2_entity` | required | yes, no, unknown |
-| `regulated.ai_act_role` | required | none, provider, deployer |
+| `jurisdictions` | required | `eu` plus country codes or others (uk, us, …) |
+| `regulated.financial_entity` / `nis2_entity` / `ai_act_role` | required | yes/no · yes/no/unknown · none/provider/deployer |
 | `residency` | required | eu-only, eea, global, contract-specific |
 | `stacks` | required | known: azure, gcp, databricks, wordpress, web; anything else is researched |
 | `autonomy` | required | gated, autonomous |
-| `tenancy`, `sector`, `frameworks` | optional | |
-| `regulated.ai_high_risk_use` | optional | yes, no |
-| `payments`, `ai_usage`, `deploy_target`, `has_ui` | optional | they still change which reviewers run, so fill them if true |
-| `coaching`, `audiences` | optional | |
-| `standards`, `priorities_override`, `out_of_scope` | optional | |
+| everything else | optional | still changes which reviewers run, so fill it in when it applies |
 
-Required fields must be non-empty before the init gate passes. In gated mode `owner: unassigned`, or `unknown` in a field whose enum has no `unknown`, fails the gate.
+### What context each agent needs
 
-## 5. What context each agent needs
-
-The orchestrator passes every agent: absolute paths of the skill directory, its role file (`roles/<name>.md`), `shared/findings.md`, `.eng-team/profile.md`, `.eng-team/state.md`, the selected packs, plus the templates and challenger files the phase names, and a mode and scope (paths, plan task or diff range). Agents cannot spawn agents or talk to you; the lead runs every conversation. Agents that return content (researcher, architect, reviewers) never write; the lead saves their output.
-
-Reviewers run in three modes: `plan` (during architect, on the design), `gate` (during build, on each task's diff) and `review` (the review phase, whole scope). Activation follows the profile: security, compliance and QA always; others per the matrix in `skills/eng-team/shared/project-profile.md`.
+Reviewers run in three modes: `plan` (architect phase, on the design), `gate` (build phase, on each task's diff) and `review` (review phase, whole scope). Security, compliance and QA always run; the others activate from the profile (matrix in `skills/eng-team/shared/project-profile.md`).
 
 | Agent | Reads (files and profile fields) | Produces | Write rights | Phases |
 |---|---|---|---|---|
-| `eng-researcher` | profile, the open questions or missing pack needs, `templates/pack.md`, `challenger/citations.md`; profile `stacks`, `jurisdictions`, `frameworks`; official sources via web and context7 | Pack + Note blocks (optional `### Findings`), unreviewed project packs (`tier: project`, `status: unreviewed`, <= 60 lines) | none: tools `Read, Grep, Glob, WebFetch, WebSearch` + 4 context7 tools. Lead saves packs to `.eng-team/packs/<id>.md` | research; any phase with a pack miss |
-| `eng-architect` | brief, profile (`stage`, `criticality`, `data_classes`, `jurisdictions`, `stacks`), packs in use, applicable `practices/*`, `challenger/devils-advocate.md`, `templates/architecture.md`, `templates/adr.md`, the existing repo | 2-3 options with trade-offs, C4 diagrams (Mermaid), ADR drafts with "Challenges raised", NFR targets, implementation plan | none: `Read, Grep, Glob`. Lead saves to `.eng-team/` and `docs/` | discover, architect |
-| `eng-builder` | ONE plan task, the ADRs it cites, stack and practice packs, neighbouring code | code and tests for that task; `Status: DONE / BLOCKED / HARD-STOP` | `Read, Grep, Glob, Write, Edit, Bash` (source code, test-first) | build |
-| `eng-tester` | brief, code, `practices/testing-pyramid.md`, profile `tenancy` | flow-to-test table, missing integration/contract/e2e/authZ tests, run results (date, commit, counts) | `Read, Grep, Glob, Write, Edit, Bash` | test |
-| `eng-tech-writer` | all `templates/*`, profile `audiences`, ADRs, state.md, `.eng-team/test-results.md`, review findings, the code, and the commit sha given by the lead | `docs/` (brief, architecture, ADRs formatting, testing, runbook, `docs/compliance/evidence-log.md`, index), updated in place preserving human edits | `Read, Grep, Glob, Write, Edit` (no Bash; the only agent that writes `docs/`; the lead saves the brief, ADRs, architecture and review reports) | document |
-| `eng-security-engineer` | role file, `shared/findings.md`, profile, state, selected packs (web/cloud stack, `practices/secure-sdlc.md`); code, config, CI | findings with `path:line` evidence (secrets redacted), severity, owner | `Read, Grep, Glob` | architect (plan), build (gate), review |
-| `eng-compliance-officer` | same, plus compliance packs (GDPR, DORA, NIS2, AI Act, accessibility); profile `data_classes`, `jurisdictions`, `residency`, `regulated.*` | compliance findings quoting articles, evidence-log inputs | `Read, Grep, Glob` | architect (plan), build (gate), review |
-| `eng-data-engineer` | same; profile `payments`, `data_classes`; schemas, migrations, pipelines | integrity, money/time/text, idempotency findings | `Read, Grep, Glob` | when a store, pipeline or payments exist |
-| `eng-platform-engineer` | same; profile `deploy_target`, `residency`; IaC, CI/CD | IAM/network, deploy/rollback, backups/DR, cost findings | `Read, Grep, Glob` | when deployed beyond local |
-| `eng-sre` | same; profile `stage`, `criticality`, `regulated.financial_entity`; logging/metrics config, runbooks | observability, alerting, incident-response findings | `Read, Grep, Glob` | `stage` >= pilot or `criticality` >= important |
-| `eng-qa-engineer` | same; tests, CI | test strategy and authZ-test coverage findings | `Read, Grep, Glob` | always |
-| `eng-integration-engineer` | same; profile `payments`, `type`; API and webhook code | API, webhook, OAuth, third-party resilience, billing/VAT findings | `Read, Grep, Glob` | APIs, webhooks, OAuth or payments |
-| `eng-ai-engineer` | same; profile `ai_usage`, `regulated.ai_act_role` | prompt-injection, data-in-prompts, agent permission, eval, spend findings | `Read, Grep, Glob` | `ai_usage` != none |
-| `eng-product-engineer` | same; profile `has_ui`, `audiences` | UX states, WCAG, i18n, notification findings | `Read, Grep, Glob` | `has_ui: yes` or user-facing email |
+| `eng-researcher` | profile, open questions or pack gaps, `templates/pack.md`, `challenger/citations.md`; `stacks`, `jurisdictions`, `frameworks`; official sources via web and context7 | Pack + Note blocks (optional Findings); unreviewed project packs (≤ 60 lines, every bullet cited) | none (read + web); the lead saves to `.eng-team/packs/` | research; any phase with a pack gap |
+| `eng-architect` | brief, profile (`stage`, `criticality`, `data_classes`, `jurisdictions`, `stacks`), packs, practices, `challenger/devils-advocate.md`, architecture and ADR templates, the repo | options, C4, ADR drafts with "Challenges raised", NFR targets, plan | none (read-only) | discover, architect |
+| `eng-builder` | ONE plan task, its ADRs, stack and practice packs, neighbouring code | code and tests for that task, `Status:` | `Write, Edit, Bash` (repo only) | build |
+| `eng-tester` | brief, code, `practices/testing-pyramid.md`, `tenancy` | flow→test table, missing tests, run results | `Write, Edit, Bash` | test |
+| `eng-tech-writer` | templates, `audiences`, ADRs, state, test results, findings, code, commit sha | `docs/` set, updated in place | `Write, Edit` (`docs/` only, no Bash) | document |
+| `eng-security-engineer` | role file, findings contract, profile, state, stack packs, `practices/secure-sdlc.md`; code, config, CI | findings with `path:line` evidence, secrets redacted | read-only | architect, build, review |
+| `eng-compliance-officer` | same + compliance packs; `data_classes`, `jurisdictions`, `residency`, `regulated.*` | findings quoting articles, evidence-log inputs | read-only | architect, build, review |
+| `eng-data-engineer` | same; `payments`, `data_classes`; schemas, migrations, pipelines | integrity, money/time, idempotency findings | read-only | stores, pipelines or payments |
+| `eng-platform-engineer` | same; `deploy_target`, `residency`; IaC, CI/CD | IAM/network, deploy/rollback, DR, cost findings | read-only | deployed beyond local |
+| `eng-sre` | same; `stage`, `criticality`, `financial_entity`; logging, runbooks | observability, alerting, incident-response findings | read-only | stage ≥ pilot or criticality ≥ important |
+| `eng-qa-engineer` | same; tests, CI | test strategy and authZ coverage findings | read-only | always |
+| `eng-integration-engineer` | same; `payments`, `type`; API/webhook code | API, webhook, OAuth, billing findings | read-only | APIs, webhooks, OAuth, payments |
+| `eng-ai-engineer` | same; `ai_usage`, `ai_act_role` | prompt-injection, data-in-prompts, eval, spend findings | read-only | `ai_usage` ≠ none |
+| `eng-product-engineer` | same; `has_ui`, `audiences` | UX states, WCAG, i18n findings | read-only | `has_ui: yes` or user-facing email |
 
-The orchestrator itself holds `roles/lead-architecture.md` (its own review checks) and is the only writer of `.eng-team/state.md`. If subagents are not available (claude.ai), roles run sequentially in one conversation, with a notice that the run is not context-isolated.
+The lead also holds `roles/lead-architecture.md` (its own architecture and maintainability checks).
 
-## 6. Federation setup
+### Commands
 
-A federation standards repo lets an organisation share packs and conventions across projects.
-
-```
-my-standards/
-  packs/              # reviewed packs (tier: federation), one <id>.md each
-  conventions.md      # org conventions the lead reads
-  priorities.md       # org priority order, if different from the default
-```
-
-Point a project at it with `standards:` in `.eng-team/profile.md`: a local path, or a git URL. A URL is cloned read-only with `git clone --depth 1` into `.eng-team/.cache/standards/` (gitignored); in gated mode you are asked once before the first clone. If it is unreachable the lead warns once, logs `standards-unavailable`, and continues with plugin packs only. It never claims federation packs were loaded when they were not.
-
-**Precedence** (per pack `id`): project (`.eng-team/packs/`), then federation (`<standards>/packs/`), then plugin (`stacks/`, `compliance/`, `practices/`). The first pack whose `applies_when` evaluates true wins.
-
-**Promotion** with `/eng-promote <pack-id>`: refuses if the project pack has no `reviewed_by`; checks every source URL resolves; resolves `standards` to a local path; writes `<standards>/packs/<id>.md` as `tier: federation`, `status: reviewed`. It then prints the git steps (`git checkout -b promote/<id>`, `git add`, `git commit`, open a PR). It never commits, pushes or opens a PR itself.
-
-## 7. Commands
-
-All commands also work in the namespaced form `/eng-team:<cmd>` (for example `/eng-team:eng-init`).
+All commands also work namespaced, e.g. `/eng-team:eng-init`.
 
 | Command | Arguments | What it does |
 |---|---|---|
-| `/eng` | `[--autonomous\|--gated] [what you want to build or change]` | Runs the full lifecycle from `current_phase` (init first if there is no state) |
-| `/eng-init` | `[--autonomous] [project notes]` | Creates `.eng-team/profile.md` and `state.md`; if `.eng-team/` exists, checks integrity and reports |
-| `/eng-discover` | `[--force "<reason>"] [--skip "<reason>"] [--autonomous\|--gated] [notes]` | Interview and challenge; writes the brief |
-| `/eng-research` | same | Researches open questions and pack gaps with citations |
-| `/eng-architect` | same | Options, ADRs with devil's-advocate, C4, plan; reviewers in `plan` mode |
-| `/eng-build` | same | Builds the plan one task at a time, test-first, with a reviewer spot-check |
-| `/eng-test` | same | Maps critical flows to tests, writes missing ones, runs the suite |
-| `/eng-document` | same | Writes or updates `docs/` in place |
-| `/eng-review` | `[plan\|review\|gate] [paths or diff range]` | Standalone review/audit; never changes lifecycle gates; works without setup |
-| `/eng-promote` | `<pack-id>` | Promotes a reviewed project pack to the federation repo (local copy only) |
+| `/eng` | `[--autonomous\|--gated] [request]` | Full lifecycle from `current_phase` (runs init first if needed) |
+| `/eng-init` | `[--autonomous] [notes]` | Creates the profile and state; checks integrity if they exist |
+| `/eng-discover` · `/eng-research` · `/eng-architect` · `/eng-build` · `/eng-test` · `/eng-document` | `[--force "<reason>"] [--skip "<reason>"] [--autonomous\|--gated] [notes]` | Runs one phase |
+| `/eng-review` | `[plan\|review\|gate] [paths or diff range]` | Standalone review/audit; no setup; never changes lifecycle gates |
+| `/eng-promote` | `<pack-id>` | Copies a reviewed project pack to the federation repo (local only, never pushes) |
 
-A phase command refuses unless every earlier gate is `passed`, `skipped` or `forced`, and names the blocking gate. `--force "<reason>"` runs it anyway (earlier gates become `forced`, logged; a reason is mandatory). `--skip "<reason>"` marks a gate skipped and is only allowed in gated mode.
+A phase command refuses until every earlier gate is `passed`, `skipped` or `forced`, and it names the blocking gate. `--force "<reason>"` overrides this and the override is logged. `--skip "<reason>"` is human-only and gated-only.
 
-## 8. Autonomy and hard stops
+### Autonomy and hard stops
 
-- `gated` (default): stop for human approval at discover (brief), architect (design + plan) and review (final verdict). Approver name and date go in the Gates table.
-- `autonomous`: no approval stops. `Approved by: agent`; decisions become ADRs with `Decided by: agent`; interview questions become Assumptions rows.
+- `gated`: approvals at discover, architect and review, with name and date recorded in the Gates table.
+- `autonomous`: `Approved by: agent`, ADRs `Decided by: agent`, questions become Assumptions rows.
+- Hard stops (both modes):
+  1. A Critical finding. Findings from unreviewed packs are capped at High unless they quote a regulation article verbatim.
+  2. A test suite not fixed in 2 attempts.
+  3. A destructive operation, including one requested in the brief.
+  4. Any side effect outside the repository.
 
-Hard stops apply in both modes. The gate becomes `failed`, a `hard-stop` line is logged, and the lead asks you how to proceed:
+  On a hard stop the gate becomes `failed` and the lead messages you with `HARD STOP (<phase>): <reason>`. Only a named human can accept a risk.
+- Loops run at most 3 iterations, then escalate to you. The priority order when roles conflict is security > compliance > data integrity > reliability > UX > cost.
 
-1. A Critical finding (after the unreviewed-pack cap; findings from an unreviewed pack are capped at High unless they quote a regulation article verbatim). It never loops automatically: you choose fix or accept the risk, and only a named human can accept.
-2. A test suite not fixed within 2 attempts.
-3. Destructive operations: data migrations, deletions, production deploys.
-4. Any action outside the repository.
+### Packs
 
-Loops run at most 3 iterations, then escalate to you. Default priorities when roles conflict: security > compliance > data integrity > reliability > user experience > cost (overridable with `priorities_override`).
-
-## 9. Packs
-
-A pack is a markdown file with frontmatter and a body of at most 60 lines, based on `skills/eng-team/templates/pack.md`:
+A pack is a cited checklist (body ≤ 60 lines) based on `templates/pack.md`:
 
 ```yaml
-id: web                       # unique per tier
+id: web
 kind: stack                   # stack | compliance | practice
 status: reviewed              # reviewed | unreviewed | deprecated
 tier: plugin                  # plugin | federation | project
@@ -217,25 +374,46 @@ review_by: 2027-04-15        # staleness date
 applies_when: profile.stacks contains "web" OR profile.has_ui == "yes"
 ```
 
-- **Tiers and precedence:** project, then federation, then plugin.
-- **`applies_when`:** the literal `always`, or an expression over real `profile.<field>` names using `==`, `!=`, `contains`, `AND`, `OR`, `NOT`, parentheses and double-quoted strings.
-- **Adding one:** if a profile `stacks`, `jurisdictions` or `frameworks` value matches no pack, the researcher builds one automatically (`unreviewed`, every bullet cited) and the lead saves it to `.eng-team/packs/<id>.md`. To write one by hand, copy `templates/pack.md` into `.eng-team/packs/`.
-- **Reviewing one:** read it against its sources, fix it, then set `reviewed_by` to your name and `status: reviewed`. Unreviewed packs are flagged in state.md and their findings are capped at High.
-- **Promoting:** `/eng-promote <pack-id>` (section 6).
-- **Staleness:** the lead reports packs past `review_by`. Re-research and update the date.
+- **Precedence:** project → federation → plugin. The first pack whose `applies_when` is true wins per `id`.
+- **`applies_when`:** either `always`, or an expression over `profile.<field>` using `==`, `!=`, `contains`, `AND`, `OR`, `NOT` and parentheses.
+- **Missing pack:** the researcher builds one automatically. To write one by hand, copy `templates/pack.md` into `.eng-team/packs/`.
+- **Review:** check the pack against its sources, then set `reviewed_by` and `status: reviewed`.
+- **Staleness:** packs past `review_by` are flagged for re-research.
 
-## 10. Testing this plugin
+### Federation
 
 ```
-bash eng-team-plugin/tests/validator/test_validate.sh   # validator self-tests: ALL VALIDATOR TESTS PASSED
-bash eng-team-plugin/scripts/validate.sh eng-team-plugin  # structure check: exit 0, no output
-claude plugin validate eng-team-plugin                  # manifest and component check
-cd eng-team-plugin && claude plugin eval . --model sonnet --ablation none --runs 1 --concurrency 1 \
-  --no-publish --trust-plugin --scaffold --allow-tools Bash Write Edit --max-cost-usd 6
+my-standards/
+  packs/          # reviewed packs (tier: federation)
+  conventions.md  # org conventions the lead reads
+  priorities.md   # org priority order, if different
 ```
 
-`validate.sh` checks frontmatter, pack fields, `applies_when` field names, file references from SKILL.md, phases and commands, and that agent tool lists match the write rights. CI runs both validator commands. The eval suite (8 cases, see `tests/evals/README.md`) uses LLM graders and is noisy; re-run a failing case once before changing anything.
+- **Connecting a project:** set `standards:` to a local path or a git URL. A URL is cloned read-only into `.eng-team/.cache/standards/` (gated mode asks once first). If it is unreachable, the lead warns, logs `standards-unavailable`, and continues with plugin packs.
+- **`/eng-promote <pack-id>`:**
+  - requires `reviewed_by` and verifies every source URL
+  - confirms the target path with you, then writes `<standards>/packs/<id>.md` as `tier: federation`
+  - prints the git steps for you to run; it never commits, pushes or opens a PR
 
-## 11. Limits
+### Testing this plugin
 
-What this team cannot do: live penetration testing; verifying runtime or cloud configuration that is not in the repository (unless you grant read access); legal sign-off; anything that requires human attestation. Controls that cannot be verified from code (tested restores, pen tests, on-call, access reviews, signed DPAs) are reported as `needs-evidence` with an owner role, never assumed. Every report has a "Not covered" section. The output supports decisions; it does not certify compliance.
+```
+bash eng-team-plugin/tests/validator/test_validate.sh     # validator self-tests
+bash eng-team-plugin/scripts/validate.sh eng-team-plugin  # structure: frontmatter, refs, packs, agent rights
+claude plugin validate eng-team-plugin                    # manifest and components
+eng-team-plugin/tests/smoke/run-smoke.sh                  # end-to-end: a tiny idea through all 8 phases (≤ $3)
+cd eng-team-plugin && claude plugin eval . --case <name> --runs 1 --model sonnet --ablation none \
+  --no-publish --trust-plugin --scaffold --allow-tools Bash Write Edit   # one eval case
+```
+
+CI runs both validator commands. The eval suite has 8 cases with planted issues (see `tests/evals/README.md`). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Last results: all 8 cases at 1.00, and the smoke test passed 19/19 (`tests/smoke/README.md`).
+
+### Limits
+
+What this team cannot do:
+- live penetration testing
+- verifying runtime or cloud configuration that isn't in the repository (unless you grant read access)
+- legal sign-off
+- anything that requires human attestation
+
+Controls that can't be verified from code are reported as `needs-evidence` with an owner, never assumed. Every report has a "Not covered" section. The output supports decisions; it does not certify compliance.
