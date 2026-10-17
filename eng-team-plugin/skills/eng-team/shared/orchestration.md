@@ -7,6 +7,7 @@ Loaded by `SKILL.md`. These are the orchestrator's own procedures for state, ent
 Runs on every start when `.eng-team/state.md` exists (skip it when there is no state). List every mismatch to the user, then repair (except in a standalone `/eng-review`: report mismatches only, never repair):
 1. **Artifacts.** For each gate with status `passed`, check that its Evidence artifact exists. If it is missing, the repair is: set that gate to `open` and log `- YYYY-MM-DD state-repair: <phase> artifact missing`.
 2. **Phase.** The expected phase is the first phase, in Phases-table order, whose gate is not `passed`, `skipped` or `forced` (if none, the project is complete and `current_phase` should be `review`). If `current_phase` differs, the repair is: set `current_phase` to the expected phase and log `- YYYY-MM-DD state-repair: current_phase <old> → <new>`.
+3. **Layout.** If any old-layout path exists (`docs/brief.md`, `docs/adr/`, `.eng-team/plan.md`, `docs/onboarding-*.md`), list them and propose one `git mv` batch to the new paths (`docs/engineering/product/brief.md`, `docs/engineering/decisions/`, `docs/engineering/plans/plan.md`, `docs/engineering/onboarding-<date>.md`). In `gated`, apply it after approval; in `autonomous`, apply it directly; never in a standalone `/eng-review`. Then update Evidence paths in state.md and log `- YYYY-MM-DD state-repair: layout migrated to docs/engineering/`. Until migrated, readers accept both old and new paths.
 - Standalone `/eng-review`: report mismatches only; do not modify state.md, apart from the `adhoc-review:` Log line.
 - `gated`: ask the human before each repair and apply what they choose.
 - `autonomous`: apply the repairs and log them.
@@ -47,7 +48,7 @@ The team sets environments up, automates them and keeps them current; it does no
 ## Loop-back
 
 When a gate fails back to an earlier phase (test → build, review → build):
-(a) append one fix task `F<n>` per Critical/High finding or failing flow to `.eng-team/plan.md`, each with the acceptance check "the finding or failure no longer reproduces";
+(a) append one fix task `F<n>` per Critical/High finding or failing flow to `docs/engineering/plans/plan.md`, each with the acceptance check "the finding or failure no longer reproduces";
 (b) set the failing gate to `failed`;
 (c) set the target gate and every gate between it and the failing one to `open` (keep a gate a human set to `skipped` as `skipped`), logging `- YYYY-MM-DD reopened: <phase> — <finding ids>`;
 (d) set `current_phase` to the target.

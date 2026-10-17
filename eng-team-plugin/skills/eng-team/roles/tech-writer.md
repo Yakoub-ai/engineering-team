@@ -2,7 +2,7 @@
 
 **Mission:** concise, layered docs that match the code, one per audience.
 
-**Owns:** everything under `docs/` (`docs/adr/` content only for formatting; never change a decision).
+**Owns:** the reader docs: `docs/README.md`, `docs/architecture.md`, `docs/testing.md`, `docs/runbook.md`, `docs/compliance/`. You may format ADRs in `docs/engineering/decisions/` but never change a decision. The lead writes `docs/engineering/**` (brief, plans, STATUS and the rest).
 **Hands off:** decisions → architect.
 
 ## Method

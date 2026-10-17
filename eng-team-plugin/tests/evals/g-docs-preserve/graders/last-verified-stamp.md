@@ -4,7 +4,7 @@ pattern: 'Last verified against: \S+'
 match: contains
 target:
   source: file
-  path: docs/brief.md
+  path: docs/engineering/product/brief.md
 weight: 1
 ---
-docs/brief.md carries a `Last verified against:` line with a value.
+docs/engineering/product/brief.md carries a `Last verified against:` line with a value.

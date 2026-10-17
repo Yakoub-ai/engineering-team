@@ -39,4 +39,4 @@ In `autonomous` mode the agent writes the response to each challenge itself and 
 
 ## Output
 
-An ADR draft in `templates/adr.md` format (Context, Options considered, Decision, Consequences, Challenges raised), within its one-page limit, returned to the orchestrator. The orchestrator saves it to `docs/adr/NNNN-<slug>.md` and adds a row to state.md `## Decisions`. For ADR style, see `pack:adr-writing`. When saving each ADR, fill the `Decided by:` line with the approving human's name (gated) or `agent` (autonomous); never leave the template placeholder `<name> | agent`.
+An ADR draft in `templates/adr.md` format (Context, Options considered, Decision, Consequences, Challenges raised), within its one-page limit, returned to the orchestrator. The orchestrator saves it to `docs/engineering/decisions/NNNN-<slug>.md` and adds a row to state.md `## Decisions`. For ADR style, see `pack:adr-writing`. When saving each ADR, fill the `Decided by:` line with the approving human's name (gated) or `agent` (autonomous); never leave the template placeholder `<name> | agent`.

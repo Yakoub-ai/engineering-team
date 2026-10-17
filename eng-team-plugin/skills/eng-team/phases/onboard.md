@@ -22,7 +22,7 @@ This replaces init for existing codebases. `/eng` runs it instead of `phases/ini
 5. **Map to the lifecycle.** For each gate decide: `adopt` (an existing artifact meets the intent of the exit criteria; cite it), `partial` (exists but has gaps; name them) or `missing`. Code that works counts as build evidence; tests that run count as test evidence; a review or audit report counts only if it is for a recent commit.
 6. **Quick health check.** Run the inventories from `phases/setup.md` steps 2-3 and `phases/security-audit.md` step 3 (read-only; install nothing). Run any already-installed secret scanner on the working tree. Note the top gaps per discipline: security, compliance, data, platform and reliability, testing, documentation, environment.
 7. **Ask for context.** Ask one question per message. Show 2-4 answer options as a list, put the literal label `(Recommended)` after the option you recommend (your inferred answer when you have one), and add one line `Why it matters:`. At most five questions, in this order, skipping any the repo already answers: (a) what is the situation now and what do you want to achieve next (launch, harden, scale, hand over, pass an audit, add a feature); (b) confirm or correct the inferred stage; (c) what hurts most today (bugs, slow delivery, security worries, missing docs, onboarding new people, compliance pressure); (d) deadlines or constraints (a launch date, an audit, a customer requirement, budget); (e) the `# required` profile fields still unknown, following `phases/init.md` steps 3-4. In autonomous mode, record each as an Assumptions row instead of asking.
-8. **Write the assessment.** Write `docs/onboarding-<YYYY-MM-DD>.md` from `templates/onboarding.md`: what exists, the inferred stage, the lifecycle map, gaps per discipline ranked by risk, and the recommended entry point with the first three actions.
+8. **Write the assessment.** Write `docs/engineering/onboarding-<YYYY-MM-DD>.md` from `templates/onboarding.md`: what exists, the inferred stage, the lifecycle map, gaps per discipline ranked by risk, and the recommended entry point with the first three actions.
 9. **Recommend the entry point.** Base it on the stated goal first and the gaps second, and give one recommendation plus at most two alternatives:
    - Goal is launch or production readiness, or Critical gaps exist → `/eng-security-audit` (full when the app runs locally), then `/eng-review`.
    - Environment is broken or not reproducible → `/eng-setup install` first.
@@ -33,7 +33,7 @@ This replaces init for existing codebases. `/eng` runs it instead of `phases/ini
 
 ## Exit criteria
 
-- `docs/onboarding-<date>.md` exists with the stage and its evidence, the lifecycle map, gaps per discipline and a recommended entry point.
+- `docs/engineering/onboarding-<date>.md` exists with the stage and its evidence, the lifecycle map, gaps per discipline and a recommended entry point.
 - `.eng-team/profile.md` has no blank required field (unknowns follow `phases/init.md` step 4), and `.eng-team/state.md` exists with all 8 gate rows.
 - Every gate set to `passed` cites an existing path as `adopted:` evidence and was confirmed by the human (gated) or recorded as `agent` (autonomous).
 - No source code was changed and nothing was installed.

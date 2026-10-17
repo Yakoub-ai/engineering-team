@@ -103,4 +103,4 @@ In `autonomous` mode, do not ask. Answer each question with the most conservativ
 
 ## Output
 
-Write `docs/brief.md` from `templates/brief.md`, within its length limit. Facts the user confirmed are stated plainly; assumptions are marked as such; unresolved items appear under `Decisions needed`. Add rows to state.md `## Open questions` (ID, question, why it matters, phase) and `## Assumptions` (ID, assumption, confidence, what would change it, source). Fill the profile fields gathered along the way and mark each `# stated` or `# inferred: <file>`.
+Write `docs/engineering/product/brief.md` from `templates/brief.md`, within its length limit. Facts the user confirmed are stated plainly; assumptions are marked as such; unresolved items appear under `Decisions needed`. Add rows to state.md `## Open questions` (ID, question, why it matters, phase) and `## Assumptions` (ID, assumption, confidence, what would change it, source). Fill the profile fields gathered along the way and mark each `# stated` or `# inferred: <file>`.

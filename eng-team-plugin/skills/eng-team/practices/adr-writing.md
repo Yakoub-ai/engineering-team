@@ -16,7 +16,7 @@ applies_when: always
 ---
 # Practice pack: writing ADRs
 
-Applies to every architectural decision. Look in `docs/adr/`, `docs/decisions/`, architecture docs, PR descriptions that contain design choices.
+Applies to every architectural decision. Look in `docs/engineering/decisions/`, `docs/decisions/`, architecture docs, PR descriptions that contain design choices.
 
 **When an ADR is required**
 - Plugin policy (eng-team spec section 5.2): write an ADR for a decision affecting cost, data, security or lock-in, or one that is hard to reverse.

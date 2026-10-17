@@ -6,7 +6,7 @@ Give every later phase the knowledge it needs: a pack for every profile need and
 
 ## Inputs
 
-- `.eng-team/profile.md`, `.eng-team/state.md` (Open questions), `docs/brief.md`.
+- `.eng-team/profile.md`, `.eng-team/state.md` (Open questions), `docs/engineering/product/brief.md`.
 - Pack locations by tier: `.eng-team/packs/` (project), the federation standards repo `packs/` if loaded (see Standards loading in `SKILL.md`), and the plugin `stacks/`, `compliance/`, `practices/`.
 - `shared/project-profile.md` (Pack resolution), `roles/researcher.md`, `templates/pack.md`, `challenger/citations.md`.
 

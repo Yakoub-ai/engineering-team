@@ -6,7 +6,7 @@ Prove the critical flows work, with tests that assert outcomes, and record the r
 
 ## Inputs
 
-- `docs/brief.md`, `.eng-team/plan.md`, the code.
+- `docs/engineering/product/brief.md`, `docs/engineering/plans/plan.md`, the code.
 - `roles/tester.md`, `practices/testing-pyramid.md`, `templates/testing.md`.
 - `phases/security-audit.md`, `profile.security_testing`.
 
