@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>eng-team viewer</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/ui/style.css">
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="brand">eng-team <span id="project-name"></span></div>
+      <input id="search" type="search" placeholder="Search  ( / )" autocomplete="off" spellcheck="false" aria-label="Search">
+      <nav class="views">
+        <button type="button" id="nav-home" data-view="home">Home</button>
+        <button type="button" id="nav-map" data-view="map">Map <kbd>g</kbd></button>
+        <button type="button" id="nav-timeline" data-view="timeline">Timeline</button>
+      </nav>
+      <div id="results" hidden></div>
+      <div id="tree"></div>
+    </aside>
+    <main id="main" tabindex="-1"></main>
+    <aside id="side"></aside>
+  </div>
+  <script src="/ui/app.js"></script>
+</body>
+</html>
