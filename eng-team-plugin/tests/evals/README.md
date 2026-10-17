@@ -1,6 +1,6 @@
 # eng-team eval suite
 
-Eight end-to-end cases for `claude plugin eval` (CLI 2.1.301). Each case is a directory with `prompt.md` (frontmatter plus the user prompt), `graders/*.md` (llm, regex, tool_used, tool_order, file_exists) and, where it needs a project on disk, `case.yaml` plus `scaffold.sh`. The manifest opts in via `experimental.evals` in `.claude-plugin/plugin.json`.
+Eleven end-to-end cases for `claude plugin eval` (CLI 2.1.301). Each case is a directory with `prompt.md` (frontmatter plus the user prompt), `graders/*.md` (llm, regex, tool_used, tool_order, file_exists) and, where it needs a project on disk, `case.yaml` plus `scaffold.sh`. The manifest opts in via `experimental.evals` in `.claude-plugin/plugin.json`.
 
 | Case | Checks |
 |---|---|
@@ -12,6 +12,11 @@ Eight end-to-end cases for `claude plugin eval` (CLI 2.1.301). Each case is a di
 | f-missing-standards | missing standards are reported |
 | g-docs-preserve | document phase preserves existing docs |
 | h-state-inconsistent | inconsistent state is flagged, nothing built unasked |
+| i-security-audit-static | static audit on a repo eng-team never touched: SQL injection cited at `src/db.js:6`, honest Coverage (`reviewed-manually` without scanners), committed password redacted, plan with acceptance checks and an `owner: human` rotation task, nothing installed |
+| j-setup-check | `/eng-setup check` reports missing lockfile, `.env.example` and unpinned versions, writes nothing, installs nothing |
+| k-onboard-existing | onboarding infers the stage with evidence, asks one context question with `(Recommended)`, changes no source |
+
+Cases i, j and k share `tests/fixtures/i-legacy-app` (answer key PLANTED-5..9) and leave `Agent` out of `allowed_tools`, so roles run sequentially. That keeps each run around $0.15-0.35.
 
 ## How scaffolding works
 
@@ -36,6 +41,18 @@ Add `--case <name>` for a single case and `--keep-temp` to keep each sandbox wit
 LLM graders use a 2-of-3 haiku judge, so borderline cases are noisy. Re-run a failing case once before changing anything.
 
 ## Final scores
+
+### New cases, 2026-10-17
+
+Model sonnet, 1 run per case, total about $1.00 including grader fixes.
+
+| Case | Score | Cost |
+|---|---|---|
+| i-security-audit-static | 1.00 (10/11 graded live; `no-install` was a false positive from a heredoc report and was re-checked against the kept trace after the grader fix) | $0.33 |
+| j-setup-check | 1.00 | $0.17 |
+| k-onboard-existing | 1.00 (0.80 before the onboarding question format was made explicit) | $0.17 |
+
+Grader note: `claude plugin eval` regexes are JavaScript. Use `flags: i`, not inline `(?i)`.
 
 ### Targeted re-run, 2026-10-16
 

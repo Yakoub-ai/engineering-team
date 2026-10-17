@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.3.0 — 2026-10-17
+
+### Added
+- `/eng-onboard` and `phases/onboard.md`: join an existing project in any state. Scans code, docs and git history; infers the stage with evidence; maps existing artifacts to the lifecycle gates and adopts them as evidence; runs a read-only environment and security health check; asks up to five context questions (situation and goal, stage, pain points, deadlines, missing profile fields); writes `docs/onboarding-<date>.md` from `templates/onboarding.md` and recommends an entry point. `/eng` routes to it when the repo already has code and no state.
+- Evals i, j and k for the security audit, environment check and onboarding, sharing one small fixture (`tests/fixtures/i-legacy-app`).
+
 ## 2.2.0 — 2026-10-17
 
 ### Added

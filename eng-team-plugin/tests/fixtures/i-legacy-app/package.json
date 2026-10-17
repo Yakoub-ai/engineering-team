@@ -1,0 +1,13 @@
+{
+  "name": "orderdesk",
+  "version": "1.4.0",
+  "private": true,
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "express": "*",
+    "pg": "^8.0.0"
+  }
+}

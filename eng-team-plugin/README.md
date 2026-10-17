@@ -51,6 +51,7 @@ All progress lives in your project under `.eng-team/` (profile, state, plan, pac
 |---|---|---|
 | Turn a vague idea into an approved, documented design | `/eng` | gated |
 | Build a small tool or service end to end with tests and docs | `/eng --autonomous` | autonomous |
+| Join or take over an existing project: find its stage, what exists and where help is needed | `/eng-onboard` | gated |
 | Audit an existing repo before launch ("what are we missing?") | `/eng-review review` | standalone |
 | Check a pull request or branch for security and compliance regressions | `/eng-review gate <diff range>` | standalone |
 | Deep security test of a finished product (static, live DAST, or both) with report and fix plan | `/eng-security-audit` | standalone |
@@ -113,7 +114,7 @@ flowchart LR
 
 | # | Phase | What happens | Output |
 |---|---|---|---|
-| 0 | **init** | Infers the project profile from manifests, IaC, CI, README and env samples. Asks only for what it can't infer. | `.eng-team/profile.md`, `state.md` |
+| 0 | **init / onboard** | New project: infers the profile and asks only for what it can't infer. Existing code: onboarding scans code, docs and git history, infers the stage, maps what exists to the gates (adopting real evidence), asks about your situation, goal and pain points, and recommends an entry point. | `.eng-team/profile.md`, `state.md`, `docs/onboarding-<date>.md` |
 | 1 | **discover** | Interview and pushback. Destructive requests are flagged as human-only hard stops. | `docs/brief.md`, open questions, assumptions |
 | 2 | **research** | Resolves packs (project → federation → plugin) and researches gaps with citations. | packs in use, `.eng-team/research/` |
 | 3 | **architect** | Options and trade-offs, devil's advocate, C4, ADRs, a security testing strategy, and a plan that always includes environment, security-tooling and DAST-readiness tasks. Reviewers check the design in `plan` mode. | `docs/architecture.md`, `docs/adr/`, `.eng-team/plan.md` |
@@ -385,6 +386,7 @@ All commands also work namespaced, e.g. `/eng-team:eng-init`.
 |---|---|---|
 | `/eng` | `[--autonomous\|--gated] [request]` | Full lifecycle from `current_phase` (runs init first if needed) |
 | `/eng-init` | `[--autonomous] [notes]` | Creates the profile and state; checks integrity if they exist |
+| `/eng-onboard` | `[--autonomous] [goal or context]` | Existing project in any state: scans code, docs and history, infers stage and lifecycle position, asks for your context, adopts existing evidence and recommends where to start |
 | `/eng-discover` · `/eng-research` · `/eng-architect` · `/eng-build` · `/eng-test` · `/eng-document` | `[--force "<reason>"] [--skip "<reason>"] [--autonomous\|--gated] [notes]` | Runs one phase |
 | `/eng-review` | `[plan\|review\|gate] [paths or diff range]` | Standalone review/audit; no setup; never changes lifecycle gates |
 | `/eng-security-audit` | `[auto\|static\|dast\|full] [--target <url>] [--fix] [paths]` | Tool-backed security audit of any repo; report + remediation plan in `docs/security/`; no setup; never changes lifecycle gates |
@@ -453,7 +455,7 @@ cd eng-team-plugin && claude plugin eval . --case <name> --runs 1 --model sonnet
   --no-publish --trust-plugin --scaffold --allow-tools Bash Write Edit   # one eval case
 ```
 
-CI runs both validator commands. The eval suite has 8 cases with planted issues (see `tests/evals/README.md`). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Last results: all 8 cases at 1.00, and the smoke test passed 19/19 (`tests/smoke/README.md`).
+CI runs both validator commands. The eval suite has 11 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Last results: all 11 cases at 1.00 (i-k on 2026-10-17), and the smoke test passed 19/19 (before audit was added to the test phase; not re-run) (`tests/smoke/README.md`).
 
 ### Limits
 

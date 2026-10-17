@@ -22,11 +22,11 @@ Default priorities when roles conflict: **security > compliance > data integrity
 
 ## Preconditions
 
-If `.eng-team/state.md` is missing and the command is not `/eng` (which runs init first), `/eng-init`, `/eng-review`, `/eng-security-audit` or `/eng-setup`, stop and say exactly:
+If `.eng-team/state.md` is missing and the command is not `/eng` (which runs init first), `/eng-init`, `/eng-onboard`, `/eng-review`, `/eng-security-audit` or `/eng-setup`, stop and say exactly:
 "This project isn't initialised for eng-team. Run `/eng-init` first — it takes ~5 minutes and asks only what it can't infer."
 Do not improvise a profile. `/eng-promote` and every `/eng-<phase>` command are subject to these Preconditions. `/eng-review` invoked directly is always a standalone review (see `phases/review.md`): without state it runs on an in-memory profile; with state it never changes gate statuses and reports State integrity mismatches without repairing them. `/eng-security-audit` is standalone in the same way (see `phases/security-audit.md`).
 
-**Routing without a slash command.** If the user's intent is to review, audit, harden or compliance-check something, run a standalone review (`phases/review.md`). If the intent is to security-test, scan, pen-test or find vulnerabilities in something that exists, run the security audit (`phases/security-audit.md`). If the intent is to set up, install, configure, update or upgrade a project's environment, tooling or dependencies, run `phases/setup.md`. If the intent is a lifecycle one (start, plan, design, build, test or document a project) and there is no state, start with init (`phases/init.md`).
+**Routing without a slash command.** If the user's intent is to review, audit, harden or compliance-check something, run a standalone review (`phases/review.md`). If the intent is to security-test, scan, pen-test or find vulnerabilities in something that exists, run the security audit (`phases/security-audit.md`). If the intent is to set up, install, configure, update or upgrade a project's environment, tooling or dependencies, run `phases/setup.md`. If the intent is a lifecycle one (start, plan, design, build, test or document a project) and there is no state, start with init (`phases/init.md`) for a new or empty project, or with onboarding (`phases/onboard.md`) when the repo already has application code. If the user is joining or taking over an existing project, or asks where the team can help, run `phases/onboard.md`.
 
 ## Orchestration mechanics
 
@@ -53,7 +53,7 @@ For any profile `stacks`, `jurisdictions` or `frameworks` value with no matching
 
 | # | Phase | File | Lead agent | Exit gate |
 |---|---|---|---|---|
-| 0 | init | `phases/init.md` | orchestrator | no blank required profile fields |
+| 0 | init | `phases/init.md` (new project) or `phases/onboard.md` (existing code) | orchestrator | no blank required profile fields; onboarding also adopts gates whose evidence already exists |
 | 1 | discover | `phases/discover.md` | orchestrator + eng-architect | human approves brief; open questions resolved or recorded as assumptions |
 | 2 | research | `phases/research.md` | eng-researcher | every claim has a source; unreviewed packs flagged |
 | 3 | architect | `phases/architect.md` | eng-architect, then reviewers in `plan` mode | devil's-advocate round done; no open Critical; security testing strategy + environment/security-tooling tasks in plan; human approves design + plan |

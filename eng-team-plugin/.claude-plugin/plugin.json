@@ -1,6 +1,6 @@
 {
   "name": "eng-team",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Full-lifecycle engineering team: interviews and challenges, researches with citations, architects (options, ADRs, C4), builds and tests behind gates or autonomously, documents, reviews for security and EU/other compliance, and runs tool-backed security audits (static + DAST) with remediation plans as part of the lifecycle and on a cadence, and sets up and updates project environments.",
   "author": {
     "name": "George Yakoub"
