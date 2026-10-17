@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { containsSecret } from './secrets.js';
 
 export const MAX_BYTES = 512 * 1024;
 export const MAX_FILES = 20000;
@@ -156,4 +157,26 @@ export function readText(abs) {
   } catch {
     return null;
   }
+}
+
+const secretLogged = new Set();
+
+/**
+ * Read an indexable file: like readText, but null too when the content holds a
+ * credential (see secrets.js). `.md` files get token rules only. Logs once per
+ * path, never the value.
+ * @param {string} abs
+ * @param {string} rel project-relative path (decides docs vs code, and the log line)
+ * @returns {string|null}
+ */
+export function readIndexable(abs, rel) {
+  const text = readText(abs);
+  if (text === null) return null;
+  const hit = containsSecret(text, { generic: !rel.endsWith('.md') });
+  if (!hit) return text;
+  if (!secretLogged.has(rel)) {
+    secretLogged.add(rel);
+    process.stderr.write(`eng-team-viewer: excluded ${rel} (possible secret: ${hit.rule})\n`);
+  }
+  return null;
 }

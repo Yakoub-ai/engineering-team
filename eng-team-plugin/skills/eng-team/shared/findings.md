@@ -30,7 +30,8 @@ An ADR with `Status: accepted (recovered)` records a past decision and its state
 
 ## Agent return markers
 Agents that write (builder, tester, tech-writer) end with `Status: DONE | BLOCKED | HARD-STOP`.
-Any agent that hits a hard stop returns a line `HARD-STOP: <reason>` — the orchestrator pauses regardless of autonomy.
+Reviewers, architect and researcher end with `Scope reviewed:` / `Scope:` (full table: Hand-off contract in `shared/orchestration.md`).
+Any agent that hits a hard stop, or whose tool call is denied with `eng-team guard:`, returns a line `HARD-STOP: <reason>` — the orchestrator pauses regardless of autonomy.
 
 ## Finding format
 

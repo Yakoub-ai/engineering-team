@@ -11,29 +11,19 @@ make_good() {
   mkdir -p "$d/.claude-plugin" "$d/agents" "$d/skills/eng-team/phases" \
            "$d/skills/eng-team/templates" "$d/skills/eng-team/stacks"
   echo '{"name":"eng-team","version":"2.0.0"}' > "$d/.claude-plugin/plugin.json"
-  cat > "$d/agents/eng-builder.md" <<'EOF'
----
-name: eng-builder
-description: "builder"
-tools: Read, Grep, Glob, Write, Edit, Bash
----
-body
-EOF
-  cat > "$d/agents/eng-architect.md" <<'EOF'
----
-name: eng-architect
-description: "architect"
-tools: Read, Grep, Glob
----
-body
-EOF
-  cat > "$d/skills/eng-team/SKILL.md" <<'EOF'
----
-name: eng-team
-description: orchestrator
----
-Run `phases/build.md`.
-EOF
+  mkdir -p "$d/skills/eng-team/roles" "$d/commands"
+  local a tools types=""
+  for a in researcher architect builder tester tech-writer security-engineer compliance-officer \
+           data-engineer platform-engineer sre qa-engineer integration-engineer ai-engineer product-engineer; do
+    tools="Read, Grep, Glob"
+    case "$a" in builder|tester) tools="Read, Grep, Glob, Write, Edit, Bash";; tech-writer) tools="Read, Grep, Glob, Write, Edit";; esac
+    printf -- '---\nname: eng-%s\ndescription: "%s"\ntools: %s\n---\nDenied by eng-team guard: do not retry; return HARD-STOP: <reason>.\n' \
+      "$a" "$a" "$tools" > "$d/agents/eng-$a.md"
+    printf -- '# %s\n**Mission:** x\n**Owns:** x\n## Method\nx\n## Output\nx\n' "$a" > "$d/skills/eng-team/roles/$a.md"
+    types="$types \`eng-team:eng-$a\`"
+  done
+  printf -- '---\ndescription: "build"\n---\nLoad skill eng-team:eng-team.\n' > "$d/commands/eng-build.md"
+  printf -- '---\nname: eng-team\ndescription: orchestrator\n---\nRun `phases/build.md`. Dispatch `eng-builder`, then command `eng-build`. Types:%s\n' "$types" > "$d/skills/eng-team/SKILL.md"
   cat > "$d/skills/eng-team/phases/build.md" <<'EOF'
 # Phase: build
 ## Purpose
@@ -107,6 +97,16 @@ expect_fail applies      "sed -i.bak 's/profile.stacks contains/profile.cloud co
 expect_fail packs        "sed -i.bak '/^review_by:/d' skills/eng-team/stacks/azure.md"
 expect_fail headings     "sed -i.bak '/^## Exit criteria/d' skills/eng-team/phases/build.md"
 expect_fail placeholders "echo 'TODO finish' >> skills/eng-team/SKILL.md"
+expect_fail handoffs     "sed -i.bak 's/^name: eng-sre/name: eng-srx/' agents/eng-sre.md"
+expect_fail handoffs     "rm skills/eng-team/roles/sre.md"
+expect_fail handoffs     "echo 'Use \`eng-team:eng-ghost\`.' >> skills/eng-team/SKILL.md"
+expect_fail handoffs     "echo 'Use \`eng-ghost\`.' >> skills/eng-team/SKILL.md"
+expect_fail handoffs     "sed -i.bak 's/eng-team:eng-sre//' skills/eng-team/SKILL.md"
+expect_fail handoffs     "echo 'else use a general-purpose agent' >> skills/eng-team/SKILL.md"
+expect_fail handoffs     "sed -i.bak 's/HARD-STOP/STOP/' agents/eng-sre.md"
+expect_fail handoffs     "sed -i.bak 's/eng-team guard/guard/' agents/eng-qa-engineer.md"
+expect_fail handoffs     "sed -i.bak 's/^tools: Read, Grep, Glob\$/tools: Read, Grep, Glob, Bash/' agents/eng-sre.md"
+expect_exit "handoffs passes on good plugin" 0 ":" --only handoffs
 expect_fail frontmatter  "printf 'no frontmatter\n' > agents/eng-broken.md"
 
 [ $fails -eq 0 ] && echo "ALL VALIDATOR TESTS PASSED" || { echo "$fails validator test(s) failed"; exit 1; }

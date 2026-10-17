@@ -4,6 +4,6 @@
   "private": true,
   "type": "module",
   "engines": { "node": ">=18" },
-  "optionalDependencies": { "@huggingface/transformers": "^3.0.0" },
+  "optionalDependencies": { "@huggingface/transformers": "3.8.1" },
   "scripts": { "test": "node --test test/*.test.js" }
 }

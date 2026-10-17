@@ -72,13 +72,41 @@ Fix tasks run through the normal build flow, including the gate-mode reviewer sp
 
 One row per loop in state.md → Loop counters, named `<source>→<target>`: the source is a phase (`test`) or a phase and plan task (`build:<task id>`); the target is a phase for a loop-back (`test→build`, `review→build`) or an agent for a re-dispatch inside a phase (`research→eng-researcher`, `architect→eng-architect`, `build:<task id>→eng-builder`, `test→eng-tester`, `document→eng-tech-writer`). Increment on each return, including a return the human chose (see Critical findings). At count 3, stop and escalate to the human in every mode.
 
+## Preflight (Claude Code)
+
+Before the first dispatch of a run, check your Agent tool's list of agent types for all 14 `eng-team:` types named in `SKILL.md` → Dispatching agents.
+- **Agent tool present, any `eng-team:` type missing → stop.** Tell the user exactly which types are missing and the fix: enable or reinstall the eng-team plugin with `/plugin`, then restart the session. Do not dispatch anything, and never substitute another agent type or do the role's work yourself.
+- **No Agent tool at all → sequential mode** (`SKILL.md` → Dispatching agents). This is the only case that runs roles in the main thread.
+- A dispatch that fails with an unknown agent type is the same as a missing type: stop and report it.
+Run the preflight once per run; repeat it after a restart.
+
+## Hand-off contract
+
+Applies to every dispatch, in every phase.
+
+**Dispatch prompt** contains: (1) the exact `subagent_type` (`eng-team:eng-<x>`); (2) absolute paths of the skill directory, the role file (`roles/<name>.md`), `shared/findings.md`, `.eng-team/profile.md`, `.eng-team/state.md`, the selected packs, and the templates and challenger files the phase names; (3) mode and scope (paths, plan task, or the absolute path of a diff file plus the changed-file list; reviewers have no Bash, so you produce diffs); (4) the required return shape below; (5) for reviewers, architect and researcher: "Do not modify files"; (6) "The `eng-team-context` MCP tools may be used when available; fall back to Read/Grep when not"; (7) "If a tool call is denied with `eng-team guard:`, do not retry; return `HARD-STOP: <reason>`".
+
+**Return shape** (the terminal line is mandatory):
+
+| Agent | Required content | Terminal line(s) |
+|---|---|---|
+| reviewers (9) | findings in the `shared/findings.md` format, or an explicit "No findings" | `Scope reviewed: <paths/patterns>` |
+| `eng-builder`, `eng-tester` | the Output section of the role file | `Status: DONE \| BLOCKED \| HARD-STOP`, then `Scope: <task id or coverage>` |
+| `eng-tech-writer` | the Output section of the role file | `Status: DONE \| BLOCKED`, then `Scope: <docs covered>` |
+| `eng-researcher` | the `### Pack:` / `### Note:` / `### Practices:` blocks the dispatch asked for, optional `### Findings` | `Scope: <what you covered>` |
+| `eng-architect` | the `### Option` / `### Recommendation` / `### ADR draft` / `### Plan` blocks the dispatch asked for, optional `### Findings` | `Scope: <what you covered>` |
+
+**Validate every return** before using it. A missing or malformed terminal line, a missing required block, or a `Status:` value outside the list is a malformed return: re-dispatch once with the exact error quoted, counting it in the Loop counters row for that dispatch. A second malformed return, or counter 3, escalates to the human. Never repair a return by guessing.
+
+**Stop signals.** A line starting `HARD-STOP:` (reason = text after the colon) or any `eng-team guard:` denial reported by an agent or shown by the Agent tool → Hard-stop procedure, with the guard's text as the reason. Do not retry the denied call, do not re-dispatch to work around it, and do not perform the denied action yourself unless it is in your own lane and the human agrees.
+
 ## Hard-stop procedure
 
 The single procedure for every hard stop: set the current gate to `failed`, add the Log line `- YYYY-MM-DD hard-stop <phase>: <reason>`, and ask the human how to proceed. The message to the human starts with the literal label `HARD STOP (<phase>): <reason>`, says what was not done, and lists the decision the human must make. It applies in every autonomy mode.
 
 **Resume.** After the human decides, set the gate to `in-progress` and continue, or keep it `failed`. Destructive or outside-repository actions are performed by the human, then the agent is re-dispatched.
 
-Triggers: the four hard stops in rule 7 of `SKILL.md`; any agent line starting `HARD-STOP:` (the reason is the text after the colon).
+Triggers: the four hard stops in rule 7 of `SKILL.md`; any agent line starting `HARD-STOP:` (the reason is the text after the colon); an `eng-team guard:` denial (Hand-off contract).
 
 ## Critical findings
 
