@@ -26,7 +26,7 @@ test('setupEmbedder refuses a symlinked models cache and logs to stderr', async 
   const orig = process.stderr.write;
   process.stderr.write = (chunk) => { logged.push(String(chunk)); return true; };
   try {
-    assert.equal(await setupEmbedder(dir), null);
+    assert.equal(await setupEmbedder(dir, { probe: async () => {} }), null);
   } finally {
     process.stderr.write = orig;
     cleanup(dir);

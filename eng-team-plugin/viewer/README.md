@@ -53,7 +53,7 @@ Without it, "related" links use TF-IDF cosine similarity (edges labelled `lexica
 npm install --prefix <plugin>/viewer @huggingface/transformers
 ```
 
-The model `Xenova/all-MiniLM-L6-v2` (about 25 MB) is downloaded once into `<project>/.eng-team/.cache/models/`. Pass `--no-semantic` to skip it. If the package or model is unavailable, the viewer silently falls back to lexical.
+The model `Xenova/all-MiniLM-L6-v2` (about 25 MB) is downloaded once into `<project>/.eng-team/.cache/models/`. Pass `--no-semantic` to skip it. If the package or model is unavailable, the viewer falls back to lexical (logged to stderr).
 
 ## Tests
 

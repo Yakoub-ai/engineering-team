@@ -69,16 +69,21 @@ const snippet = (s) => String(s ?? '').slice(0, SNIPPET_MAX);
 /**
  * Create the MCP handler for one project. The index is built or loaded on the
  * first tool call and refreshed incrementally afterwards.
- * @param {{projectDir: string, embedder?: object|null}} opts
+ * @param {{projectDir: string, embedder?: object|null, getEmbedder?: () => Promise<object|null>}} opts
+ *   `getEmbedder` creates the embedder lazily on the first tool call, so nothing is written to the project before then
  * @returns {{handle: (msg: object) => Promise<object|null>, run: (input?: NodeJS.ReadableStream, output?: NodeJS.WritableStream) => Promise<void>}}
  */
-export function createMcp({ projectDir, embedder = null }) {
+export function createMcp({ projectDir, embedder = null, getEmbedder = null }) {
   const root = fs.realpathSync(path.resolve(projectDir));
   let index = null;
   let refreshedAt = 0;
   let chain = Promise.resolve();
 
   async function currentIndex() {
+    if (getEmbedder) {
+      embedder = await getEmbedder();
+      getEmbedder = null;
+    }
     if (index && Date.now() - refreshedAt < REFRESH_MS) return index;
     try {
       index = await updateIndex(root, { embedder });
@@ -126,15 +131,14 @@ export function createMcp({ projectDir, embedder = null }) {
     if (!/^[A-Za-z0-9][A-Za-z0-9._\/~^@-]*$/.test(commit)) throw new ToolError('commit must be a commit, tag or branch name');
     let out;
     try {
-      out = execFileSync('git', ['diff', '--name-status', `${commit}..HEAD`, '--'], {
+      out = execFileSync('git', ['-c', 'core.quotePath=false', 'diff', '--name-status', '-z', `${commit}..HEAD`, '--'], {
         cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 8 * 1024 * 1024,
       });
     } catch {
       throw new ToolError(`git diff failed: git is unavailable, this is not a git repository, or ${commit} is unknown`);
     }
     const idx = await currentIndex();
-    const changes = out.split('\n').filter(Boolean).map((line) => {
-      const [status, ...paths] = line.split('\t');
+    const changes = parseNameStatusZ(out).map(({ status, paths }) => {
       const file = paths[paths.length - 1];
       const nodes = idx.nodes.filter((n) => n.path === file).map((n) => ({ id: n.id, kind: n.kind, title: n.title }));
       return { status, path: file, ...(paths.length > 1 ? { from: paths[0] } : {}), nodes };
@@ -195,13 +199,10 @@ export function createMcp({ projectDir, embedder = null }) {
    * @returns {Promise<object|null>} the response, or null for notifications
    */
   async function handle(msg) {
-    const isNotification = !msg || typeof msg !== 'object' || msg.id === undefined || msg.id === null;
     if (!msg || typeof msg !== 'object' || msg.jsonrpc !== '2.0' || typeof msg.method !== 'string') {
-      return isNotification && msg?.id === undefined ? null : rpcError(msg?.id ?? null, -32600, 'invalid request');
+      return rpcError(msg?.id ?? null, -32600, 'invalid request');
     }
-    if (isNotification) {
-      return null;
-    }
+    if (msg.id === undefined || msg.id === null) return null;
     try {
       return { jsonrpc: '2.0', id: msg.id, result: await dispatch(msg) };
     } catch (err) {
@@ -228,7 +229,12 @@ export function createMcp({ projectDir, embedder = null }) {
           return write(rpcError(null, -32700, 'parse error'));
         }
         const batch = Array.isArray(msg);
-        const replies = (await Promise.all((batch ? msg : [msg]).map(handle))).filter(Boolean);
+        if (batch && !msg.length) return write(rpcError(null, -32600, 'invalid request'));
+        const replies = [];
+        for (const m of batch ? msg : [msg]) {
+          const r = await handle(m);
+          if (r) replies.push(r);
+        }
         if (batch) {
           if (replies.length) write(replies);
         } else if (replies.length) {
@@ -240,6 +246,19 @@ export function createMcp({ projectDir, embedder = null }) {
   }
 
   return { handle, run };
+}
+
+/** Parse `git diff --name-status -z` output into {status, paths} entries. */
+function parseNameStatusZ(out) {
+  const tokens = out.split('\0');
+  const entries = [];
+  for (let i = 0; i < tokens.length && tokens[i]; ) {
+    const status = tokens[i++];
+    const count = /^[RC]/.test(status) ? 2 : 1;
+    entries.push({ status, paths: tokens.slice(i, i + count) });
+    i += count;
+  }
+  return entries;
 }
 
 function rpcError(id, code, message) {

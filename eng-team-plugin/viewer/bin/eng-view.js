@@ -32,16 +32,19 @@ async function main() {
     process.exit(2);
   }
   const projectDir = resolveProjectDir(opts.project);
-  const embedder = await setupEmbedder(projectDir, { semantic: opts.semantic });
+  const getEmbedder = () => setupEmbedder(projectDir, { semantic: opts.semantic });
 
+  if (opts.command === 'mcp') {
+    await createMcp({ projectDir, getEmbedder }).run();
+    return;
+  }
+  const embedder = await getEmbedder();
   if (opts.command === 'index') {
     const index = await updateIndex(projectDir, { embedder });
     process.stdout.write(`eng-view: indexed ${index.nodes.length} nodes, ${index.edges.length} edges (${index.semantic})\n`);
   } else if (opts.command === 'serve') {
     const { url } = await start({ projectDir, port: opts.port, embedder });
     process.stdout.write(`eng-view: ${url}\n`);
-  } else {
-    await createMcp({ projectDir, embedder }).run();
   }
 }
 

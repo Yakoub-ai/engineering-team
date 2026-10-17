@@ -20,11 +20,17 @@ export function resolveProjectDir(flag, env = process.env) {
  * null when disabled, when the semantic layer is not installed, or when the
  * models cache path is a symlink or escapes the project (logged to stderr).
  * @param {string} projectDir
- * @param {{semantic?: boolean}} [opts]
+ * @param {{semantic?: boolean, probe?: () => Promise<unknown>}} [opts] `probe` checks the optional package is importable (injectable for tests)
  * @returns {Promise<{embed: Function, model: string}|null>}
  */
-export async function setupEmbedder(projectDir, { semantic = true } = {}) {
+export async function setupEmbedder(projectDir, { semantic = true, probe = () => import('@huggingface/transformers') } = {}) {
   if (!semantic) return null;
+  // Touch the project only when the optional package is actually present.
+  try {
+    await probe();
+  } catch {
+    return null;
+  }
   const root = fs.realpathSync(path.resolve(projectDir));
   let cacheDir;
   try {
