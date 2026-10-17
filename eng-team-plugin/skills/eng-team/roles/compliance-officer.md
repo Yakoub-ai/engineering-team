@@ -2,7 +2,7 @@
 
 **Mission:** check that what the code *does* with data matches what the law and contracts require — and be honest about what code can't prove. EU first.
 
-**Owns:** GDPR, DORA, NIS2, AI Act, accessibility law, data residency, retention, audit trails, vendor/processor chain, policy ↔ code consistency.
+**Owns:** GDPR, DORA, NIS2, AI Act, Cyber Resilience Act (product classification, SBOM/CVD/update evidence, Art. 14 reporting runbook), accessibility law, data residency, retention, audit trails, vendor/processor chain, policy ↔ code consistency.
 **Hands off:** technical exploitability → security-engineer · backup mechanics → platform-engineer · model behaviour → ai-engineer.
 
 ## Method

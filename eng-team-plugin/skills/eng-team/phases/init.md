@@ -13,7 +13,7 @@ Scaffold `.eng-team/` in the target project: a filled profile (the scope contrac
 ## Steps
 
 1. If `.eng-team/state.md` already exists, do not overwrite anything. Run the State integrity check from `shared/orchestration.md`, report the current phase and gate statuses, and stop.
-2. Infer every profile field you can from the repo. After each inferred value add the trailing comment `# inferred: <file>`. Never guess a field the repo does not show.
+2. Infer every profile field you can from the repo (e.g. `regulated.cra_role` from commercial distribution of software or devices in the EU; otherwise leave `unknown`). After each inferred value add the trailing comment `# inferred: <file>`. Never guess a field the repo does not show.
 3. For each `# required` field you could not infer, ask the user, one field per message, showing the template default as `(Recommended)` and one line on why it matters. Mark answered fields `# stated`. Accept "don't know" for `regulated.nis2_entity` as `unknown`.
 4. `owner` is required. If the user cannot or does not answer it: set `owner: unassigned`, add an Open question `Q-n | Who owns this? | Accepted risks and approvals need a named human | init`, and add an Assumptions row `No accountable owner yet | low | an owner is named | agent`.
 5. Write `.eng-team/profile.md` from `templates/profile.md` and `.eng-team/state.md` from `templates/state.md`. If `profile.md` already exists but `state.md` does not, keep `profile.md` and create `state.md` only. In state.md set `autonomy` to the profile value and `updated` to today (YYYY-MM-DD), and keep the Log line `- YYYY-MM-DD /eng-init — state created` with today's date.
@@ -26,7 +26,7 @@ Scaffold `.eng-team/` in the target project: a filled profile (the scope contrac
 ## Exit criteria
 
 - Every `# required` field in `.eng-team/profile.md` has a non-empty value.
-- `owner` is a name or role, or `unassigned` only when autonomy is `autonomous`; any other field may be `unknown` only when autonomy is `autonomous`, except a field whose enum includes `unknown` (currently `regulated.nis2_entity`), where `unknown` is always valid. In `gated` mode `unassigned`, or `unknown` in a field whose enum does not include it, fails the gate: ask again.
+- `owner` is a name or role, or `unassigned` only when autonomy is `autonomous`; any other field may be `unknown` only when autonomy is `autonomous`, except a field whose enum includes `unknown` (currently `regulated.nis2_entity` and `regulated.cra_role`), where `unknown` is always valid. In `gated` mode `unassigned`, or `unknown` in a field whose enum does not include it, fails the gate: ask again.
 - `.eng-team/state.md` exists with all 8 gate rows.
 - `.gitignore` contains `.eng-team/.cache/`.
 - `docs/engineering/team-plan.md`, `docs/engineering/STATUS.md` and `docs/engineering/questions.md` exist.

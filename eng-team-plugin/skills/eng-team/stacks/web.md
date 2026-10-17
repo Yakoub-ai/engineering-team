@@ -4,14 +4,14 @@ kind: stack
 status: reviewed
 tier: plugin
 sources:
-  - title: OWASP ASVS
+  - title: OWASP ASVS 5.0.0
     url: https://owasp.org/www-project-application-security-verification-standard/
-    accessed: 2026-10-15
-  - title: OWASP Top 10
-    url: https://owasp.org/www-project-top-ten/
-    accessed: 2026-10-15
+    accessed: 2026-10-17
+  - title: OWASP Top 10:2025
+    url: https://top10.owasp.org/2025
+    accessed: 2026-10-17
 reviewed_by: George Yakoub
-review_by: 2027-04-15
+review_by: 2027-04-17
 applies_when: profile.stacks contains "web" OR profile.has_ui == "yes" OR profile.type == "api-platform"
 ---
 # Stack pack: Generic web app (any framework)

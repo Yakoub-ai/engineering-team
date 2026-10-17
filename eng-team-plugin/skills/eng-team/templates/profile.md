@@ -20,6 +20,7 @@ regulated:
   nis2_entity: unknown         # required — yes | no | unknown
   ai_act_role: none            # required — none | provider | deployer
   ai_high_risk_use: no         # optional — yes | no
+  cra_role: unknown            # optional — manufacturer | importer | distributor | open_source_steward | none | unknown → Cyber Resilience Act (commercial software/devices with a data connection sold in the EU)
 residency: eu-only             # required — eu-only | eea | global | contract-specific
 payments: none                 # optional — none | via-psp | stores-card-data
 ai_usage: none                 # optional — none | llm-api | self-hosted-model | ml-predictions
