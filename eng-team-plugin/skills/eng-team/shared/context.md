@@ -6,6 +6,7 @@ The lead builds a shared picture of the project before it acts, and tells the hu
 
 - At the start of every command, after Preconditions and before State integrity (`shared/orchestration.md`).
 - At the end of every phase, to refresh the snapshot.
+- When `.eng-team/` does not exist (standalone `/eng-review`, `/eng-security-audit` or `/eng-setup` without init), build the snapshot in memory, show the What I know block, write nothing, and skip the CLAUDE.md integration.
 
 ## Source order
 
@@ -53,5 +54,5 @@ Contents of the block, 5-10 lines: a one-line purpose, the stage, the stack, whe
 
 Rules:
 - **No `CLAUDE.md` yet:** write one containing the block. Do this after init or onboard.
-- **`CLAUDE.md` exists without the markers:** show a proposed merge diff that adds the block, keeping the user's wording. Apply it only after the human approves. In autonomous mode, do not apply it: write the proposal to `docs/engineering/questions.md` as an open item instead.
+- **`CLAUDE.md` exists without the markers, or with only one of the two (unpaired):** treat it as having no markers. Show a proposed merge diff that adds the block, keeping the user's wording. Apply it only after the human approves. In autonomous mode, do not apply it: write the proposal to `docs/engineering/questions.md` as an open item instead.
 - **`CLAUDE.md` exists with the markers:** later updates change only the text between the markers. Never touch anything outside them.

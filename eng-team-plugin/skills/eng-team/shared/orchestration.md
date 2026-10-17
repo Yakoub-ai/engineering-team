@@ -7,7 +7,7 @@ Loaded by `SKILL.md`. These are the orchestrator's own procedures for state, ent
 Runs on every start when `.eng-team/state.md` exists (skip it when there is no state). List every mismatch to the user, then repair (except in a standalone `/eng-review`: report mismatches only, never repair):
 1. **Artifacts.** For each gate with status `passed`, check that its Evidence artifact exists. If it is missing, the repair is: set that gate to `open` and log `- YYYY-MM-DD state-repair: <phase> artifact missing`.
 2. **Phase.** The expected phase is the first phase, in Phases-table order, whose gate is not `passed`, `skipped` or `forced` (if none, the project is complete and `current_phase` should be `review`). If `current_phase` differs, the repair is: set `current_phase` to the expected phase and log `- YYYY-MM-DD state-repair: current_phase <old> → <new>`.
-3. **Layout.** If any old-layout path exists (`docs/brief.md`, `docs/adr/`, `.eng-team/plan.md`, `docs/onboarding-*.md`), list them and propose one `git mv` batch to the new paths (`docs/engineering/product/brief.md`, `docs/engineering/decisions/`, `docs/engineering/plans/plan.md`, `docs/engineering/onboarding-<date>.md`). In `gated`, apply it after approval; in `autonomous`, apply it directly; never in a standalone `/eng-review`. Then update Evidence paths in state.md and log `- YYYY-MM-DD state-repair: layout migrated to docs/engineering/`. Until migrated, readers accept both old and new paths.
+3. **Layout.** Not run during onboarding (`phases/onboard.md` never moves user files). If any old-layout path exists (`docs/brief.md`, `docs/adr/`, `.eng-team/plan.md`, `docs/onboarding-*.md`), list them and propose one `git mv` batch to the new paths (`docs/engineering/product/brief.md`, `docs/engineering/decisions/`, `docs/engineering/plans/plan.md`, `docs/engineering/onboarding-<date>.md`). In `gated`, apply it after approval; in `autonomous`, apply it directly; never in a standalone `/eng-review`. Then update Evidence paths in state.md and log `- YYYY-MM-DD state-repair: layout migrated to docs/engineering/`. Until migrated, readers accept both old and new paths.
 - Standalone `/eng-review`: report mismatches only; do not modify state.md, apart from the `adhoc-review:` Log line.
 - `gated`: ask the human before each repair and apply what they choose.
 - `autonomous`: apply the repairs and log them.
@@ -31,6 +31,8 @@ When every exit criterion except the handover and STATUS line passes, and before
 2. Rewrite `docs/engineering/STATUS.md` from `templates/status.md` (rewrite, never append).
 3. Update the phase statuses in `docs/engineering/team-plan.md`.
 (All three show this phase as passed.) Then verify the handover and STATUS criterion. If it fails, the gate stays `in-progress`: fix the files and check again. If it holds, set the gate to `passed` (with evidence, approver, date), advance `current_phase`, and refresh the context snapshot (`shared/context.md`).
+
+When a re-opened phase passes again, overwrite `docs/engineering/handovers/NN-<phase>.md` and add a `## Revisions` line with the date and the reason, keeping the old Done section summary in one line.
 
 Standalone commands (audit, setup, review) write a handover only when they change project direction.
 

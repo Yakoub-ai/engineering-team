@@ -18,7 +18,7 @@ Implement the approved plan one task at a time, each verified by you and spot-ch
 5. A High finding goes back to `eng-builder` with the finding (same Loop counter). At count 3, escalate to the human. A Critical finding (after the severity cap) never loops automatically: set the gate to `failed`, log it, and ask the human in every mode to choose fix (re-dispatch the builder) or accept the risk as a named human in state.md Accepted risks.
 6. Mark the task done in `docs/engineering/plans/plan.md` with the date and the acceptance-check result.
 7. Commits: in gated mode, ask once per project "May I commit after each task?" and record the answer in the Log. If allowed, commit the task's files with a message naming the task. Never push, open PRs or change remotes; commits are local.
-8. Repeat from step 1 until all tasks are done; then set the gate to `passed` (Evidence: `docs/engineering/plans/plan.md`) and `current_phase: test`.
+8. Repeat from step 1 until all tasks are done; then set the gate to `passed` via Running a phase in `shared/orchestration.md` (handover, STATUS, team plan first) (Evidence: `docs/engineering/plans/plan.md`) and `current_phase: test`.
 
 ## Exit criteria
 

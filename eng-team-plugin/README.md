@@ -469,7 +469,7 @@ cd eng-team-plugin && claude plugin eval . --case <name> --runs 1 --model sonnet
   --no-publish --trust-plugin --scaffold --allow-tools Bash Write Edit   # one eval case
 ```
 
-CI runs both validator commands. The eval suite has 11 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Last results: all 11 cases at 1.00 (i-k on 2026-10-17), and the smoke test passed 19/19 (before audit was added to the test phase; not re-run) (`tests/smoke/README.md`).
+CI runs both validator commands. The eval suite has 12 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Last results: cases a-k at 1.00 (i-k on 2026-10-17), and the smoke test passed 19/19 (before audit was added to the test phase; not re-run) (`tests/smoke/README.md`).
 
 ### Limits
 

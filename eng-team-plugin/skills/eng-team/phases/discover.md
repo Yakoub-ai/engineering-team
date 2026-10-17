@@ -22,16 +22,16 @@ Understand the product and the problem before anyone designs a solution. Produce
 6. Scan the request, product.md and brief for destructive or outside-repository operations (deleting data or cloud resources, production deploys, changing other systems). For each, follow the Hard-stop procedure now — in every autonomy mode, after step 5 so the human decides with the recorded context — and keep it out of the plan as a human-only step.
 7. Write `docs/engineering/product/brief.md` from `templates/brief.md`, derived from product.md: all five sections (Problem, Proposed solution, Cost and risk, Decisions needed, Status), `Audience:` line, and `Last verified against:` set to `git rev-parse --short HEAD` (or `no-commits` in a repo without commits). Cite the use cases it covers by their UC IDs from product.md. Keep it within about 60 lines.
 8. Run the Gap review first (`shared/orchestration.md`). Then show the brief and the team plan (`docs/engineering/team-plan.md`) and ask: "Approve this brief and the team plan, or tell me what to change." Apply changes and ask again until approved.
-9. Record the approval in the Gates table (Approved by: the human's name, Date), set the gate to `passed` with Evidence `docs/engineering/product/brief.md`, and set `current_phase: research`.
+9. Record the approval in the Gates table (Approved by: the human's name, Date), set the gate to `passed` via Running a phase in `shared/orchestration.md` (handover, STATUS, team plan first) with Evidence `docs/engineering/product/brief.md`, and set `current_phase: research`.
 
 ## Exit criteria
 
-- `docs/engineering/product/product.md` exists, starts with `Audience:` and `Last verified against:`, and has at least 3 use cases, at least one persona, at least one numeric success metric, and non-goals.
-- `docs/engineering/product/brief.md` exists, starts with `Audience:` and `Last verified against:`, has all five sections, each with content, and cites UC IDs from product.md.
+- `docs/engineering/product/product.md` exists, starts with `Audience:` and `Last verified against:`, and has at least 3 use cases, at least one persona, at least one numeric success metric, and non-goals (or each gap is recorded as an Assumption or `docs/engineering/questions.md` item when the human does not know).
+- `docs/engineering/product/brief.md` exists, starts with `Audience:` and `Last verified against:`, has all five sections, each with content, and cites UC IDs from product.md (or each gap is recorded as an Assumption or `docs/engineering/questions.md` item when the human does not know).
 - Every row in state.md Open questions asked in this phase is either answered (and the row moved to a profile field, a product or brief section or an Assumptions row) or recorded as an Assumptions row. Exception: in autonomous mode, "Who owns this?" may stay open while `owner: unassigned`.
 - Gated: a human name and date are recorded as the approver of the discover gate, covering the brief and the team plan.
 - The handover `docs/engineering/handovers/01-discover.md` exists and STATUS.md is current.
 
 ## Autonomous mode
 
-Do not ask questions. Skip brainstorming unless the request has no discernible product; then pick per `challenger/brainstorm.md`. Each unanswered question in product discovery and the interview becomes an Assumptions row with the conservative default and `Source: agent`. Skip step 8; record `Approved by: agent`. The brief's `Decisions needed` section lists the assumptions a human should confirm later.
+Do not ask questions. Skip brainstorming unless the request has no discernible product; then pick per `challenger/brainstorm.md`. Each unanswered question in product discovery and the interview becomes an Assumptions row with the conservative default and `Source: agent`. Skip the approval question in step 8 but still run the Gap review silently: record open items as Assumptions, mirror them into `docs/engineering/questions.md` and update the STATUS open-question count. Record `Approved by: agent`. The brief's `Decisions needed` section lists the assumptions a human should confirm later.

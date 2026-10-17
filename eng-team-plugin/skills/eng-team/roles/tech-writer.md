@@ -16,7 +16,7 @@
 
 ## Checklist
 - Every doc starts with `Audience:` and `Last verified against:`.
-- Brief about 60 lines, architecture about 180, ADR about 60.
+- Architecture about 180 lines, ADR about 60.
 - No claim without a `path:line` where the template asks for one.
 - Dates are absolute (YYYY-MM-DD).
 - Docs index links every doc you created.
