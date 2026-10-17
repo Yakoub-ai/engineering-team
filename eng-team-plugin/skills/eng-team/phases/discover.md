@@ -13,7 +13,7 @@ Understand the problem before anyone designs a solution. Produce `docs/engineeri
 
 ## Steps
 
-1. If the repository has code, dispatch `eng-architect` with `roles/architect.md` and the scope "context scan only: current architecture, stacks, data stores, integrations, and contradictions with the profile; no options, no plan". Use its output to skip questions the repo already answers.
+1. Start from the context engine's output (`shared/context.md`, snapshot `.eng-team/context.md`). If the repository has code and the snapshot does not cover an area the brief needs, dispatch `eng-architect` with `roles/architect.md` and the scope "context scan only, for these areas: <uncovered areas>: current architecture, stacks, data stores, integrations, and contradictions with the profile; no options, no plan". Do not dispatch it for areas the snapshot already holds. Use the snapshot and the scan to skip questions the repo already answers.
 2. Run the interview from `challenger/interview.md` yourself in the main thread (agents cannot talk to the user). One question per message, with `Why it matters:` and a `(Recommended)` default. Skip anything the profile or the scan answers, and say what you inferred and from which file.
 3. Apply the pushback triggers: vague qualities → ask for a number; a solution instead of a problem → ask what it is for; no owner → ask who is responsible; a contradiction → name it. One follow-up per trigger.
 4. Update `.eng-team/profile.md` with fields learned (mark `# stated`), and add rows to state.md Open questions and Assumptions (in autonomous mode, every interview answer you defaulted is an Assumption with `Source: agent`).

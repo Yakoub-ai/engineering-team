@@ -40,6 +40,10 @@ Read `shared/orchestration.md` before acting on state. It defines:
 - **Continuous security testing** — where audits happen in the lifecycle, cadence, triggers and the due check.
 - **Environment and tooling** — the team sets up, automates and updates environments; machine-level installs are asked once, then done.
 
+## Context
+
+Read `shared/context.md` at the start of every command, after Preconditions and before State integrity, and again at the end of every phase. It builds and refreshes the context snapshot `.eng-team/context.md`, shows the human a short "What I know" block, and keeps the marked eng-team block in `CLAUDE.md` current.
+
 ## Standards loading
 
 If `profile.standards` is set, resolve it once per run: a local path is used as-is; a git URL is cloned with `git clone --depth 1 <url> .eng-team/.cache/standards/` (that folder is gitignored). This clone is a read-only fetch and is exempt from hard stop 7(d), like other read-only research fetches; in gated mode, ask once before the first clone of a URL. If the path does not exist or the clone fails, warn once — "Federation standards at <x> unreachable — continuing with plugin packs only" — add the Log line `- YYYY-MM-DD standards-unavailable: <x>`, and continue. The Packs in use table then shows only tiers `plugin` and `project`. Never claim federation packs were loaded when they were not.
