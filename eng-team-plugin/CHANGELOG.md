@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.0 — 2026-10-17
+
+### Added
+- Process track (`shared/track.md`, `profile.track: auto | lean | full`). Tiny, low-risk projects (prototype, low criticality, no personal/regulated data, payments or AI, one component) run a lean track: same 8 gates, hard stops and evidence rules, but each phase does the minimum that proves its exit criteria (short product/brief, curated packs only, one option + one ADR, static audit only, three docs, two reviewers, short handovers). Resolved automatically with the reason recorded; auto-upgrades to `full` when the profile changes; never auto-downgrades.
+- Efficiency rules for all tracks: read each skill file once per run, batch writes, reuse the context snapshot.
+- Smoke test: 4 v3 checks (lean track, STATUS, team plan, handovers) and run timing. Result: 23/23 in 313 s.
+
 ## 3.0.0 — 2026-10-17
 
 ### Added

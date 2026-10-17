@@ -9,14 +9,16 @@ eng-team-plugin/tests/smoke/run-smoke.sh            # fresh temp dir
 eng-team-plugin/tests/smoke/run-smoke.sh /some/dir  # keep the output somewhere specific
 ```
 
-## What it checks (19 checks)
+## What it checks (23 checks)
 - `.eng-team/profile.md` and `.eng-team/state.md` exist, and all 8 gates are `passed`, `skipped` or `forced`.
 - Docs are written: `docs/engineering/product/brief.md`, `docs/architecture.md`, at least one `docs/engineering/decisions/*.md`, `docs/testing.md` and `docs/reviews/*.md`. Each starts with an `Audience:` line.
+- v3: `track: lean` was resolved, and `docs/engineering/STATUS.md`, `team-plan.md` and at least 7 handovers exist.
 - The generated converter exists, `node --test` passes, and `100 C` converts to `212`.
 
 ## Last result
 | Date | Commit | Model | Result |
 |---|---|---|---|
+| 2026-10-17 | v3.1.0 | sonnet | 23/23 passed in 313 s on the lean track (under the $3 cap) |
 | 2026-10-17 | 575a512 | sonnet | 19/19 passed |
 
 Observed behaviour in that run:

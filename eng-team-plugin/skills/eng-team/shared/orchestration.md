@@ -13,7 +13,7 @@ Runs on every start when `.eng-team/state.md` exists (skip it when there is no s
 - `autonomous`: apply the repairs and log them.
 Never delete rows from state.md; change statuses and append Log lines only.
 
-After the integrity check, run the **due check** (report only, never a repair): if the last state.md Security audits row's `Next due` date has passed, if a lockfile or IaC file changed since that row's commit, or if `profile.stage` changed since then, tell the user "Security re-audit due: <reason>" and offer `/eng-security-audit`. Also list environment drift found by `phases/setup.md` → check (missing or outdated tools, setup that no longer works) and offer `/eng-setup update`.
+After the integrity check, re-check the lean-track conditions in `shared/track.md` and auto-upgrade to `full` when one no longer holds. Then run the **due check** (report only, never a repair): if the last state.md Security audits row's `Next due` date has passed, if a lockfile or IaC file changed since that row's commit, or if `profile.stage` changed since then, tell the user "Security re-audit due: <reason>" and offer `/eng-security-audit`. Also list environment drift found by `phases/setup.md` → check (missing or outdated tools, setup that no longer works) and offer `/eng-setup update`.
 
 ## Entry
 
@@ -24,7 +24,7 @@ After the integrity check, run the **due check** (report only, never a repair): 
 
 ## Running a phase
 
-Before starting, post a **Next up** note of at most 5 lines: the phase, the agents, what they will do, what you will be asked, and the outputs. Set its gate to `in-progress`, follow its file, then check every exit criterion yourself. Never trust an agent's "done". Any fail → `failed`.
+Apply the process track from `shared/track.md` (`profile.track`): on the lean track its per-phase rules override the phase file where they conflict. Before starting, post a **Next up** note of at most 5 lines: the phase, the agents, what they will do, what you will be asked, and the outputs. Set its gate to `in-progress`, follow its file, then check every exit criterion yourself. Never trust an agent's "done". Any fail → `failed`.
 
 When every exit criterion except the handover and STATUS line passes, and before setting the gate to `passed`, in this order:
 1. Write `docs/engineering/handovers/NN-<phase>.md` from `templates/handover.md` (NN is the phase number, 2 digits: init 00 … review 07; onboarding writes 00).
