@@ -280,7 +280,8 @@ function semanticEdges(nodes, explicit) {
 
 /* ---------- build ---------- */
 
-async function build(root, previous, force, embedder = null) {
+async function build(root, previous, force, embedder = null, keepEmbeddings = false) {
+  const keepVecs = keepEmbeddings && !embedder && previous?.semantic === 'embeddings';
   const prevFiles = previous?.version === INDEX_VERSION ? previous.files : {};
   const prevNodes = groupByPath(previous?.version === INDEX_VERSION ? previous.nodes : []);
   const vecsStale = Boolean(embedder) && previous?.model !== embedder.model;
@@ -315,7 +316,7 @@ async function build(root, previous, force, embedder = null) {
     nodes.push(...parsed.nodes);
     read.push(entry.path);
   }
-  const embedded = Boolean(embedder) && await embedNodes(nodes, embedder);
+  const embedded = keepVecs || (Boolean(embedder) && await embedNodes(nodes, embedder));
   for (const n of nodes) {
     delete n._text;
     if (!embedded) delete n.vec;
@@ -332,7 +333,7 @@ async function build(root, previous, force, embedder = null) {
     edges,
     files,
     semantic: embedded ? 'embeddings' : 'lexical',
-    ...(embedded ? { model: embedder.model } : {}),
+    ...(embedded ? { model: embedder ? embedder.model : previous.model } : {}),
     lastUpdate: { read, reused },
   };
 }
@@ -477,11 +478,13 @@ export async function updateIndex(projectDir, { embedder = null } = {}) {
  * @param {string} projectDir
  * @param {object} index index to mutate
  * @param {string} relPath project-relative posix path
- * @param {{embedder?: object|null}} [opts]
+ * @param {{embedder?: object|null}} [opts] without an embedder, an embeddings index
+ *   keeps its vectors and label; the re-read file's nodes just have no vector until
+ *   the next embedder-backed update
  * @returns {Promise<object>} the same index object
  */
 export async function reindexFile(projectDir, index, relPath, { embedder = null } = {}) {
-  const next = await build(path.resolve(projectDir), index, new Set([relPath]), embedder);
+  const next = await build(path.resolve(projectDir), index, new Set([relPath]), embedder, true);
   Object.assign(index, next);
   delete index._tfidf;
   return index;

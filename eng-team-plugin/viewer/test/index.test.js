@@ -265,3 +265,24 @@ test('index from another project or with a bad shape is ignored', async () => {
     cleanup(dir);
   }
 });
+
+test('reindexFile without an embedder keeps existing vectors and the embeddings label', async () => {
+  const dir = copyFixture();
+  try {
+    const embedder = {
+      model: 'fake-model',
+      embed: async (texts) => texts.map((t) => [t.length % 7 + 1, 1, 0.5]),
+    };
+    const idx = await buildIndex(dir, { embedder });
+    assert.equal(idx.semantic, 'embeddings');
+    fs.writeFileSync(path.join(dir, 'docs/guide.md'), '# Guide\n\nNow about the narwhalword.\n');
+    await reindexFile(dir, idx, 'docs/guide.md');
+    assert.equal(idx.semantic, 'embeddings');
+    assert.equal(idx.model, 'fake-model');
+    assert.ok(Array.isArray(node(idx, 'src/a.js').vec), 'unchanged node keeps its vector');
+    assert.equal(node(idx, 'docs/guide.md').vec, undefined, 're-read node has no vector until the next embedder-backed update');
+    assert.equal((await search(idx, 'narwhalword'))[0].node.id, 'docs/guide.md');
+  } finally {
+    cleanup(dir);
+  }
+});
