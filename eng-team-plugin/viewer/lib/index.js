@@ -359,11 +359,14 @@ function warn(msg) {
 }
 
 /**
- * Check every component of the cache dir is a real directory inside the
- * project root (no symlinks). Optionally creates missing components.
+ * Check every component of a cache dir under the project is a real directory
+ * inside the project root (no symlinks). Optionally creates missing components.
+ * @param {string} root project root
+ * @param {boolean} create create missing components
+ * @param {string[]} [parts] path components below root (default: the index cache)
  * @returns {string|null} cache dir, or null when missing/unsafe
  */
-function safeCacheDir(root, create) {
+export function safeCacheDir(root, create, parts = CACHE_PARTS) {
   let realRoot;
   try {
     realRoot = fs.realpathSync(root);
@@ -371,7 +374,7 @@ function safeCacheDir(root, create) {
     return null;
   }
   let cur = root;
-  for (const part of CACHE_PARTS) {
+  for (const part of parts) {
     cur = path.join(cur, part);
     let st = null;
     try {
