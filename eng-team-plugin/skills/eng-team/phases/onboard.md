@@ -33,6 +33,7 @@ This replaces init for existing codebases. `/eng` runs it instead of `phases/ini
    - Otherwise → the first gate that is not adopted.
 11. **Write profile and state.** Write `.eng-team/profile.md` (inferred fields marked `# inferred: <file>`, answers `# stated`) and `.eng-team/state.md`. For each gate the human confirms as `adopt`, set it to `passed` with Evidence `adopted: <path>` and Approved by the human's name (gated) or `agent` (autonomous). Gates marked `partial` or `missing` stay `open`. Adopt the architect gate only if recovered or existing ADRs plus an architecture description (`docs/architecture.md` or equivalent) exist. Set `current_phase` to the recommended entry phase if it is a lifecycle phase, or else to the first open gate. Add the Log line `- YYYY-MM-DD onboard: stage <stage>, adopted <phases>, entry <recommendation>` and the `.eng-team/.cache/` line to `.gitignore` as in `phases/init.md` step 6. Run State integrity from `shared/orchestration.md` once to confirm every adopted Evidence path exists.
 12. **Snapshot and CLAUDE.md.** Write `.eng-team/context.md` from `templates/context.md` with the scan results (`Scope: full`), then apply the CLAUDE.md integration from `shared/context.md`: write `CLAUDE.md` if missing, otherwise show the proposed merge diff and apply it only after approval (autonomous mode: write the proposal to `docs/engineering/questions.md` instead).
+13. **Transparency docs.** Write `docs/engineering/team-plan.md` from `templates/team-plan.md` (reviewers on/off from the activation matrix in `shared/project-profile.md`; adopted phases marked `passed`), `docs/engineering/STATUS.md` from `templates/status.md`, `docs/engineering/questions.md` from `templates/questions.md` (state.md Open questions and Assumptions, plus the gaps and unknown reasons found in steps 6 and 8), and `docs/engineering/handovers/00-onboard.md` from `templates/handover.md` (what was adopted, the entry point, what the human will be asked next). Show the team plan to the human as a compact table.
 
 ## Exit criteria
 
@@ -41,6 +42,7 @@ This replaces init for existing codebases. `/eng` runs it instead of `phases/ini
 - Every gate set to `passed` cites an existing path as `adopted:` evidence and was confirmed by the human (gated) or recorded as `agent` (autonomous).
 - Significant decisions visible in the code (up to 8) have an ADR or a `docs/engineering/questions.md` item; recovered ADRs say `reason not recorded` where the human did not know.
 - `.eng-team/context.md` exists, and `CLAUDE.md` holds the marked eng-team block or a merge proposal is awaiting approval (or recorded in `docs/engineering/questions.md` in autonomous mode).
+- `docs/engineering/team-plan.md`, `docs/engineering/STATUS.md`, `docs/engineering/questions.md` and `docs/engineering/handovers/00-onboard.md` exist, and STATUS.md is current.
 - No source code was changed and nothing was installed (`CLAUDE.md` and `.eng-team/*` are the only files written outside `docs/engineering/`).
 
 ## Autonomous mode

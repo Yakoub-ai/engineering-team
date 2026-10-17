@@ -24,7 +24,19 @@ After the integrity check, run the **due check** (report only, never a repair): 
 
 ## Running a phase
 
-Set its gate to `in-progress`, follow its file, then check every exit criterion yourself. Never trust an agent's "done". All pass → `passed` (with evidence, approver, date) and advance `current_phase`. Any fail → `failed`.
+Before starting, post a **Next up** note of at most 5 lines: the phase, the agents, what they will do, what you will be asked, and the outputs. Set its gate to `in-progress`, follow its file, then check every exit criterion yourself. Never trust an agent's "done". All pass → `passed` (with evidence, approver, date) and advance `current_phase`. Any fail → `failed`.
+
+On `passed`, in this order:
+1. Write `docs/engineering/handovers/NN-<phase>.md` from `templates/handover.md` (NN is the phase number, 2 digits: init 00 … review 07; onboarding writes 00).
+2. Rewrite `docs/engineering/STATUS.md` from `templates/status.md` (rewrite, never append).
+3. Update the phase statuses in `docs/engineering/team-plan.md`.
+4. Refresh the context snapshot (`shared/context.md`).
+
+Standalone commands (audit, setup, review) write a handover only when they change project direction.
+
+## Gap review
+
+At every gated approval, before asking for approval, walk the human through the new and still-open items in `docs/engineering/questions.md`. Each answer becomes a `# stated` profile field, an ADR, a plan task or an accepted risk, and the item moves to the Answered log. In `autonomous` mode, record each open item as an Assumptions row; it stays listed until a human confirms it. `docs/engineering/questions.md` mirrors state.md Open questions and Assumptions; state.md stays the machine source, so update both together.
 
 ## Continuous security testing
 

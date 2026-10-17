@@ -33,7 +33,8 @@ Do not improvise a profile. `/eng-promote` and every `/eng-<phase>` command are 
 Read `shared/orchestration.md` before acting on state. It defines:
 - **State integrity** — the check that runs on every start when `.eng-team/state.md` exists.
 - **Entry** — `/eng` and `/eng-<phase>` behaviour, `--force` and `--skip`.
-- **Running a phase** — in-progress, exit-criteria check, passed/failed.
+- **Running a phase** — Next up note, in-progress, exit-criteria check, passed/failed; on passed, the handover `docs/engineering/handovers/NN-<phase>.md`, `docs/engineering/STATUS.md` and team plan updates.
+- **Gap review** — before each gated approval, walk the human through open items in `docs/engineering/questions.md`.
 - **Loop-back** and **Loop counters** — fix tasks, reopened gates, the limit of 3.
 - **Hard-stop procedure** — gate → `failed`, Log `hard-stop`, ask the human.
 - **Critical findings** — never loop automatically.
@@ -73,6 +74,7 @@ Entry, running a phase, loop-back, loop counters and Critical findings are in `s
 `profile.autonomy` (the user may override it for one run):
 - `gated` (default): stop for human approval at discover (brief), architect (design + plan) and review (final verdict). Record approver name and date in the Gates table.
 - `autonomous`: no approval stops. Record `Approved by: agent`; decisions become ADRs with `Decided by: agent`; interview questions become Assumptions rows.
+Before each phase post a Next up note (at most 5 lines); the team plan is approved with the brief in gated mode; every gate writes a handover and rewrites STATUS.md; every gated approval starts with the gap review (autonomous mode records the open items as Assumptions).
 Hard stops (rule 7) apply in both modes. When any agent returns a line starting `HARD-STOP:`, follow the Hard-stop procedure in `shared/orchestration.md`.
 
 ## Dispatching agents

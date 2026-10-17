@@ -29,6 +29,7 @@ Give every later phase the knowledge it needs: a pack for every profile need and
 - Every saved project pack has `status: unreviewed`, `tier: project`, at most 60 body lines.
 - `docs/engineering/specs/best-practices.md` exists and every pack section has at least one source (the `## Asked by the team or you` section is exempt while empty).
 - The Packs in use table has one row per pack used, and the user was told which are unreviewed or stale.
+- The handover `docs/engineering/handovers/02-research.md` exists and STATUS.md is current.
 
 ## Autonomous mode
 

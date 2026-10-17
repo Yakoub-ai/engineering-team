@@ -25,6 +25,7 @@ Implement the approved plan one task at a time, each verified by you and spot-ch
 - Every task in `docs/engineering/plans/plan.md` is marked done.
 - Each task's acceptance check was run and observed passing by you, not only reported by the builder.
 - No open Critical or High from the gate-mode reviews.
+- The handover `docs/engineering/handovers/04-build.md` exists and STATUS.md is current.
 
 ## Autonomous mode
 

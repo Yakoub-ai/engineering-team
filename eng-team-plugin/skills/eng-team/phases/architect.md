@@ -30,6 +30,7 @@ Choose the simplest design that meets the approved brief, challenge every signif
 - Every task in `docs/engineering/plans/plan.md` has an acceptance check and reviewer roles.
 - `docs/architecture.md` has a Security testing strategy, and the plan contains the environment, security-tooling and (UI/API projects) DAST-readiness tasks.
 - Gated: a human name and date are recorded as approver of the architect gate.
+- The handover `docs/engineering/handovers/03-architect.md` exists and STATUS.md is current.
 
 ## Autonomous mode
 

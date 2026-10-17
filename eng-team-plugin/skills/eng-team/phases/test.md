@@ -25,6 +25,7 @@ Prove the critical flows work, with tests that assert outcomes, and record the r
 - The suite is green in your own run, and your counts match the recorded ones.
 - `.eng-team/test-results.md` holds the table, the run command, date, commit and counts.
 - A security audit report for the tested commit exists in `docs/security/`, state.md Security audits has its row, and no Critical/High from it is open (or each is an Accepted risk signed by a human).
+- The handover `docs/engineering/handovers/05-test.md` exists and STATUS.md is current.
 
 ## Autonomous mode
 

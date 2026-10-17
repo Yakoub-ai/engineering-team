@@ -36,6 +36,7 @@ Run the activated specialist reviewers, merge their findings into one ranked rep
 - No open Critical or High, or each remaining one is a row in Accepted risks with a human name (not `agent`), date and review-on date.
 - `profile.owner` is not `unassigned` or `unknown` if any risk was accepted.
 - Gated: a human name and date are recorded as approver of the review gate.
+- The handover `docs/engineering/handovers/07-review.md` exists and STATUS.md is current.
 
 ## Autonomous mode
 

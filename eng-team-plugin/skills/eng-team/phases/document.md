@@ -26,6 +26,7 @@ Produce or update the layered docs set so each audience gets a short doc that ma
 - Each doc, and the brief (refreshed by the lead in step 2), starts with `Audience:` and `Last verified against: <sha>` where the sha equals the step 1 value.
 - Length limits hold: brief about 60 lines, architecture about 180, each ADR about 60.
 - No doc that existed before this run had more than 70% of its lines changed.
+- The handover `docs/engineering/handovers/06-document.md` exists and STATUS.md is current.
 
 ## Autonomous mode
 
