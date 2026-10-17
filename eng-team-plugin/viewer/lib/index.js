@@ -9,6 +9,9 @@ import { tokenize, termFreq, buildTfidf, queryVector, cosine, topNeighbours } fr
 const INDEX_VERSION = 1;
 const LEXICAL_THRESHOLD = 0.35;
 const LEXICAL_K = 5;
+const SEMANTIC_THRESHOLD = 0.6;
+const SEMANTIC_K = 5;
+const EMBED_CHARS = 1500;
 const JS_EXT = new Set(['js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx']);
 const JS_RESOLVE_EXT = ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.json'];
 
@@ -38,7 +41,8 @@ function codeMeta(rel, text) {
 
 function makeNode(fields, text) {
   const tf = termFreq([...tokenize(fields.title), ...tokenize(fields.title), ...tokenize(text)]);
-  return { ...fields, tokens: tf };
+  // `_text` is transient: consumed (and removed) by embedNodes during build.
+  return { ...fields, tokens: tf, _text: `${fields.title}. ${text}`.slice(0, EMBED_CHARS) };
 }
 
 function parseFile(entry, text) {
@@ -217,9 +221,73 @@ function groupByPath(nodes) {
   return map;
 }
 
-function build(root, previous, force) {
+/* ---------- embeddings ---------- */
+
+const round4 = (x) => Math.round(x * 1e4) / 1e4;
+
+/**
+ * Embed every node still lacking a vector (`vec`, a number array rounded to
+ * 4 decimals, stored on the node in index.json). Reused nodes keep theirs.
+ * @returns {Promise<boolean>} true when every node now has a vector
+ */
+async function embedNodes(nodes, embedder) {
+  const todo = nodes.filter((n) => !n.vec);
+  try {
+    const vecs = todo.length ? await embedder.embed(todo.map((n) => n._text || n.title)) : [];
+    if (vecs.length !== todo.length) return false;
+    todo.forEach((n, i) => { n.vec = Array.from(vecs[i], round4); });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function dot(a, b) {
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+  return s;
+}
+
+const norm = (v) => Math.sqrt(dot(v, v)) || 1;
+
+function pairKeyOf(a, b) {
+  return a < b ? `${a}\0${b}` : `${b}\0${a}`;
+}
+
+function semanticEdges(nodes, explicit) {
+  const files = nodes.filter((n) => !n.id.includes('#') && Array.isArray(n.vec));
+  const norms = new Map(files.map((n) => [n.id, norm(n.vec)]));
+  const linked = new Set([...explicit.values()].map((e) => pairKeyOf(e.from, e.to)));
+  const seen = new Set();
+  const out = [];
+  for (const a of files) {
+    const hits = [];
+    for (const b of files) {
+      if (a === b || (a.kind === 'code' && b.kind === 'code') || a.vec.length !== b.vec.length) continue;
+      const score = dot(a.vec, b.vec) / (norms.get(a.id) * norms.get(b.id));
+      if (score >= SEMANTIC_THRESHOLD) hits.push({ id: b.id, score });
+    }
+    hits.sort((x, y) => y.score - x.score || (x.id < y.id ? -1 : 1));
+    for (const { id, score } of hits.slice(0, SEMANTIC_K)) {
+      const key = pairKeyOf(a.id, id);
+      if (seen.has(key) || linked.has(key)) continue;
+      seen.add(key);
+      out.push({ from: a.id, to: id, type: 'semantic', score: Math.round(score * 1000) / 1000 });
+    }
+  }
+  return out;
+}
+
+/* ---------- build ---------- */
+
+async function build(root, previous, force, embedder = null) {
   const prevFiles = previous?.version === INDEX_VERSION ? previous.files : {};
   const prevNodes = groupByPath(previous?.version === INDEX_VERSION ? previous.nodes : []);
+  const vecsStale = Boolean(embedder) && previous?.model !== embedder.model;
+  const reusable = (rel) => {
+    const list = prevNodes.get(rel);
+    return Boolean(list) && (!embedder || (!vecsStale && list.every((n) => Array.isArray(n.vec))));
+  };
   const nodes = [];
   const files = {};
   const read = [];
@@ -227,7 +295,7 @@ function build(root, previous, force) {
   for (const entry of scanProject(root)) {
     const old = prevFiles[entry.path];
     const unchanged = old && old.mtime === entry.mtime && old.size === entry.size && !force.has(entry.path);
-    if (unchanged && prevNodes.has(entry.path)) {
+    if (unchanged && reusable(entry.path)) {
       files[entry.path] = old;
       nodes.push(...prevNodes.get(entry.path));
       reused++;
@@ -236,7 +304,7 @@ function build(root, previous, force) {
     const text = readText(entry.abs);
     if (text === null) continue;
     const hash = sha1(text);
-    if (old && old.sha1 === hash && prevNodes.has(entry.path) && !force.has(entry.path)) {
+    if (old && old.sha1 === hash && reusable(entry.path) && !force.has(entry.path)) {
       files[entry.path] = { ...old, mtime: entry.mtime, size: entry.size };
       nodes.push(...prevNodes.get(entry.path));
       reused++;
@@ -247,8 +315,14 @@ function build(root, previous, force) {
     nodes.push(...parsed.nodes);
     read.push(entry.path);
   }
+  const embedded = Boolean(embedder) && await embedNodes(nodes, embedder);
+  for (const n of nodes) {
+    delete n._text;
+    if (!embedded) delete n.vec;
+  }
   const explicit = explicitEdges(nodes, files);
-  const edges = [...explicit.values(), ...lexicalEdges(nodes, explicit)];
+  const similar = embedded ? semanticEdges(nodes, explicit) : lexicalEdges(nodes, explicit);
+  const edges = [...explicit.values(), ...similar];
   return {
     version: INDEX_VERSION,
     project: root,
@@ -257,7 +331,8 @@ function build(root, previous, force) {
     nodes,
     edges,
     files,
-    semantic: 'lexical',
+    semantic: embedded ? 'embeddings' : 'lexical',
+    ...(embedded ? { model: embedder.model } : {}),
     lastUpdate: { read, reused },
   };
 }
@@ -267,13 +342,13 @@ function build(root, previous, force) {
  * mtime+size, or same sha1) are reused and only changed files are parsed.
  * `index.lastUpdate` = {read: [paths parsed], reused: n} (not persisted).
  * @param {string} projectDir
- * @param {{embedder?: object|null, previous?: object|null}} [opts] embedder is reserved
- *   for the optional semantic layer; null means lexical (TF-IDF).
- * @returns {object} index
+ * @param {{embedder?: object|null, previous?: object|null}} [opts] embedder is the
+ *   optional semantic layer ({embed, model}); null (or a failing embedder) means
+ *   lexical (TF-IDF) edges. With one, nodes carry `vec` and edges are `semantic`.
+ * @returns {Promise<object>} index
  */
-export function buildIndex(projectDir, { embedder = null, previous = null } = {}) {
-  void embedder;
-  return build(path.resolve(projectDir), previous, new Set());
+export async function buildIndex(projectDir, { embedder = null, previous = null } = {}) {
+  return build(path.resolve(projectDir), previous, new Set(), embedder);
 }
 
 const CACHE_PARTS = ['.eng-team', '.cache', 'index'];
@@ -389,10 +464,10 @@ export function loadIndex(projectDir) {
  * Load the saved index (if any), re-read only changed files, save and return it.
  * @param {string} projectDir
  * @param {{embedder?: object|null}} [opts]
- * @returns {object} index
+ * @returns {Promise<object>} index
  */
-export function updateIndex(projectDir, { embedder = null } = {}) {
-  const index = buildIndex(projectDir, { embedder, previous: loadIndex(projectDir) });
+export async function updateIndex(projectDir, { embedder = null } = {}) {
+  const index = await buildIndex(projectDir, { embedder, previous: loadIndex(projectDir) });
   saveIndex(projectDir, index);
   return index;
 }
@@ -402,10 +477,11 @@ export function updateIndex(projectDir, { embedder = null } = {}) {
  * @param {string} projectDir
  * @param {object} index index to mutate
  * @param {string} relPath project-relative posix path
- * @returns {object} the same index object
+ * @param {{embedder?: object|null}} [opts]
+ * @returns {Promise<object>} the same index object
  */
-export function reindexFile(projectDir, index, relPath) {
-  const next = build(path.resolve(projectDir), index, new Set([relPath]));
+export async function reindexFile(projectDir, index, relPath, { embedder = null } = {}) {
+  const next = await build(path.resolve(projectDir), index, new Set([relPath]), embedder);
   Object.assign(index, next);
   delete index._tfidf;
   return index;
@@ -421,26 +497,45 @@ function searchModel(index) {
   return index._tfidf;
 }
 
-/**
- * Rank nodes against a free-text query (TF-IDF cosine).
- * @param {object} index
- * @param {string} query
- * @param {{limit?: number, kinds?: string[]}} [opts]
- * @returns {{node: object, score: number}[]} nodes are returned without tokens
- */
-export function search(index, query, { limit = 8, kinds } = {}) {
+async function embeddingScorer(index, query, embedder) {
+  if (!embedder || index.semantic !== 'embeddings' || embedder.model !== index.model) return null;
+  try {
+    const [q] = await embedder.embed([query]);
+    if (!q) return null;
+    const qn = norm(q);
+    return (node) => (Array.isArray(node.vec) && node.vec.length === q.length ? dot(q, node.vec) / (qn * norm(node.vec)) : 0);
+  } catch {
+    return null;
+  }
+}
+
+function tfidfScorer(index, query) {
   const { idf, vectors } = searchModel(index);
   const q = queryVector(idf, query);
-  if (!Object.keys(q).length) return [];
+  if (!Object.keys(q).length) return null;
+  return (node) => cosine(q, vectors.get(node.id));
+}
+
+/**
+ * Rank nodes against a free-text query. Uses embeddings when the index has
+ * them and a matching `embedder` is given (and works); otherwise TF-IDF cosine.
+ * @param {object} index
+ * @param {string} query
+ * @param {{limit?: number, kinds?: string[], embedder?: object|null}} [opts]
+ * @returns {Promise<{node: object, score: number}[]>} nodes are returned without tokens/vec
+ */
+export async function search(index, query, { limit = 8, kinds, embedder = null } = {}) {
+  const scorer = (await embeddingScorer(index, query, embedder)) || tfidfScorer(index, query);
+  if (!scorer) return [];
   const hits = [];
   for (const node of index.nodes) {
     if (kinds && !kinds.includes(node.kind)) continue;
-    const score = cosine(q, vectors.get(node.id));
+    const score = scorer(node);
     if (score > 0) hits.push({ node, score });
   }
   hits.sort((a, b) => b.score - a.score || (a.node.id < b.node.id ? -1 : 1));
   return hits.slice(0, limit).map(({ node, score }) => {
-    const { tokens, ...rest } = node;
+    const { tokens, vec, ...rest } = node;
     return { node: rest, score: Math.round(score * 1000) / 1000 };
   });
 }
