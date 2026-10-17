@@ -8,10 +8,12 @@ import { createServer, start } from '../lib/server.js';
 import { copyFixture, cleanup } from './helpers.js';
 
 /** Start a server on an ephemeral port, run fn(ctx), always clean up. */
-async function withServer(fn, { embedder = null, setup } = {}) {
+const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
+
+async function withServer(fn, { embedder = null, setup, uiDir } = {}) {
   const dir = copyFixture();
   if (setup) setup(dir);
-  const server = createServer({ projectDir: dir, embedder });
+  const server = createServer({ projectDir: dir, embedder, uiDir });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
   const call = (method, url, { body, headers = {} } = {}) => new Promise((resolve, reject) => {
@@ -175,30 +177,66 @@ test('unknown routes 404 and unsupported methods 405', () => withServer(async ({
   assert.equal((await call('DELETE', '/api/doc?path=docs/guide.md', { headers: { 'X-Eng-View': '1' } })).status, 405);
 }));
 
-test('static UI: / and /ui/* are served, missing is 404, traversal is blocked', () => withServer(async ({ call }) => {
-  const uiDir = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'ui');
-  const created = !fs.existsSync(uiDir);
-  fs.mkdirSync(uiDir, { recursive: true });
-  const marker = path.join(uiDir, 'zz-test.js');
-  const index = path.join(uiDir, 'index.html');
-  const hadIndex = fs.existsSync(index);
-  fs.writeFileSync(marker, 'console.log(1)');
-  if (!hadIndex) fs.writeFileSync(index, '<!doctype html><title>t</title>');
+test('static UI: / and /ui/* are served from uiDir, missing is 404, traversal is blocked', async () => {
+  const uiDir = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-ui-'));
+  fs.writeFileSync(path.join(uiDir, 'zz-test.js'), 'console.log(1)');
+  fs.writeFileSync(path.join(uiDir, 'index.html'), '<!doctype html><title>t</title>');
   try {
-    const js = await call('GET', '/ui/zz-test.js');
-    assert.equal(js.status, 200);
-    assert.match(js.headers['content-type'], /javascript/);
-    assert.equal(js.headers['cache-control'], 'no-store');
-    assert.equal((await call('GET', '/')).status, 200);
-    assert.equal((await call('GET', '/ui/missing.js')).status, 404);
-    assert.equal((await call('GET', '/ui/../package.json')).status, 404);
-    assert.equal((await call('GET', '/ui/%2e%2e/package.json')).status, 404);
-    assert.equal((await call('GET', '/ui/..%2fpackage.json')).status, 404);
+    await withServer(async ({ call }) => {
+      const js = await call('GET', '/ui/zz-test.js');
+      assert.equal(js.status, 200);
+      assert.match(js.headers['content-type'], /javascript/);
+      assert.equal(js.headers['cache-control'], 'no-store');
+      assert.equal((await call('GET', '/')).status, 200);
+      assert.equal((await call('GET', '/ui/missing.js')).status, 404);
+      assert.equal((await call('GET', '/ui/../package.json')).status, 404);
+      assert.equal((await call('GET', '/ui/%2e%2e/package.json')).status, 404);
+      assert.equal((await call('GET', '/ui/..%2fpackage.json')).status, 404);
+    }, { uiDir });
   } finally {
-    fs.rmSync(marker, { force: true });
-    if (!hadIndex) fs.rmSync(index, { force: true });
-    if (created) fs.rmSync(uiDir, { recursive: true, force: true });
+    fs.rmSync(uiDir, { recursive: true, force: true });
   }
+});
+
+test('every response carries CSP, nosniff and no-referrer headers', () => withServer(async ({ call }) => {
+  for (const url of ['/api/graph', '/api/nope', '/ui/missing.js']) {
+    const res = await call('GET', url);
+    assert.equal(res.headers['content-security-policy'], CSP, url);
+    assert.equal(res.headers['x-content-type-options'], 'nosniff');
+    assert.equal(res.headers['referrer-policy'], 'no-referrer');
+  }
+  const bad = await call('GET', '/api/graph', { headers: { Host: 'evil.test' } });
+  assert.equal(bad.status, 403);
+  assert.equal(bad.headers['content-security-policy'], CSP);
+}));
+
+test('a failing initial index build makes /api/* return 503 without an unhandled rejection', async () => {
+  const rejections = [];
+  const onRejection = (err) => rejections.push(err);
+  process.on('unhandledRejection', onRejection);
+  const realError = console.error;
+  console.error = () => {};
+  try {
+    await withServer(async ({ call }) => {
+      const res = await call('GET', '/api/graph');
+      assert.equal(res.status, 503);
+      assert.equal(typeof res.json.error, 'string');
+      assert.equal((await call('GET', '/api/search?q=x')).status, 503);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }, { embedder: { get model() { throw new Error('boom'); }, embed: async () => [] } });
+  } finally {
+    console.error = realError;
+    process.off('unhandledRejection', onRejection);
+  }
+  assert.deepEqual(rejections, []);
+});
+
+test('an over-limit body that destroys the request settles instead of hanging', () => withServer(async ({ call }) => {
+  const h = { 'X-Eng-View': '1' };
+  const huge = JSON.stringify({ markdown: 'x'.repeat(20 * 1024 * 1024) });
+  const outcome = await call('PUT', '/api/doc?path=docs/guide.md', { body: huge, headers: h }).catch((err) => ({ status: err.code }));
+  assert.ok(outcome.status === 413 || typeof outcome.status === 'string', String(outcome.status));
+  assert.equal((await call('GET', '/api/graph')).status, 200);
 }));
 
 test('start() listens on 127.0.0.1 and reports the port', async () => {

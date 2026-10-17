@@ -7,7 +7,7 @@ import { classify, readText } from './scan.js';
 import { renderMarkdown } from './markdown.js';
 import { cleanRel, isEditablePath, resolveNoSymlink, isIndexedFile } from './project-files.js';
 
-const UI_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'ui');
+const DEFAULT_UI_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'ui');
 const MAX_BODY = 1024 * 1024;
 const DEFAULT_PORT = 4777;
 const HOST = '127.0.0.1';
@@ -36,7 +36,10 @@ class HttpError extends Error {
 
 /* ---------- responses ---------- */
 
+const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
+  + "frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
 const BASE_HEADERS = {
+  'Content-Security-Policy': CSP,
   'Cache-Control': 'no-store',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
@@ -62,6 +65,8 @@ function readBody(req) {
     });
     req.on('end', () => (size > MAX_BODY ? reject(new HttpError(413, 'body too large')) : resolve(Buffer.concat(chunks).toString('utf8'))));
     req.on('error', reject);
+    // A destroyed request never emits 'end'; settle so the handler can answer.
+    req.on('close', () => reject(new HttpError(413, 'body too large')));
   });
 }
 
@@ -89,17 +94,22 @@ function languageOf(rel) {
 /**
  * Create the viewer HTTP server (not listening). The index is loaded from the
  * cache (or built) in the background; requests wait for it.
- * @param {{projectDir: string, port?: number, embedder?: object|null}} opts
- *   `embedder` is the one optional semantic embedder ({embed, model}); it is
+ * @param {{projectDir: string, port?: number, embedder?: object|null, uiDir?: string}} opts
+ *   `uiDir` is the static UI directory (default viewer/ui); `embedder` is the one optional semantic embedder ({embed, model}); it is
  *   passed to every index update, re-index and search call.
  * @returns {http.Server}
  */
-export function createServer({ projectDir, embedder = null }) {
+export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_DIR }) {
   const root = fs.realpathSync(path.resolve(projectDir));
   let index = null;
+  let indexError = null;
   let queue = updateIndex(root, { embedder })
     .catch(() => buildIndex(root, { embedder }))
-    .then((built) => { index = built; });
+    .then((built) => { index = built; })
+    .catch((err) => {
+      indexError = err;
+      console.error(`eng-view: index build failed: ${err?.message ?? err}`);
+    });
 
   /** Run fn after all earlier index work, serialising mutations. */
   const exclusive = (fn) => {
@@ -121,10 +131,11 @@ export function createServer({ projectDir, embedder = null }) {
     checkHost(req, server);
     if (url.pathname.startsWith('/api/')) {
       await queue;
+      if (indexError) throw new HttpError(503, 'index unavailable');
       return api(req, res, url);
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'method not allowed');
-    return serveStatic(res, url.pathname);
+    return serveStatic(res, url.pathname, uiDir);
   }
 
   async function api(req, res, url) {
@@ -253,7 +264,7 @@ function checkHost(req, server) {
 
 /* ---------- static UI ---------- */
 
-function serveStatic(res, pathname) {
+function serveStatic(res, pathname, uiDir) {
   let rel = pathname === '/' ? 'index.html' : null;
   if (rel === null) {
     if (!pathname.startsWith('/ui/')) throw new HttpError(404, 'not found');
@@ -263,12 +274,12 @@ function serveStatic(res, pathname) {
       throw new HttpError(404, 'not found');
     }
   }
-  const file = path.resolve(UI_DIR, rel);
-  if (rel.includes('\0') || !file.startsWith(UI_DIR + path.sep)) throw new HttpError(404, 'not found');
+  const file = path.resolve(uiDir, rel);
+  if (rel.includes('\0') || !file.startsWith(path.resolve(uiDir) + path.sep)) throw new HttpError(404, 'not found');
   let real;
   try {
     real = fs.realpathSync(file);
-    if (!real.startsWith(fs.realpathSync(UI_DIR) + path.sep) || !fs.statSync(real).isFile()) throw new Error('no');
+    if (!real.startsWith(fs.realpathSync(uiDir) + path.sep) || !fs.statSync(real).isFile()) throw new Error('no');
   } catch {
     throw new HttpError(404, 'not found');
   }
@@ -283,8 +294,8 @@ function serveStatic(res, pathname) {
  * @param {{projectDir: string, port?: number, embedder?: object|null}} opts port 0 = ephemeral
  * @returns {Promise<{server: http.Server, port: number, url: string}>}
  */
-export function start({ projectDir, port = DEFAULT_PORT, embedder = null }) {
-  const server = createServer({ projectDir, embedder });
+export function start({ projectDir, port = DEFAULT_PORT, embedder = null, uiDir }) {
+  const server = createServer({ projectDir, embedder, uiDir });
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(port, HOST, () => {
