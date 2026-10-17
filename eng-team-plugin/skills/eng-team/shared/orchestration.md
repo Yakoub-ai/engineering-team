@@ -24,13 +24,13 @@ After the integrity check, run the **due check** (report only, never a repair): 
 
 ## Running a phase
 
-Before starting, post a **Next up** note of at most 5 lines: the phase, the agents, what they will do, what you will be asked, and the outputs. Set its gate to `in-progress`, follow its file, then check every exit criterion yourself. Never trust an agent's "done". All pass → `passed` (with evidence, approver, date) and advance `current_phase`. Any fail → `failed`.
+Before starting, post a **Next up** note of at most 5 lines: the phase, the agents, what they will do, what you will be asked, and the outputs. Set its gate to `in-progress`, follow its file, then check every exit criterion yourself. Never trust an agent's "done". Any fail → `failed`.
 
-On `passed`, in this order:
+When every exit criterion except the handover and STATUS line passes, and before setting the gate to `passed`, in this order:
 1. Write `docs/engineering/handovers/NN-<phase>.md` from `templates/handover.md` (NN is the phase number, 2 digits: init 00 … review 07; onboarding writes 00).
 2. Rewrite `docs/engineering/STATUS.md` from `templates/status.md` (rewrite, never append).
 3. Update the phase statuses in `docs/engineering/team-plan.md`.
-4. Refresh the context snapshot (`shared/context.md`).
+(All three show this phase as passed.) Then verify the handover and STATUS criterion. If it fails, the gate stays `in-progress`: fix the files and check again. If it holds, set the gate to `passed` (with evidence, approver, date), advance `current_phase`, and refresh the context snapshot (`shared/context.md`).
 
 Standalone commands (audit, setup, review) write a handover only when they change project direction.
 
