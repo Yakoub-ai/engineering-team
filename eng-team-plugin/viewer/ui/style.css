@@ -163,6 +163,9 @@ details.group > summary {
 .doc table { border-collapse: collapse; display: block; overflow-x: auto; }
 .doc th, .doc td { border: 1px solid var(--border); padding: 4px 10px; text-align: left; }
 .doc th { background: var(--bg-soft); }
+.doc .align-left { text-align: left; }
+.doc .align-center { text-align: center; }
+.doc .align-right { text-align: right; }
 .doc hr { border: 0; border-top: 1px solid var(--border); }
 .doc img { max-width: 100%; }
 

@@ -2,7 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const MAX_BYTES = 512 * 1024;
-const SKIP_DIRS = new Set(['.git', 'node_modules', 'dist', 'build']);
+export const MAX_FILES = 20000;
+const SKIP_DIRS = new Set([
+  '.git', 'node_modules', 'dist', 'build', '.venv', 'venv', 'vendor', 'target', '.next', '.nuxt',
+  '__pycache__', '.terraform', 'coverage', '.cache',
+]);
+const SECRET_FILES = new Set(['.npmrc', '.pypirc', '.netrc']);
+const SECRET_EXT = ['.pem', '.key', '.p12', '.pfx', '.keystore', '.jks'];
 const LOCKFILES = new Set(['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'poetry.lock', 'Cargo.lock', 'composer.lock', 'Gemfile.lock']);
 const CODE_EXT = new Set([
   'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'py', 'go', 'rb', 'java', 'kt', 'cs', 'php', 'rs',
@@ -74,26 +80,36 @@ export function parseGitignore(text) {
   return (rel, isDir) => rules.some((r) => (!r.dirOnly || isDir) && r.re.test(rel));
 }
 
-function isSecretName(name) {
-  return name.startsWith('.env') || name.endsWith('.pem') || name.endsWith('.key') || name.startsWith('id_rsa');
+function isSecretName(name, isDir = false) {
+  const lower = name.toLowerCase();
+  return name.startsWith('.env') || name.startsWith('id_rsa') || SECRET_FILES.has(lower)
+    || SECRET_EXT.some((ext) => lower.endsWith(ext))
+    || (!isDir && (lower.startsWith('credentials') || lower.startsWith('secrets')));
 }
 
 /**
  * Walk a project and list indexable files (spec B8 exclusions applied).
  * @param {string} root absolute project dir
+ * @param {{maxFiles?: number}} [opts] cap on indexed files (default 20 000; logged once per process when hit)
  * @returns {{path: string, abs: string, type: string, kind: string, size: number, mtime: number}[]}
  */
-export function scanProject(root) {
+export function scanProject(root, { maxFiles = MAX_FILES } = {}) {
   let ignored = () => false;
   try {
     ignored = parseGitignore(fs.readFileSync(path.join(root, '.gitignore'), 'utf8'));
   } catch { /* no .gitignore */ }
   const out = [];
-  walk(root, '', ignored, out);
+  walk(root, '', ignored, out, maxFiles);
+  if (out.length >= maxFiles && !capLogged) {
+    capLogged = true;
+    process.stderr.write(`eng-team-viewer: indexing capped at ${maxFiles} files; the rest are skipped\n`);
+  }
   return out.sort((a, b) => (a.path < b.path ? -1 : 1));
 }
 
-function walk(root, relDir, ignored, out) {
+let capLogged = false;
+
+function walk(root, relDir, ignored, out, maxFiles) {
   let entries;
   try {
     entries = fs.readdirSync(path.join(root, relDir), { withFileTypes: true });
@@ -101,11 +117,12 @@ function walk(root, relDir, ignored, out) {
     return;
   }
   for (const ent of entries) {
+    if (out.length >= maxFiles) return;
     const rel = relDir ? `${relDir}/${ent.name}` : ent.name;
     if (ent.isSymbolicLink()) continue;
     if (ent.isDirectory()) {
-      if (SKIP_DIRS.has(ent.name) || isSecretName(ent.name) || rel === '.eng-team/.cache' || ignored(rel, true)) continue;
-      walk(root, rel, ignored, out);
+      if (SKIP_DIRS.has(ent.name) || isSecretName(ent.name, true) || rel === '.eng-team/.cache' || ignored(rel, true)) continue;
+      walk(root, rel, ignored, out, maxFiles);
     } else if (ent.isFile()) {
       addFile(root, rel, ent.name, ignored, out);
     }

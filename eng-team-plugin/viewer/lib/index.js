@@ -354,7 +354,12 @@ export async function buildIndex(projectDir, { embedder = null, previous = null 
 
 const CACHE_PARTS = ['.eng-team', '.cache', 'index'];
 
+const warned = new Set();
+
+/** Log a warning to stderr, once per process per distinct message. */
 function warn(msg) {
+  if (warned.has(msg)) return;
+  warned.add(msg);
   process.stderr.write(`eng-team-viewer: ${msg}\n`);
 }
 
@@ -464,16 +469,41 @@ export function loadIndex(projectDir) {
   }
 }
 
+/** True when `next` differs from `previous` in anything worth persisting. */
+function indexChanged(previous, next) {
+  if (!previous) return true;
+  if (next.lastUpdate.read.length) return true;
+  if (previous.semantic !== next.semantic || previous.model !== next.model || previous.commit !== next.commit) return true;
+  const a = Object.keys(previous.files);
+  const b = Object.keys(next.files);
+  return a.length !== b.length || b.some((f) => !Object.hasOwn(previous.files, f));
+}
+
 /**
  * Load the saved index (if any), re-read only changed files, save and return it.
+ * The file is rewritten only when the index changed.
  * @param {string} projectDir
- * @param {{embedder?: object|null}} [opts]
+ * @param {{embedder?: object|null, previous?: object|null, persist?: boolean|'existing'}} [opts]
+ *   `previous` overrides the on-disk index as the incremental base (in-memory use);
+ *   `persist` false never writes, 'existing' writes only when `<project>/.eng-team/`
+ *   already exists (never creating it), true (default) always may write
  * @returns {Promise<object>} index
  */
-export async function updateIndex(projectDir, { embedder = null } = {}) {
-  const index = await buildIndex(projectDir, { embedder, previous: loadIndex(projectDir) });
-  saveIndex(projectDir, index);
+export async function updateIndex(projectDir, { embedder = null, previous, persist = true } = {}) {
+  const prev = previous === undefined ? loadIndex(projectDir) : previous;
+  const index = await buildIndex(projectDir, { embedder, previous: prev });
+  if (persist && indexChanged(prev, index) && (persist !== 'existing' || isDir(path.join(path.resolve(projectDir), '.eng-team')))) {
+    saveIndex(projectDir, index);
+  }
   return index;
+}
+
+function isDir(p) {
+  try {
+    return fs.lstatSync(p).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 /**

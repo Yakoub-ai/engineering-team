@@ -105,8 +105,8 @@ function renderTable(lines, i, basePath) {
   const head = splitRow(lines[i]);
   const aligns = splitRow(lines[i + 1]).map(alignOf);
   const cell = (tag, text, n) => {
-    const style = aligns[n] ? ` style="text-align:${aligns[n]}"` : '';
-    return `<${tag}${style}>${inline(text, basePath)}</${tag}>`;
+    const cls = aligns[n] ? ` class="align-${aligns[n]}"` : '';
+    return `<${tag}${cls}>${inline(text, basePath)}</${tag}>`;
   };
   let j = i + 2;
   const rows = [];

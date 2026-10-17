@@ -86,7 +86,8 @@ export function createMcp({ projectDir, embedder = null, getEmbedder = null }) {
     }
     if (index && Date.now() - refreshedAt < REFRESH_MS) return index;
     try {
-      index = await updateIndex(root, { embedder });
+      // Only manage a cache in projects that already use .eng-team/; never create it.
+      index = await updateIndex(root, { embedder, previous: index ?? undefined, persist: 'existing' });
     } catch (err) {
       log(`index update failed, rebuilding: ${err.message}`);
       index = await buildIndex(root, { embedder });
@@ -134,8 +135,8 @@ export function createMcp({ projectDir, embedder = null, getEmbedder = null }) {
       out = execFileSync('git', ['-c', 'core.quotePath=false', 'diff', '--name-status', '-z', `${commit}..HEAD`, '--'], {
         cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 8 * 1024 * 1024,
       });
-    } catch {
-      throw new ToolError(`git diff failed: git is unavailable, this is not a git repository, or ${commit} is unknown`);
+    } catch (err) {
+      throw new ToolError(gitFailure(err));
     }
     const idx = await currentIndex();
     const changes = parseNameStatusZ(out).map(({ status, paths }) => {
@@ -246,6 +247,14 @@ export function createMcp({ projectDir, embedder = null, getEmbedder = null }) {
   }
 
   return { handle, run };
+}
+
+/** Map a failed `git diff` to a stable, specific message. */
+function gitFailure(err) {
+  if (err.code === 'ENOENT') return 'git unavailable';
+  if (err.code === 'ENOBUFS' || /maxBuffer/i.test(err.message)) return 'too many changes; narrow the range';
+  if (/not a git repository/i.test(String(err.stderr))) return 'not a git repository';
+  return 'unknown commit';
 }
 
 /** Parse `git diff --name-status -z` output into {status, paths} entries. */

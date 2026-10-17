@@ -239,6 +239,15 @@ test('symlinked cache dir is not written through', async () => {
     }
     assert.deepEqual(fs.readdirSync(outside), []);
     assert.ok(logged.some((l) => l.includes('unsafe index cache path')));
+    process.stderr.write = (chunk) => { logged.push(String(chunk)); return true; };
+    const before = logged.length;
+    try {
+      saveIndex(dir, idx);
+      saveIndex(dir, idx);
+    } finally {
+      process.stderr.write = realWrite;
+    }
+    assert.equal(logged.length, before, 'warning is logged once per process');
   } finally {
     cleanup(dir);
     cleanup(outside);

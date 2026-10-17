@@ -86,3 +86,37 @@ test('secret-named directories and lockfiles are excluded', () => {
     cleanup(dir);
   }
 });
+
+test('scanProject skips vendored dirs and secret-ish files', () => {
+  const dir = copyFixture();
+  try {
+    for (const d of ['.venv', 'venv', 'vendor', 'target', '.next', '.nuxt', '__pycache__', '.terraform', 'coverage', '.cache']) {
+      fs.mkdirSync(path.join(dir, d), { recursive: true });
+      fs.writeFileSync(path.join(dir, d, 'x.md'), '# x');
+    }
+    const secrets = ['credentials.json', 'credentials-prod.md', 'secrets.yaml', 'secrets.md', 'a.p12', 'a.pfx', 'a.keystore', 'a.jks', '.npmrc', '.pypirc', '.netrc'];
+    for (const f of secrets) fs.writeFileSync(path.join(dir, f), 'x');
+    const paths = scanProject(dir).map((e) => e.path);
+    for (const d of ['.venv', 'venv', 'vendor', 'target', '.next', '.nuxt', '__pycache__', '.terraform', 'coverage', '.cache']) {
+      assert.ok(!paths.includes(`${d}/x.md`), d);
+    }
+    for (const f of secrets) assert.ok(!paths.includes(f), f);
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('scanProject caps the file count and logs once', () => {
+  const dir = copyFixture();
+  const logged = [];
+  const orig = process.stderr.write;
+  process.stderr.write = (chunk) => { logged.push(String(chunk)); return true; };
+  try {
+    assert.equal(scanProject(dir, { maxFiles: 2 }).length, 2);
+    scanProject(dir, { maxFiles: 2 });
+  } finally {
+    process.stderr.write = orig;
+    cleanup(dir);
+  }
+  assert.equal(logged.filter((l) => l.includes('capped at 2 files')).length, 1);
+});

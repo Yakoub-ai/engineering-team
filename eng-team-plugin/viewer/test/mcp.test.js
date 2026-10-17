@@ -1,6 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { copyFixture, cleanup } from './helpers.js';
@@ -107,6 +108,7 @@ test('get_doc refuses .env, traversal and missing files', async () => {
 test('changed_since reports an error text outside a git repo', async () => {
   const res = await rpc('tools/call', { name: 'changed_since', arguments: { commit: 'HEAD~1' } });
   assert.equal(res.result.isError, true);
+  assert.equal(res.result.content[0].text, 'not a git repository');
   const bad = await rpc('tools/call', { name: 'changed_since', arguments: { commit: '--output=x' } });
   assert.equal(bad.result.isError, true);
 });
@@ -120,4 +122,59 @@ test('unknown tool is a tool error; unknown method is -32601', async () => {
 
 test('stdout carried only JSON-RPC messages', () => {
   assert.deepEqual(stray, []);
+});
+
+/** Run the MCP server on a project, send one search_context call per entry, return when all answered. */
+async function mcpSession(project, calls = 1) {
+  const proc = spawn('node', [BIN, 'mcp', '--project', project, '--no-semantic'], { stdio: ['pipe', 'pipe', 'pipe'] });
+  proc.stderr.resume();
+  proc.stdout.setEncoding('utf8');
+  const replies = [];
+  let acc = '';
+  const done = new Promise((resolve) => {
+    proc.stdout.on('data', (chunk) => {
+      acc += chunk;
+      replies.length = 0;
+      for (const l of acc.split('\n')) if (l.trim()) replies.push(JSON.parse(l));
+      if (replies.length >= calls) resolve();
+    });
+  });
+  const step = async (i) => {
+    const msg = { jsonrpc: '2.0', id: i, method: 'tools/call', params: { name: 'search_context', arguments: { query: 'guide' } } };
+    proc.stdin.write(`${JSON.stringify(msg)}\n`);
+  };
+  return { proc, step, done };
+}
+
+test('mcp does not create .eng-team in an unmanaged project', async () => {
+  const project = copyFixture();
+  fs.rmSync(path.join(project, '.eng-team'), { recursive: true, force: true });
+  const s = await mcpSession(project, 1);
+  try {
+    await s.step(1);
+    await s.done;
+    assert.equal(fs.existsSync(path.join(project, '.eng-team')), false);
+  } finally {
+    s.proc.kill();
+    cleanup(project);
+  }
+});
+
+test('mcp saves the index once into an existing .eng-team and does not rewrite it when unchanged', async () => {
+  const project = copyFixture();
+  fs.mkdirSync(path.join(project, '.eng-team'), { recursive: true });
+  const file = path.join(project, '.eng-team', '.cache', 'index', 'index.json');
+  const s = await mcpSession(project, 2);
+  try {
+    await s.step(1);
+    await new Promise((r) => setTimeout(r, 2300));
+    assert.ok(fs.existsSync(file), 'index saved');
+    const first = fs.statSync(file).mtimeMs;
+    await s.step(2);
+    await s.done;
+    assert.equal(fs.statSync(file).mtimeMs, first);
+  } finally {
+    s.proc.kill();
+    cleanup(project);
+  }
 });

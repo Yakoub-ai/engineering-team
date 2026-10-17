@@ -34,3 +34,13 @@ test('setupEmbedder refuses a symlinked models cache and logs to stderr', async 
   }
   assert.ok(logged.some((l) => l.includes('unsafe')));
 });
+
+test('setupEmbedder with cachedOnly returns null and creates nothing when no model is cached', async () => {
+  const dir = copyFixture();
+  try {
+    assert.equal(await setupEmbedder(dir, { cachedOnly: true, probe: async () => {} }), null);
+    assert.equal(fs.existsSync(path.join(dir, '.eng-team', '.cache', 'models')), false);
+  } finally {
+    cleanup(dir);
+  }
+});

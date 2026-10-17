@@ -10,10 +10,10 @@ import { copyFixture, cleanup } from './helpers.js';
 /** Start a server on an ephemeral port, run fn(ctx), always clean up. */
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
 
-async function withServer(fn, { embedder = null, setup, uiDir } = {}) {
+async function withServer(fn, { embedder = null, setup, uiDir, refreshAfterMs } = {}) {
   const dir = copyFixture();
   if (setup) setup(dir);
-  const server = createServer({ projectDir: dir, embedder, uiDir });
+  const server = createServer({ projectDir: dir, embedder, uiDir, refreshAfterMs });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
   const call = (method, url, { body, headers = {} } = {}) => new Promise((resolve, reject) => {
@@ -29,8 +29,8 @@ async function withServer(fn, { embedder = null, setup, uiDir } = {}) {
     req.on('error', reject);
     req.end(body);
   });
-  const put = (rel, markdown, headers = { 'X-Eng-View': '1' }) =>
-    call('PUT', `/api/doc?path=${encodeURIComponent(rel)}`, { body: JSON.stringify({ markdown }), headers });
+  const put = (rel, markdown, headers = { 'X-Eng-View': '1' }, extra = {}) =>
+    call('PUT', `/api/doc?path=${encodeURIComponent(rel)}`, { body: JSON.stringify({ markdown, ...extra }), headers });
   try {
     await fn({ dir, port, call, put });
   } finally {
@@ -250,3 +250,33 @@ test('start() listens on 127.0.0.1 and reports the port', async () => {
     cleanup(dir);
   }
 });
+
+test('GET /api/doc returns mtime; PUT with a stale baseMtime is 409 and writes nothing', () => withServer(async ({ call, put, dir }) => {
+  const doc = await call('GET', '/api/doc?path=docs%2Fguide.md');
+  assert.equal(typeof doc.json.mtime, 'number');
+  const file = path.join(dir, 'docs', 'guide.md');
+  const before = fs.readFileSync(file, 'utf8');
+  const future = new Date(Date.now() + 60000);
+  fs.utimesSync(file, future, future);
+  const stale = await put('docs/guide.md', '# clobber', { 'X-Eng-View': '1' }, { baseMtime: doc.json.mtime });
+  assert.equal(stale.status, 409);
+  assert.equal(stale.json.error, 'changed on disk');
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  const fresh = await call('GET', '/api/doc?path=docs%2Fguide.md');
+  const ok = await put('docs/guide.md', '# fine', { 'X-Eng-View': '1' }, { baseMtime: fresh.json.mtime });
+  assert.equal(ok.status, 200);
+  assert.equal(typeof ok.json.mtime, 'number');
+  const bad = await put('docs/guide.md', '# x', { 'X-Eng-View': '1' }, { baseMtime: 'soon' });
+  assert.equal(bad.status, 400);
+}));
+
+test('index is refreshed when older than refreshAfterMs', () => withServer(async ({ call, dir }) => {
+  await call('GET', '/api/graph');
+  fs.writeFileSync(path.join(dir, 'docs', 'late.md'), '# Late arrival\n');
+  await new Promise((r) => setTimeout(r, 120));
+  for (const route of ['/api/graph', '/api/timeline', '/api/search?q=late', '/api/node?id=docs%2Fguide.md']) {
+    assert.equal((await call('GET', route)).status, 200, route);
+  }
+  const g = await call('GET', '/api/graph');
+  assert.ok(g.json.nodes.some((n) => n.id === 'docs/late.md'));
+}, { refreshAfterMs: 50 }));

@@ -24,8 +24,8 @@ test('unordered, ordered and nested lists', () => {
 
 test('tables with alignment', () => {
   const html = renderMarkdown('| Name | N |\n|:--|--:|\n| a<b | 1 |\n| c | 2 |\n');
-  assert.match(html, /<table><thead><tr><th style="text-align:left">Name<\/th><th style="text-align:right">N<\/th><\/tr><\/thead>/);
-  assert.match(html, /<tbody><tr><td style="text-align:left">a&lt;b<\/td><td style="text-align:right">1<\/td><\/tr>/);
+  assert.match(html, /<table><thead><tr><th class="align-left">Name<\/th><th class="align-right">N<\/th><\/tr><\/thead>/);
+  assert.match(html, /<tbody><tr><td class="align-left">a&lt;b<\/td><td class="align-right">1<\/td><\/tr>/);
 });
 
 test('code fences keep content verbatim and escaped; mermaid is shown as code', () => {

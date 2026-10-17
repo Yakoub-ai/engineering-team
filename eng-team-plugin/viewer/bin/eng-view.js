@@ -32,9 +32,11 @@ async function main() {
     process.exit(2);
   }
   const projectDir = resolveProjectDir(opts.project);
-  const getEmbedder = () => setupEmbedder(projectDir, { semantic: opts.semantic });
+  const getEmbedder = () => setupEmbedder(projectDir, { semantic: opts.semantic, cachedOnly: opts.command === 'mcp' });
 
   if (opts.command === 'mcp') {
+    // stdout carries the protocol; keep library chatter off it.
+    console.log = console.info = (...args) => console.error(...args);
     await createMcp({ projectDir, getEmbedder }).run();
     return;
   }

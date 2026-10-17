@@ -80,3 +80,18 @@ test('changed_since maps git changes to nodes', async () => {
     cleanup(dir);
   }
 });
+
+test('changed_since distinguishes an unknown commit inside a repo', async () => {
+  const dir = copyFixture();
+  try {
+    const git = (...a) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { cwd: dir, stdio: 'pipe' });
+    git('init', '-q');
+    git('add', '-A');
+    git('commit', '-q', '-m', 'one');
+    const [res] = await converse(dir, [msg(1, 'tools/call', { name: 'changed_since', arguments: { commit: 'nosuchref' } })], 1);
+    assert.equal(res.result.isError, true);
+    assert.equal(res.result.content[0].text, 'unknown commit');
+  } finally {
+    cleanup(dir);
+  }
+});

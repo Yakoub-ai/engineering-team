@@ -44,7 +44,11 @@
     const res = await fetch(path, opts);
     let body = null;
     try { body = await res.json(); } catch (e) { /* non-JSON error body */ }
-    if (!res.ok) throw new Error((body && body.error) || `request failed (${res.status})`);
+    if (!res.ok) {
+      const err = new Error((body && body.error) || `request failed (${res.status})`);
+      err.status = res.status;
+      throw err;
+    }
     return body;
   }
 
@@ -231,14 +235,16 @@
       const updated = await api(`/api/doc?path=${enc(doc.path)}`, {
         method: 'PUT',
         headers: { 'X-Eng-View': '1', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ markdown: area.value }),
+        body: JSON.stringify({ markdown: area.value, ...(typeof doc.mtime === 'number' ? { baseMtime: doc.mtime } : {}) }),
       });
       await refreshGraph();
       renderDoc(updated);
       loadSide(updated.path);
     } catch (err) {
-      msg.textContent = `Save failed: ${err.message}`;
-      saveBtn.disabled = false;
+      msg.textContent = err.status === 409
+        ? 'This file changed on disk. Cancel and reopen it to reload the latest version before saving.'
+        : `Save failed: ${err.message}`;
+      saveBtn.disabled = err.status === 409;
     }
   }
 
@@ -259,7 +265,7 @@
     const box = h('div', { class: 'codebox' }, gutter, src);
     if (line > 0 && line <= lines.length) box.append(h('div', { class: 'hl', id: 'code-hl' }));
     const abs = `${state.graph.project.replace(/\/$/, '')}/${code.path}`;
-    const editor = h('a', { href: `vscode://file/${abs}:${line || 1}`, text: 'open in editor' });
+    const editor = h('a', { href: `vscode://file/${encodeURI(abs)}:${line || 1}`, text: 'open in editor' });
     const bar = h('div', { class: 'toolbar' }, h('span', { class: 'path', text: `${code.path}  (${code.language})` }),
       h('span', { class: 'badge', text: 'read-only' }), editor);
     setMain(bar, box);

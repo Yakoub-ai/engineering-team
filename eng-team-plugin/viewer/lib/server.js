@@ -10,6 +10,7 @@ import { cleanRel, isEditablePath, resolveNoSymlink, isIndexedFile } from './pro
 const DEFAULT_UI_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'ui');
 const MAX_BODY = 1024 * 1024;
 const DEFAULT_PORT = 4777;
+const DEFAULT_REFRESH_MS = 3000;
 const HOST = '127.0.0.1';
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -94,18 +95,23 @@ function languageOf(rel) {
 /**
  * Create the viewer HTTP server (not listening). The index is loaded from the
  * cache (or built) in the background; requests wait for it.
- * @param {{projectDir: string, port?: number, embedder?: object|null, uiDir?: string}} opts
+ * @param {{projectDir: string, embedder?: object|null, uiDir?: string, refreshAfterMs?: number}} opts
+ *   `refreshAfterMs` (default 3000) is how old the index may get before graph/search/timeline/node requests re-scan the project;
  *   `uiDir` is the static UI directory (default viewer/ui); `embedder` is the one optional semantic embedder ({embed, model}); it is
  *   passed to every index update, re-index and search call.
  * @returns {http.Server}
  */
-export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_DIR }) {
+export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_DIR, refreshAfterMs = DEFAULT_REFRESH_MS }) {
   const root = fs.realpathSync(path.resolve(projectDir));
   let index = null;
   let indexError = null;
+  let indexedAt = 0;
   let queue = updateIndex(root, { embedder })
     .catch(() => buildIndex(root, { embedder }))
-    .then((built) => { index = built; })
+    .then((built) => {
+      index = built;
+      indexedAt = Date.now();
+    })
     .catch((err) => {
       indexError = err;
       console.error(`eng-view: index build failed: ${err?.message ?? err}`);
@@ -138,11 +144,28 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
     return serveStatic(res, url.pathname, uiDir);
   }
 
+  /** Re-scan the project when the index is older than refreshAfterMs (serialised). */
+  async function refreshIfStale() {
+    if (Date.now() - indexedAt <= refreshAfterMs) return;
+    await exclusive(async () => {
+      if (Date.now() - indexedAt <= refreshAfterMs) return;
+      try {
+        index = await updateIndex(root, { embedder, previous: index });
+      } catch (err) {
+        console.error(`eng-view: index refresh failed: ${err?.message ?? err}`);
+      }
+      indexedAt = Date.now();
+    });
+  }
+
+  const LIVE_ROUTES = new Set(['/api/graph', '/api/search', '/api/timeline', '/api/node']);
+
   async function api(req, res, url) {
     const route = url.pathname;
     const q = url.searchParams;
     if (route === '/api/doc' && req.method === 'PUT') return sendJson(res, 200, await putDoc(req, q.get('path')));
     if (req.method !== 'GET') throw new HttpError(405, 'method not allowed');
+    if (LIVE_ROUTES.has(route)) await refreshIfStale();
     switch (route) {
       case '/api/graph': return sendJson(res, 200, graph());
       case '/api/node': return sendJson(res, 200, nodeInfo(q.get('id')));
@@ -193,16 +216,24 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
     if (!abs || !isIndexedFile(root, index, rel)) throw new HttpError(404, 'not found');
     const text = readText(abs);
     if (text === null) throw new HttpError(404, 'not found');
-    return { rel, text };
+    return { rel, text, abs };
   }
 
-  function docPayload(rel, markdown) {
-    return { path: rel, markdown, html: renderMarkdown(markdown, { basePath: rel }), editable: isEditablePath(rel) };
+  function mtimeOf(abs) {
+    try {
+      return fs.statSync(abs).mtimeMs;
+    } catch {
+      return null;
+    }
+  }
+
+  function docPayload(rel, markdown, abs) {
+    return { path: rel, markdown, html: renderMarkdown(markdown, { basePath: rel }), editable: isEditablePath(rel), mtime: mtimeOf(abs) };
   }
 
   function getDoc(input) {
-    const { rel, text } = readable(input, ['doc', 'state']);
-    return docPayload(rel, text);
+    const { rel, text, abs } = readable(input, ['doc', 'state']);
+    return docPayload(rel, text, abs);
   }
 
   function getCode(input) {
@@ -214,15 +245,17 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
     if (req.headers['x-eng-view'] !== '1') throw new HttpError(403, 'missing X-Eng-View header');
     const rel = cleanRel(input);
     if (!rel || !isEditablePath(rel)) throw new HttpError(403, 'not editable');
-    const markdown = parseMarkdownBody(await readBody(req));
+    const { markdown, baseMtime } = parseMarkdownBody(await readBody(req));
     return exclusive(async () => {
       const abs = resolveNoSymlink(root, rel);
       if (!abs) throw new HttpError(isLinkedPath(rel) ? 403 : 404, 'not writable');
       if (!isIndexedFile(root, index, rel)) throw new HttpError(404, 'not found');
+      if (baseMtime !== undefined && mtimeOf(abs) !== baseMtime) throw new HttpError(409, 'changed on disk');
       fs.writeFileSync(abs, markdown);
       await reindexFile(root, index, rel, { embedder });
+      indexedAt = Date.now();
       try { saveIndex(root, index); } catch { /* cache is best-effort */ }
-      return docPayload(rel, markdown);
+      return docPayload(rel, markdown, abs);
     });
   }
 
@@ -251,7 +284,8 @@ function parseMarkdownBody(raw) {
     throw new HttpError(400, 'invalid JSON');
   }
   if (!body || typeof body.markdown !== 'string') throw new HttpError(400, 'markdown must be a string');
-  return body.markdown;
+  if (body.baseMtime !== undefined && typeof body.baseMtime !== 'number') throw new HttpError(400, 'baseMtime must be a number');
+  return { markdown: body.markdown, baseMtime: body.baseMtime };
 }
 
 /** DNS-rebinding guard: Host must be 127.0.0.1:<port> or localhost:<port>. */
