@@ -39,6 +39,7 @@ Any agent that hits a hard stop returns a line `HARD-STOP: <reason>` — the orc
 - Fix: <concrete change; code-level when possible>
 - Effort: S | M | L
 - Refs: OWASP A01 / GDPR Art. 32 / DORA Art. 9 / CWE-639 (only what applies)
+- Source: tool:<name> <rule-id> | manual [+ dast] (security audit only; see phases/security-audit.md)
 ```
 
 Role prefixes: SEC, CMP, DAT, PLT, SRE, QA, INT, AI, PRD, LEAD, RES, ARC, BLD, TST, DOC.

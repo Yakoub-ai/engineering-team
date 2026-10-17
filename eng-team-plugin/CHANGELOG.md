@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.1.0 — 2026-10-17
+
+### Added
+- `/eng-security-audit [auto|static|dast|full] [--target <url>] [--fix] [paths]`: a standalone security audit backed by real tools, for any repo, whether or not eng-team built it. The static layer runs Semgrep, gitleaks (full history), osv-scanner, Trivy/Checkov and Syft (SBOM). The DAST layer starts the app locally, then runs ZAP baseline, full and API scans plus targeted probes. `auto` recommends a mode and gives the reason. Agents triage tool findings, add logic flaws and map each finding to GDPR, NIS2, DORA and the AI Act.
+- `phases/security-audit.md`, `templates/security-report.md`, `templates/remediation-plan.md`. Reports go to `docs/security/`.
+- `--fix` carries out the remediation plan (builder, then tester, then the acceptance check re-runs the scan rule that found the issue), followed by a re-scan section in the report.
+- Findings gain an optional `Source:` line (`tool:<name> <rule-id>` | `manual` [+ `dast`]).
+
+### Changed
+- Lifecycle review (phase 7, `review` mode) runs the static scan layer first when scanners are installed.
+- Hard-stop scope: in a security audit, running installed scanners and starting the app on localhost are in scope. Installing tools, pulling images and scanning non-local targets stop and ask.
+- "Not covered" now separates automated DAST (covered) from manual and threat-led penetration testing (not covered).
+
 ## 2.0.0 — 2026-10-16
 
 ### Added

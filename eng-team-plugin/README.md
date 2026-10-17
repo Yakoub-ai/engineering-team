@@ -36,6 +36,7 @@ eng-team is an **engineering lead (orchestrator) plus 14 specialist agents**. It
 | **Architecture** | 2–3 options with trade-offs, a recommendation sized to the project's stage, C4 diagrams (Mermaid), ADRs and an implementation plan with an acceptance check per task. |
 | **Build & test** | Test-first implementation one plan task at a time, with a reviewer spot-check after each. Critical flows (money, data access, irreversible actions) are mapped to tests, and the suite is run and recorded. |
 | **Documentation** | Docs-as-code in `docs/`: a 1-page business brief, the architecture, ADRs, the testing strategy, a runbook and a compliance evidence log. Each doc names its audience and the commit it was verified against. |
+| **Security testing** | `/eng-security-audit` runs real scanners on any repo, whether or not eng-team built it: SAST, secrets in git history, dependencies, IaC, containers and SBOM, plus DAST against the app started locally. Agents triage every tool hit against the code, add logic flaws that scanners miss, map findings to GDPR, NIS2, DORA and the AI Act, and write a report and an ordered remediation plan. With `--fix` the team then carries out the plan and re-scans. |
 | **Review** | Security, compliance, data, platform, SRE, QA, integration, AI and product reviewers. Each finding cites `path:line` evidence. Secrets are never printed. The report includes a "Not covered" section. |
 | **Coaching** | Each recommendation explains *why* and links to a source, so developers learn the practice instead of just following it. |
 
@@ -51,6 +52,8 @@ All progress lives in your project under `.eng-team/` (profile, state, plan, pac
 | Build a small tool or service end to end with tests and docs | `/eng --autonomous` | autonomous |
 | Audit an existing repo before launch ("what are we missing?") | `/eng-review review` | standalone |
 | Check a pull request or branch for security and compliance regressions | `/eng-review gate <diff range>` | standalone |
+| Deep security test of a finished product (static, live DAST, or both) with report and fix plan | `/eng-security-audit` | standalone |
+| Fix what the audit found, then verify with a re-scan | `/eng-security-audit --fix` | standalone |
 | Plan production readiness for a regulated product (finance, health, public sector, AI) | `/eng-init` → `/eng` | gated |
 | Keep a federation of developer groups on the same standards | federation `standards:` repo + `/eng-promote` | any |
 | Document an existing system for business, ops and compliance readers | `/eng-document` | gated |
@@ -240,7 +243,28 @@ Only an audit? Run `/eng-review` with no setup. It never changes lifecycle gates
 .eng-team/   profile.md · state.md · plan.md · packs/ · research/ · test-results.md
 docs/        README.md · brief.md · architecture.md · adr/NNNN-*.md · testing.md
              runbook.md · compliance/evidence-log.md · reviews/eng-review-<date>.md
+             security/security-audit-<date>.md · security/remediation-plan-<date>.md
 ```
+
+### Security testing (any project, any state)
+
+`/eng-security-audit` works on any repository, whether or not eng-team built it, and needs no setup. By default (`auto`) it reads the repo and recommends a mode. You make the final choice.
+
+| Mode | What runs | Use it when |
+|---|---|---|
+| `static` | Semgrep (SAST), gitleaks (secrets, full git history), osv-scanner (dependencies), Trivy/Checkov (IaC, containers), Syft (SBOM), plus agent review | Libraries, CLIs, IaC, data pipelines; the app can't start without real secrets; PR checks; a first look at an unknown repo. Safe everywhere. |
+| `dast` | Starts the app locally (compose, dev server, container), then runs a ZAP baseline (passive), a ZAP full or API scan (active, OpenAPI/GraphQL), and probes for headers, cookies, CORS, rate limits and IDOR | Web apps and APIs that run locally, when static was run recently |
+| `full` | Static, then DAST, with findings cross-checked (a code finding reproduced live becomes `confirmed`) | Before launch or production, after big changes, regulated or high-criticality products. Recommended whenever the app runs locally |
+
+Advice and safety rules:
+- **DAST runs only against targets you own.** Localhost and a docker network the audit starts itself are allowed. Any other URL (`--target`) triggers a hard stop until you confirm in writing that you are authorised to test it and that it is not production. Production targets are refused.
+- **Active scans write data**, so they run only on a disposable instance with test data and test credentials. Give the team two test users if you want authenticated and IDOR testing.
+- **The team never installs tools or pulls images without asking.** If a scanner is missing, the agents review that layer manually and the report marks it `reviewed-manually` (lower confidence), not `scanned`.
+- **Raw scanner output stays out of the repo** (it is written to a temp directory) because it can contain secrets. The report only ever shows redacted values.
+- **Leaked secrets need you.** Rotation, history purges, cloud changes and breach notification (GDPR Art. 33, within 72 hours) are `owner: human` tasks in the plan.
+- **Automated DAST is not a pen test.** It does not replace a manual penetration test or a DORA threat-led penetration test (TLPT). The report's "Not covered" section says so.
+
+For a quick, fully local setup: `brew install semgrep gitleaks osv-scanner trivy syft` and Docker (for `ghcr.io/zaproxy/zaproxy:stable`).
 
 ## 7. Best practices
 
@@ -252,6 +276,7 @@ docs/        README.md · brief.md · architecture.md · adr/NNNN-*.md · testin
 - **Treat `needs-evidence` as a to-do list, not a failure.** Tested restores, pen tests, DPAs and access reviews can't be proven from code. They get a named owner instead.
 - **Don't fight hard stops.** Destructive or outside-repo actions are yours to perform. Do them, then tell the lead to continue.
 - **Use one federation standards repo** for shared packs, conventions and priority order, so decentralised teams stay consistent without a central gatekeeper.
+- **Scan before you ship, and after you fix.** Run `/eng-security-audit full` before a stage change to production, and re-run the scan after fixes. Add the same scanners as pull-request checks so the same issues don't come back.
 - **Keep runs lean.** For a quick check use `/eng-review gate <diff>` instead of a full review. Run the eval suite one case at a time (see [Testing](#testing-this-plugin)).
 
 ---
@@ -342,6 +367,7 @@ All commands also work namespaced, e.g. `/eng-team:eng-init`.
 | `/eng-init` | `[--autonomous] [notes]` | Creates the profile and state; checks integrity if they exist |
 | `/eng-discover` · `/eng-research` · `/eng-architect` · `/eng-build` · `/eng-test` · `/eng-document` | `[--force "<reason>"] [--skip "<reason>"] [--autonomous\|--gated] [notes]` | Runs one phase |
 | `/eng-review` | `[plan\|review\|gate] [paths or diff range]` | Standalone review/audit; no setup; never changes lifecycle gates |
+| `/eng-security-audit` | `[auto\|static\|dast\|full] [--target <url>] [--fix] [paths]` | Tool-backed security audit of any repo; report + remediation plan in `docs/security/`; no setup; never changes lifecycle gates |
 | `/eng-promote` | `<pack-id>` | Copies a reviewed project pack to the federation repo (local only, never pushes) |
 
 A phase command refuses until every earlier gate is `passed`, `skipped` or `forced`, and it names the blocking gate. `--force "<reason>"` overrides this and the override is logged. `--skip "<reason>"` is human-only and gated-only.
@@ -411,7 +437,7 @@ CI runs both validator commands. The eval suite has 8 cases with planted issues 
 ### Limits
 
 What this team cannot do:
-- live penetration testing
+- manual penetration testing or DORA threat-led penetration testing (automated DAST against local or authorised non-production targets is covered by `/eng-security-audit`)
 - verifying runtime or cloud configuration that isn't in the repository (unless you grant read access)
 - legal sign-off
 - anything that requires human attestation
