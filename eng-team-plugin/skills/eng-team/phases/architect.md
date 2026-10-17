@@ -8,11 +8,12 @@ Choose the simplest design that meets the approved brief, challenge every signif
 
 - `docs/engineering/product/brief.md`, `.eng-team/profile.md`, `.eng-team/state.md`.
 - Packs in use, `.eng-team/research/` notes.
-- `roles/architect.md`, `challenger/devils-advocate.md`, `challenger/citations.md`, `challenger/coaching.md`.
+- `roles/architect.md`, `challenger/devils-advocate.md`, `challenger/rationale-recovery.md`, `challenger/citations.md`, `challenger/coaching.md`.
 - `templates/adr.md`, `templates/architecture.md`.
 
 ## Steps
 
+0. **Existing code.** If the repo has application code and `docs/engineering/decisions/` has no ADRs, run `challenger/rationale-recovery.md` first so the options respect what was already decided and why. Then continue.
 1. Dispatch `eng-architect` with `roles/architect.md`, the brief, packs in use and research notes. Ask for options, a recommendation, ADR drafts for each significant decision, C4 context and container diagrams, the security testing strategy (`templates/architecture.md` → Security testing strategy) and the plan.
 2. Present the options (trade-off rows) and the recommendation to the user in a short summary.
 3. For each significant decision (the test in `challenger/devils-advocate.md`), run the devil's-advocate round yourself in the main thread: steelman, pre-mortem, assumption audit, reversibility. Ask the user to answer each challenge; record challenge, response and source in the ADR's `## Challenges raised` table.
