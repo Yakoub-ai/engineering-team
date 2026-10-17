@@ -8,7 +8,7 @@ Scaffold `.eng-team/` in the target project: a filled profile (the scope contrac
 
 - The repository contents: manifests (`package.json`, `pyproject.toml`, `go.mod`, …), IaC (`*.bicep`, `*.tf`, `cdk.json`), CI files, README, env samples (`.env.example`).
 - `templates/profile.md` (field list, required/optional markers) and `templates/state.md`.
-- The run's autonomy: what the user asked for in this command, else ask it as the `autonomy` field.
+- The run's autonomy: what the user asked for in this command, else ask it as the `autonomy` field. Never set `autonomous` on your own: if the human is unavailable or says they cannot answer now, stay in the template's autonomy (default `gated`), ask the first question and stop. Only `--autonomous` or an explicit human instruction sets it.
 
 ## Steps
 

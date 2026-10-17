@@ -73,7 +73,7 @@ Entry, running a phase, loop-back, loop counters and Critical findings are in `s
 
 `profile.autonomy` (the user may override it for one run):
 - `gated` (default): stop for human approval at discover (brief), architect (design + plan) and review (final verdict). Record approver name and date in the Gates table.
-- `autonomous`: no approval stops. Record `Approved by: agent`; decisions become ADRs with `Decided by: agent`; interview questions become Assumptions rows.
+- `autonomous`: set only by `--autonomous` or an explicit human instruction; the team never switches to it on its own (if the human is unavailable, stay in the current mode, ask the first question and stop). No approval stops. Record `Approved by: agent`; decisions become ADRs with `Decided by: agent`; interview questions become Assumptions rows.
 Before each phase post a Next up note (at most 5 lines); the team plan is approved with the brief in gated mode; every gate writes a handover and rewrites STATUS.md; every gated approval starts with the gap review (autonomous mode records the open items as Assumptions).
 Hard stops (rule 7) apply in both modes. When any agent returns a line starting `HARD-STOP:`, follow the Hard-stop procedure in `shared/orchestration.md`.
 

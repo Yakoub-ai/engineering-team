@@ -32,9 +32,9 @@ Write the result to `.eng-team/context.md` from `templates/context.md`, with `Sc
 
 ## What I know
 
-After the refresh, show the human one block of at most 12 lines with three labelled groups:
+After the refresh, show the human one block of at most 12 lines with three labelled groups. This block opens the first message to the human in every command run, including hard-stop messages and messages that end with a question:
 
-- `Known`: facts with their source (`CLAUDE.md`, `docs/architecture.md:12`, `memory:`).
+- `Known`: facts with their source (`CLAUDE.md`, `docs/architecture.md:12`, `memory:`). When a snapshot or `CLAUDE.md` was used, name it as the source in the group label, for example `Known (from .eng-team/context.md, scanned <commit>)`.
 - `Inferred`: facts from the code scan, each with its evidence (`path:line` or the command used).
 - `Needed from you`: what the sources cannot answer, plus any unresolved conflict.
 
