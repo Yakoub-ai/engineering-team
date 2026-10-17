@@ -300,6 +300,18 @@ Missing scanners? The team offers one consolidated install command (for example 
 
 In-repo changes go through the normal build flow. Anything on your machine is asked about once per run as one command, then run and verified by the team. `sudo`, `curl | sh` and unofficial sources always need a separate yes.
 
+### Visual workspace and agent context (`/eng-view`)
+
+`/eng-view` starts a local page (default `http://127.0.0.1:4777`) built from the project's engineering record and code. It needs Node 18 or newer and no other dependencies.
+- **Home** is `docs/engineering/STATUS.md`. The sidebar groups Overview (STATUS, team plan, questions), Product, Specs, Plans, Decisions, Handovers (as a timeline), Security and reviews, other docs and Code.
+- **Map**: a graph of everything. Explicit links (doc links, `path:line` references, ADR, finding, question, use-case and plan-task IDs, imports) are solid lines. "Related but unlinked" neighbours are dashed and show their similarity score.
+- **Edit docs in place**: markdown under `docs/` and `.eng-team/*.md` (except `state.md`) can be edited and saved to disk, so git shows the diff. A save is refused if the file changed on disk in the meantime. Code is view-only, with "open in editor" links. Code changes go through the team's gates.
+- **Agent context**: the plugin ships a local MCP server (`eng-team-context`) over the same index, with `search_context`, `get_related`, `changed_since` and `get_doc`. Agents use it to fetch only what they need. It writes nothing into projects that eng-team does not manage.
+- **Privacy**: the page binds to `127.0.0.1` only and has Host and CSRF guards plus a strict CSP. It never indexes `.env*`, keys or credential files. The index lives in `.eng-team/.cache/` (gitignored).
+- **Optional semantic map**: local embeddings (`Xenova/all-MiniLM-L6-v2`, about 25 MB, downloaded once after you approve). Without them, related items come from TF-IDF.
+
+Details are in `viewer/README.md`.
+
 ## 7. Best practices
 
 - **Invest in the profile.** Most quality comes from an accurate `.eng-team/profile.md`: data classes, jurisdictions, regulated status, stage. A wrong `data_classes: [none]` silently skips GDPR.
@@ -405,6 +417,7 @@ All commands also work namespaced, e.g. `/eng-team:eng-init`.
 | `/eng-review` | `[plan\|review\|gate] [paths or diff range]` | Standalone review/audit; no setup; never changes lifecycle gates |
 | `/eng-security-audit` | `[auto\|static\|dast\|full] [--target <url>] [--fix] [paths]` | Tool-backed security audit of any repo; report + remediation plan in `docs/security/`; no setup; never changes lifecycle gates |
 | `/eng-setup` | `[check\|install\|update] [notes]` | Environment check, setup or update; machine-level installs asked once, then done and verified; never changes lifecycle gates |
+| `/eng-view` | `[--port <n>] [--no-semantic]` | Starts the local visual workspace on `127.0.0.1` (docs, decisions, handovers and code as a connected map; docs editable) |
 | `/eng-promote` | `<pack-id>` | Copies a reviewed project pack to the federation repo (local only, never pushes) |
 
 A phase command refuses until every earlier gate is `passed`, `skipped` or `forced`, and it names the blocking gate. `--force "<reason>"` overrides this and the override is logged. `--skip "<reason>"` is human-only and gated-only.
@@ -469,7 +482,7 @@ cd eng-team-plugin && claude plugin eval . --case <name> --runs 1 --model sonnet
   --no-publish --trust-plugin --scaffold --allow-tools Bash Write Edit   # one eval case
 ```
 
-CI runs both validator commands. The eval suite has 12 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Last results: cases a-k at 1.00 (i-k on 2026-10-17), and the smoke test passed 19/19 (before audit was added to the test phase; not re-run) (`tests/smoke/README.md`).
+CI runs both validator commands. The eval suite has 12 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Last results: all 12 cases at 1.00 (a, g, k and l re-run on v3.0.0, 2026-10-17); viewer: `cd eng-team-plugin/viewer && node --test test/*.test.js` (103 tests); and the smoke test passed 19/19 (before audit was added to the test phase; not re-run) (`tests/smoke/README.md`).
 
 ### Limits
 

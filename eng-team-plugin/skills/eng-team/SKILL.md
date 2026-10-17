@@ -45,6 +45,8 @@ Read `shared/orchestration.md` before acting on state. It defines:
 
 Read `shared/context.md` at the start of every command, after Preconditions and before State integrity, and again at the end of every phase. It builds and refreshes the context snapshot `.eng-team/context.md`, shows the human a short "What I know" block, and keeps the marked eng-team block in `CLAUDE.md` current. When `.eng-team/` does not exist (standalone review, audit or setup without init), it builds the snapshot in memory, shows the block, writes nothing and skips the `CLAUDE.md` integration.
 
+When the `eng-team-context` MCP tools are available (`search_context`, `get_related`, `changed_since`, `get_doc`, from the plugin's local index), use them to fetch exactly the docs, decisions, findings and code a step needs instead of re-reading the repository, and mention them in agent dispatch prompts. They are read-only and local; fall back to reading files when they are absent. `/eng-view` opens the same index as a local visual workspace for the human.
+
 ## Standards loading
 
 If `profile.standards` is set, resolve it once per run: a local path is used as-is; a git URL is cloned with `git clone --depth 1 <url> .eng-team/.cache/standards/` (that folder is gitignored). This clone is a read-only fetch and is exempt from hard stop 7(d), like other read-only research fetches; in gated mode, ask once before the first clone of a URL. If the path does not exist or the clone fails, warn once — "Federation standards at <x> unreachable — continuing with plugin packs only" — add the Log line `- YYYY-MM-DD standards-unavailable: <x>`, and continue. The Packs in use table then shows only tiers `plugin` and `project`. Never claim federation packs were loaded when they were not.

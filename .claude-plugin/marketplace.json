@@ -2,6 +2,6 @@
   "name": "yakoub-ai",
   "owner": { "name": "George Yakoub" },
   "plugins": [
-    { "name": "eng-team", "source": "./eng-team-plugin", "description": "Full-lifecycle engineering team plugin", "version": "2.3.0" }
+    { "name": "eng-team", "source": "./eng-team-plugin", "description": "Full-lifecycle engineering team plugin", "version": "3.0.0" }
   ]
 }

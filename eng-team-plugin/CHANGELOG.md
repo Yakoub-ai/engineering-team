@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.0.0 — 2026-10-17
+
+### Added
+- **Context engine** (`shared/context.md`, `templates/context.md`): reuses what is already known (`.eng-team/context.md` snapshot, CLAUDE.md, Claude auto-memory read-only, docs) before scanning code, re-scans only what changed, and opens every run with a "What I know" block. CLAUDE.md gets a marked eng-team block: written when missing, merge proposed (never applied without approval) when it exists.
+- **Product understanding**: brainstorming (`challenger/brainstorm.md`) and product discovery (`challenger/product-discovery.md`, `templates/product.md`): purpose, personas, use cases, usage, non-goals, success metrics, constraints, directions considered.
+- **Rationale recovery** (`challenger/rationale-recovery.md`): up to 8 questions on why significant or risky existing decisions were made, recorded as recovered ADRs that reviewers must cite before challenging.
+- **Best-practice research output**: `docs/engineering/specs/best-practices.md` per project, with ad-hoc research answers.
+- **Transparency**: team plan (agents per phase, what, when, outputs, your touchpoints), Next up notes before each phase, a handover file per phase, a rolling `STATUS.md`, `questions.md` with a Gap review before every approval.
+- **Visual workspace and agent context** (`viewer/`, `/eng-view`, `.mcp.json`): local, zero-dependency Node index of docs and code with a connected map, in-place doc editing, code view, handover timeline, optional local embeddings, and the `eng-team-context` MCP server (`search_context`, `get_related`, `changed_since`, `get_doc`).
+- Eval `l-context-reuse`.
+
+### Changed
+- **Layout**: engineering record moves to `docs/engineering/` (brief → `product/brief.md`, ADRs → `decisions/`, plan → `plans/plan.md`, onboarding, handovers, STATUS, team plan, questions). State integrity proposes a one-time `git mv` for existing projects. Onboarding never moves files; it proposes the migration as a question.
+- The lead owns `docs/engineering/**`; the tech-writer owns the reader docs.
+- Onboarding is read-only: Critical findings drive the recommended entry point instead of a hard stop; the team never changes autonomy on its own.
+
+### Migration (from 2.x)
+- Run any eng-team command in an initialised project; State integrity lists old paths and proposes the `git mv` batch (gated mode asks first).
+
 ## 2.3.0 — 2026-10-17
 
 ### Added
