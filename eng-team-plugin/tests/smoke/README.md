@@ -11,7 +11,7 @@ eng-team-plugin/tests/smoke/run-smoke.sh /some/dir  # keep the output somewhere 
 
 ## What it checks (19 checks)
 - `.eng-team/profile.md` and `.eng-team/state.md` exist, and all 8 gates are `passed`, `skipped` or `forced`.
-- Docs are written: `docs/brief.md`, `docs/architecture.md`, at least one `docs/adr/*.md`, `docs/testing.md` and `docs/reviews/*.md`. Each starts with an `Audience:` line.
+- Docs are written: `docs/engineering/product/brief.md`, `docs/architecture.md`, at least one `docs/engineering/decisions/*.md`, `docs/testing.md` and `docs/reviews/*.md`. Each starts with an `Audience:` line.
 - The generated converter exists, `node --test` passes, and `100 C` converts to `212`.
 
 ## Last result

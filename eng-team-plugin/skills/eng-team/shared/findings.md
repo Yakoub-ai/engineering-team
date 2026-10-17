@@ -25,6 +25,9 @@ Adjust by stage: a gap that is High in production can be Low in prototype. Say s
 Every finding derived from a pack names it in `Refs` as `pack:<id>(<tier>/<status>)`.
 Findings whose only basis is an `unreviewed` pack are capped at **High** — unless the check quotes a regulation article verbatim with its citation, in which case Critical is allowed.
 
+## Recovered decisions
+An ADR with `Status: accepted (recovered)` records a past decision and its stated trade-off. Treat that trade-off as context. A finding that contradicts a recovered ADR cites it in `Refs` (for example `ADR-0003`) and proposes revisiting the ADR; it must not silently override it.
+
 ## Agent return markers
 Agents that write (builder, tester, tech-writer) end with `Status: DONE | BLOCKED | HARD-STOP`.
 Any agent that hits a hard stop returns a line `HARD-STOP: <reason>` — the orchestrator pauses regardless of autonomy.

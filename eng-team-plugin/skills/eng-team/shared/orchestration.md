@@ -7,6 +7,7 @@ Loaded by `SKILL.md`. These are the orchestrator's own procedures for state, ent
 Runs on every start when `.eng-team/state.md` exists (skip it when there is no state). List every mismatch to the user, then repair (except in a standalone `/eng-review`: report mismatches only, never repair):
 1. **Artifacts.** For each gate with status `passed`, check that its Evidence artifact exists. If it is missing, the repair is: set that gate to `open` and log `- YYYY-MM-DD state-repair: <phase> artifact missing`.
 2. **Phase.** The expected phase is the first phase, in Phases-table order, whose gate is not `passed`, `skipped` or `forced` (if none, the project is complete and `current_phase` should be `review`). If `current_phase` differs, the repair is: set `current_phase` to the expected phase and log `- YYYY-MM-DD state-repair: current_phase <old> → <new>`.
+3. **Layout.** Not run during onboarding (`phases/onboard.md` never moves user files). If any old-layout path exists (`docs/brief.md`, `docs/adr/`, `.eng-team/plan.md`, `docs/onboarding-*.md`), list them and propose one `git mv` batch to the new paths (`docs/engineering/product/brief.md`, `docs/engineering/decisions/`, `docs/engineering/plans/plan.md`, `docs/engineering/onboarding-<date>.md`). In `gated`, apply it after approval; in `autonomous`, apply it directly; never in a standalone `/eng-review`. Then update Evidence paths in state.md and log `- YYYY-MM-DD state-repair: layout migrated to docs/engineering/`. Until migrated, readers accept both old and new paths.
 - Standalone `/eng-review`: report mismatches only; do not modify state.md, apart from the `adhoc-review:` Log line.
 - `gated`: ask the human before each repair and apply what they choose.
 - `autonomous`: apply the repairs and log them.
@@ -23,7 +24,21 @@ After the integrity check, run the **due check** (report only, never a repair): 
 
 ## Running a phase
 
-Set its gate to `in-progress`, follow its file, then check every exit criterion yourself. Never trust an agent's "done". All pass → `passed` (with evidence, approver, date) and advance `current_phase`. Any fail → `failed`.
+Before starting, post a **Next up** note of at most 5 lines: the phase, the agents, what they will do, what you will be asked, and the outputs. Set its gate to `in-progress`, follow its file, then check every exit criterion yourself. Never trust an agent's "done". Any fail → `failed`.
+
+When every exit criterion except the handover and STATUS line passes, and before setting the gate to `passed`, in this order:
+1. Write `docs/engineering/handovers/NN-<phase>.md` from `templates/handover.md` (NN is the phase number, 2 digits: init 00 … review 07; onboarding writes 00).
+2. Rewrite `docs/engineering/STATUS.md` from `templates/status.md` (rewrite, never append).
+3. Update the phase statuses in `docs/engineering/team-plan.md`.
+(All three show this phase as passed.) Then verify the handover and STATUS criterion. If it fails, the gate stays `in-progress`: fix the files and check again. If it holds, set the gate to `passed` (with evidence, approver, date), advance `current_phase`, and refresh the context snapshot (`shared/context.md`).
+
+When a re-opened phase passes again, overwrite `docs/engineering/handovers/NN-<phase>.md` and add a `## Revisions` line with the date and the reason, keeping the old Done section summary in one line.
+
+Standalone commands (audit, setup, review) write a handover only when they change project direction.
+
+## Gap review
+
+At every gated approval, before asking for approval, walk the human through the new and still-open items in `docs/engineering/questions.md`. Each answer becomes a `# stated` profile field, an ADR, a plan task or an accepted risk, and the item moves to the Answered log. In `autonomous` mode, record each open item as an Assumptions row; it stays listed until a human confirms it. `docs/engineering/questions.md` mirrors state.md Open questions and Assumptions; state.md stays the machine source, so update both together.
 
 ## Continuous security testing
 
@@ -47,7 +62,7 @@ The team sets environments up, automates them and keeps them current; it does no
 ## Loop-back
 
 When a gate fails back to an earlier phase (test → build, review → build):
-(a) append one fix task `F<n>` per Critical/High finding or failing flow to `.eng-team/plan.md`, each with the acceptance check "the finding or failure no longer reproduces";
+(a) append one fix task `F<n>` per Critical/High finding or failing flow to `docs/engineering/plans/plan.md`, each with the acceptance check "the finding or failure no longer reproduces";
 (b) set the failing gate to `failed`;
 (c) set the target gate and every gate between it and the failing one to `open` (keep a gate a human set to `skipped` as `skipped`), logging `- YYYY-MM-DD reopened: <phase> — <finding ids>`;
 (d) set `current_phase` to the target.

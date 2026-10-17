@@ -8,7 +8,7 @@ updated: 2026-10-16
 | Phase | Status | Evidence | Approved by | Date |
 |---|---|---|---|---|
 | init | passed | .eng-team/profile.md | Test Owner | 2026-10-16 |
-| discover | passed | docs/brief.md | Test Owner | 2026-10-16 |
+| discover | passed | docs/engineering/product/brief.md | Test Owner | 2026-10-16 |
 | research | passed | docs/research.md | Test Owner | 2026-10-16 |
 | architect | passed | docs/architecture.md | Test Owner | 2026-10-16 |
 | build | passed | src/server.js | Test Owner | 2026-10-16 |

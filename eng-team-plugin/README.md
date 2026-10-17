@@ -35,13 +35,13 @@ eng-team is an **engineering lead (orchestrator) plus 14 specialist agents**. It
 | **Research** | Facts from official sources (vendor docs, RFCs, regulation text on EUR-Lex, OWASP, NIST). Every claim is cited, or labelled `opinion:`. Gaps are filled by researched packs flagged `unreviewed` until a human checks them. |
 | **Architecture** | 2–3 options with trade-offs, a recommendation sized to the project's stage, C4 diagrams (Mermaid), ADRs and an implementation plan with an acceptance check per task. |
 | **Build & test** | Test-first implementation one plan task at a time, with a reviewer spot-check after each. Critical flows (money, data access, irreversible actions) are mapped to tests, and the suite is run and recorded. |
-| **Documentation** | Docs-as-code in `docs/`: a 1-page business brief, the architecture, ADRs, the testing strategy, a runbook and a compliance evidence log. Each doc names its audience and the commit it was verified against. |
+| **Documentation** | Docs-as-code in `docs/`: a 1-page business brief, the architecture, decision records, the testing strategy, a runbook and a compliance evidence log. Each doc names its audience and the commit it was verified against. |
 | **Security testing** | `/eng-security-audit` runs real scanners on any repo, whether or not eng-team built it: SAST, secrets in git history, dependencies, IaC, containers and SBOM, plus DAST against the app started locally. Agents triage every tool hit against the code, add logic flaws that scanners miss, map findings to GDPR, NIS2, DORA and the AI Act, and write a report and an ordered remediation plan. With `--fix` the team then carries out the plan and re-scans. |
 | **Environment** | `/eng-setup` and the architect plan give every project a pinned toolchain, a one-command setup, local services, pre-commit hooks, CI security checks and automated dependency updates. The team installs and updates tools on your machine after one approval, then verifies them. |
 | **Review** | Security, compliance, data, platform, SRE, QA, integration, AI and product reviewers. Each finding cites `path:line` evidence. Secrets are never printed. The report includes a "Not covered" section. |
 | **Coaching** | Each recommendation explains *why* and links to a source, so developers learn the practice instead of just following it. |
 
-All progress lives in your project under `.eng-team/` (profile, state, plan, packs, research). Work can therefore be resumed any time, by anyone, in Claude Code or claude.ai.
+All progress lives in your project under `.eng-team/` (profile, state, context, packs, research). Work can therefore be resumed any time, by anyone, in Claude Code or claude.ai.
 
 ## 2. Use cases and coverage
 
@@ -114,10 +114,10 @@ flowchart LR
 
 | # | Phase | What happens | Output |
 |---|---|---|---|
-| 0 | **init / onboard** | New project: infers the profile and asks only for what it can't infer. Existing code: onboarding scans code, docs and git history, infers the stage, maps what exists to the gates (adopting real evidence), asks about your situation, goal and pain points, and recommends an entry point. | `.eng-team/profile.md`, `state.md`, `docs/onboarding-<date>.md` |
-| 1 | **discover** | Interview and pushback. Destructive requests are flagged as human-only hard stops. | `docs/brief.md`, open questions, assumptions |
+| 0 | **init / onboard** | New project: infers the profile and asks only for what it can't infer. Existing code: onboarding scans code, docs and git history, infers the stage, maps what exists to the gates (adopting real evidence), asks about your situation, goal and pain points, and recommends an entry point. | `.eng-team/profile.md`, `state.md`, `docs/engineering/onboarding-<date>.md` |
+| 1 | **discover** | Interview and pushback. Destructive requests are flagged as human-only hard stops. | `docs/engineering/product/brief.md`, open questions, assumptions |
 | 2 | **research** | Resolves packs (project → federation → plugin) and researches gaps with citations. | packs in use, `.eng-team/research/` |
-| 3 | **architect** | Options and trade-offs, devil's advocate, C4, ADRs, a security testing strategy, and a plan that always includes environment, security-tooling and DAST-readiness tasks. Reviewers check the design in `plan` mode. | `docs/architecture.md`, `docs/adr/`, `.eng-team/plan.md` |
+| 3 | **architect** | Options and trade-offs, devil's advocate, C4, ADRs, a security testing strategy, and a plan that always includes environment, security-tooling and DAST-readiness tasks. Reviewers check the design in `plan` mode. | `docs/architecture.md`, `docs/engineering/decisions/`, `docs/engineering/plans/plan.md` |
 | 4 | **build** | One task at a time, test-first, starting with the environment task. The lead re-runs each acceptance check itself, scans the diff for secrets and SAST issues, and reviewers check the diff in `gate` mode. | code, automation |
 | 5 | **test** | Critical flows mapped to tests, missing tests written, suite run and recorded. Then the security audit (full when the app runs locally, else static); Critical and High findings loop back to build. | tests, `.eng-team/test-results.md`, `docs/security/` |
 | 6 | **document** | Docs written or updated in place; human edits are preserved. | `docs/` set |
@@ -135,6 +135,17 @@ flowchart LR
 - `autonomous`: no approval stops. Decisions become ADRs marked `Decided by: agent`, and questions become recorded assumptions you can audit later.
 - **Hard stops apply in both modes:** a Critical finding, a test suite not fixed in 2 attempts, a destructive operation (including one *requested* in your brief), and any side effect outside the repository. The team never pushes, opens PRs or changes remotes.
 
+### Context, product understanding and transparency
+
+- **Context engine.** Every command starts by reading `.eng-team/context.md`, a cited snapshot of components, stack, data classes and entry points. It refreshes incrementally from the last scanned commit, so unchanged code is not re-read. The lead opens with a **What I know** block: what it knows, where it came from, and what it still needs from you.
+- **CLAUDE.md merge.** Your `CLAUDE.md` is read as context, never overwritten. Proposed additions go between `<!-- eng-team:start -->` and `<!-- eng-team:end -->` and only after you agree.
+- **Brainstorming and product discovery.** Discover brainstorms options with you, then writes `docs/engineering/product/product.md` (who it is for, the problem, success measures) before the brief.
+- **Rationale recovery.** For existing code, the team recovers why decisions were made from git history, docs and comments, and records them in `docs/engineering/decisions/`. Unknown rationale is marked unknown, not guessed.
+- **Best practices.** `docs/engineering/specs/best-practices.md` fixes the practices this project follows, each cited, so later phases check against it.
+- **Team plan and Next up.** `docs/engineering/team-plan.md` shows who works on what and in which order. Each command ends with a **Next up** note naming the next step.
+- **Handovers and STATUS.md.** Each phase writes `docs/engineering/handovers/NN-<phase>.md` for the next one. `docs/engineering/STATUS.md` is the one-page current state.
+- **Questions and gap review.** Open questions live in `docs/engineering/questions.md`. Before a gate, a gap review lists missing answers, evidence or decisions, and you answer them or accept the risk.
+
 ## 4. Agent handover architecture
 
 The lead is the only component that talks to you, owns state and dispatches agents. **Agents never talk to each other directly.** Every handover goes through files the lead controls, so each step is traceable and resumable.
@@ -147,7 +158,7 @@ flowchart TB
     L[SKILL.md + shared/orchestration.md<br/>phases · gates · loops · hard stops]
   end
 
-  L <-->|reads/writes, sole writer| S[(.eng-team/<br/>profile · state · plan · packs · research · test-results)]
+  L <-->|reads/writes, sole writer| S[(.eng-team/<br/>profile · state · context · packs · research · test-results)]
   K[(Knowledge packs<br/>project → federation → plugin<br/>stacks · compliance · practices)] -->|applies_when| L
 
   L -->|questions, pack gaps| RES[eng-researcher<br/>read + web]
@@ -165,7 +176,7 @@ flowchart TB
   L -->|runs scanners · starts app for DAST · installs after approval| SC[Security + environment tooling<br/>SAST · secrets · SCA · IaC · SBOM · ZAP]
   SC -->|raw output in temp dir, never the repo| REV
 
-  L -->|saves brief, ADRs, C4, reports| D[(docs/)]
+  L -->|saves brief, decisions, C4, reports| D[(docs/)]
   DOC --> D
   BLD --> C[(source code + tests)]
   TST --> C
@@ -248,10 +259,13 @@ Only an audit? Run `/eng-review` with no setup. It never changes lifecycle gates
 ### What you end up with
 
 ```
-.eng-team/   profile.md · state.md · plan.md · packs/ · research/ · test-results.md
-docs/        README.md · brief.md · architecture.md · adr/NNNN-*.md · testing.md
-             runbook.md · compliance/evidence-log.md · reviews/eng-review-<date>.md
-             security/security-audit-<date>.md · security/remediation-plan-<date>.md
+docs/engineering/   STATUS.md · team-plan.md · questions.md · onboarding-<date>.md
+                    product/product.md · product/brief.md
+                    specs/best-practices.md · plans/plan.md
+                    decisions/NNNN-<slug>.md · handovers/NN-<phase>.md
+docs/               README.md · architecture.md · testing.md · runbook.md
+                    compliance/ · security/ · reviews/
+.eng-team/          profile.md · state.md · context.md · packs/ · research/ · test-results.md
 ```
 
 ### Security testing (any project, any state)
@@ -455,7 +469,7 @@ cd eng-team-plugin && claude plugin eval . --case <name> --runs 1 --model sonnet
   --no-publish --trust-plugin --scaffold --allow-tools Bash Write Edit   # one eval case
 ```
 
-CI runs both validator commands. The eval suite has 11 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Last results: all 11 cases at 1.00 (i-k on 2026-10-17), and the smoke test passed 19/19 (before audit was added to the test phase; not re-run) (`tests/smoke/README.md`).
+CI runs both validator commands. The eval suite has 12 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Last results: cases a-k at 1.00 (i-k on 2026-10-17), and the smoke test passed 19/19 (before audit was added to the test phase; not re-run) (`tests/smoke/README.md`).
 
 ### Limits
 

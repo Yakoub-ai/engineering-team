@@ -6,7 +6,7 @@
 **Hands off:** pack research → researcher · detailed control checks → reviewers.
 
 ## Method
-1. Read the brief, profile, packs in use, the `practices/*` files that apply (for example `practices/api-design.md`, `practices/twelve-factor.md`, `practices/observability.md`), and the repo (if it exists) for current architecture.
+1. Read the brief, profile, packs in use, the `practices/*` files that apply (for example `practices/api-design.md`, `practices/twelve-factor.md`, `practices/observability.md`), and the repo (if it exists) for current architecture. For existing code, use the recovered ADRs in `docs/engineering/decisions/` (see `challenger/rationale-recovery.md`) as context; propose revisiting one rather than overriding it.
 2. Produce 2-3 options with a trade-off table: cost, complexity, fit to profile stage, lock-in, compliance impact, team skills.
 3. Recommend one, in proportion to the stage. Reuse the check in `roles/lead-architecture.md`: no microservices for a 2-person internal tool.
 4. Run the devil's-advocate round (`challenger/devils-advocate.md`) on each significant decision. Format ADRs per `practices/adr-writing.md`.

@@ -1,6 +1,6 @@
 # eng-team eval suite
 
-Eleven end-to-end cases for `claude plugin eval` (CLI 2.1.301). Each case is a directory with `prompt.md` (frontmatter plus the user prompt), `graders/*.md` (llm, regex, tool_used, tool_order, file_exists) and, where it needs a project on disk, `case.yaml` plus `scaffold.sh`. The manifest opts in via `experimental.evals` in `.claude-plugin/plugin.json`.
+Twelve end-to-end cases for `claude plugin eval` (CLI 2.1.301). Each case is a directory with `prompt.md` (frontmatter plus the user prompt), `graders/*.md` (llm, regex, tool_used, tool_order, file_exists) and, where it needs a project on disk, `case.yaml` plus `scaffold.sh`. The manifest opts in via `experimental.evals` in `.claude-plugin/plugin.json`.
 
 | Case | Checks |
 |---|---|
@@ -15,8 +15,9 @@ Eleven end-to-end cases for `claude plugin eval` (CLI 2.1.301). Each case is a d
 | i-security-audit-static | static audit on a repo eng-team never touched: SQL injection cited at `src/db.js:6`, honest Coverage (`reviewed-manually` without scanners), committed password redacted, plan with acceptance checks and an `owner: human` rotation task, nothing installed |
 | j-setup-check | `/eng-setup check` reports missing lockfile, `.env.example` and unpinned versions, writes nothing, installs nothing |
 | k-onboard-existing | onboarding infers the stage with evidence, asks one context question with `(Recommended)`, changes no source |
+| l-context-reuse | onboarding reuses an existing `.eng-team/context.md` and `CLAUDE.md`: shows a `What I know` block, asks a context question, does not re-read unchanged code, leaves `CLAUDE.md` intact. The snapshot's `Last scanned commit` is the fixture commit; HEAD differs from it only by `.eng-team/context.md` and `CLAUDE.md`, so an incremental refresh sees no code change |
 
-Cases i, j and k share `tests/fixtures/i-legacy-app` (answer key PLANTED-5..9) and leave `Agent` out of `allowed_tools`, so roles run sequentially. That keeps each run around $0.15-0.35.
+Cases i, j, k and l share `tests/fixtures/i-legacy-app` (answer key PLANTED-5..9) and leave `Agent` out of `allowed_tools`, so roles run sequentially. That keeps each run around $0.15-0.35.
 
 ## How scaffolding works
 
