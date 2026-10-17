@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.0 — 2026-10-17
+
+### Added
+- Security testing is part of the lifecycle. Architect writes a Security testing strategy and always plans environment, security-tooling and DAST-readiness tasks. Build scans each task's diff. Test runs the security audit (full when the app runs locally) and loops Critical/High findings back to build. Review re-audits what changed. Document adds Security testing to `docs/testing.md` and Vulnerability response to the runbook.
+- Continuous security testing (`shared/orchestration.md`): stage-based cadence, event triggers (lockfile/IaC/endpoint/auth/stage changes), a `Security audits` table in `state.md` with `Next due`, and a due check on every start.
+- `/eng-setup [check|install|update]` and `phases/setup.md`: the team sets up, automates and updates project environments (pinned toolchain, one-command setup, local services, devcontainer, pre-commit, CI security checks, Dependabot/Renovate, batched dependency updates).
+- `practices/environment-setup.md` pack (devcontainers, mise, pre-commit, Dependabot, Renovate, GitHub Actions hardening, OpenSSF Scorecard, Twelve-Factor).
+- Profile: `security_testing.dast_target` and `security_testing.cadence`.
+
+### Changed
+- Machine-level installs, updates and image pulls are asked once per run as one consolidated command, then run and verified by the team (previously the team only suggested commands).
+
 ## 2.1.0 — 2026-10-17
 
 ### Added

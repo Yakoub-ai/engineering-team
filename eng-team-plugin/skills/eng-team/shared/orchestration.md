@@ -12,6 +12,8 @@ Runs on every start when `.eng-team/state.md` exists (skip it when there is no s
 - `autonomous`: apply the repairs and log them.
 Never delete rows from state.md; change statuses and append Log lines only.
 
+After the integrity check, run the **due check** (report only, never a repair): if the last state.md Security audits row's `Next due` date has passed, if a lockfile or IaC file changed since that row's commit, or if `profile.stage` changed since then, tell the user "Security re-audit due: <reason>" and offer `/eng-security-audit`. Also list environment drift found by `phases/setup.md` → check (missing or outdated tools, setup that no longer works) and offer `/eng-setup update`.
+
 ## Entry
 
 `/eng` resumes from `current_phase` and runs phases in order. `/eng-<phase>` and `/eng-promote` run only after the Preconditions in `SKILL.md` hold. `/eng-<phase>` runs one phase and refuses, naming the blocking gate, unless every earlier gate is `passed`, `skipped` or `forced`.
@@ -22,6 +24,25 @@ Never delete rows from state.md; change statuses and append Log lines only.
 ## Running a phase
 
 Set its gate to `in-progress`, follow its file, then check every exit criterion yourself. Never trust an agent's "done". All pass → `passed` (with evidence, approver, date) and advance `current_phase`. Any fail → `failed`.
+
+## Continuous security testing
+
+Security testing is part of the lifecycle and continues after it ends:
+- **Planned** in architect (Security testing strategy, environment, security-tooling and DAST-readiness tasks).
+- **Per task** in build (secret + SAST scan of the diff when scanners exist).
+- **Per release** in test (full or static audit, `phases/test.md` step 4) and review (re-audit what changed).
+- **After the lifecycle** by cadence and triggers, via the due check under State integrity.
+
+Default cadence when `profile.security_testing.cadence` is `auto`: prototype → before each stage change; pilot → quarterly and before each release; production and scale → static on every pull request (CI), full audit before each release and at least monthly. Event triggers in every stage: dependency or lockfile change, new external endpoint or auth change, new data class, stage change, a disclosed vulnerability in a used dependency. Set `Next due` on every Security audits row from this.
+
+Findings from an audit after the review gate passed reopen work via Loop-back with target build (Loop counter `audit→build`) only when the human approves (gated) or for High and lower (autonomous); a Critical always follows Critical findings below. Opinion: monthly static and pre-release full audits follow `practices/secure-sdlc.md`; the regulatory basis for regular testing is GDPR Art. 32(1)(d), NIS2 Art. 21(2)(f) and DORA Art. 24-25 (packs `eu-gdpr`, `eu-nis2`, `eu-dora`).
+
+## Environment and tooling
+
+The team sets environments up, automates them and keeps them current; it does not just hand the user a list of commands. Method and standards: `practices/environment-setup.md`; procedure: `phases/setup.md`.
+- **Inside the repository** (proactive, no extra approval beyond the phase): pinned tool versions, a one-command setup and security target, `.env.example`, devcontainer, pre-commit hooks, CI workflows, dependency-update configuration. These go through the plan and `eng-builder` like any code change.
+- **On the user's machine** (installs, upgrades, `docker pull`, global package managers): an outside-repository side effect (rule 7(d) in `SKILL.md`). Ask **once per run** with one consolidated, copy-pasteable command and what it changes; on approval run it yourself, verify each tool's version, and record it in the Log (`- YYYY-MM-DD env: <what was installed or updated>`). Never use `sudo`, `curl | sh` or unofficial sources without showing the exact command and getting a separate yes. On refusal, continue with what exists and say what that limits.
+- **Updates**: dependency and toolchain updates are proposed as plan tasks (patch/minor grouped, majors one per task with release notes read), verified by the test suite and a re-scan; never auto-merge, never push.
 
 ## Loop-back
 

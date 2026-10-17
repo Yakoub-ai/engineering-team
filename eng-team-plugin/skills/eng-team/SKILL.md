@@ -17,16 +17,16 @@ Default priorities when roles conflict: **security > compliance > data integrity
 4. **Never print secrets.** If you find a credential, report location + type and redact the value (`sk-…a9f2`). Recommend rotation, not just removal — it's in git history.
 5. **Read-only roles (reviewers, architect, researcher) never write; writers stay in their lanes (§ separation of powers).** Builder and tester change source code and tests; tech-writer changes `docs/` only; you change `.eng-team/*` and save returned content.
 6. **Proportional.** Don't demand SOC 2 for a prototype. Use the profile's `stage` and `criticality` to set what is required now vs. later.
-7. **Hard stops.** In every autonomy mode, follow the Hard-stop procedure in `shared/orchestration.md` on: (a) a Critical finding (subject to the unreviewed-pack severity cap in `shared/findings.md`); (b) a test suite not fixed within 2 attempts; (c) destructive operations (data migrations, deletions, production deploys); (d) any action with side effects outside the repository. Never push, open PRs or change remotes; commits are local. Read-only research fetches (WebFetch, WebSearch, context7) and the standards clone into `.eng-team/.cache/` are exempt. In a security audit, running already-installed scanners and starting the app on localhost for DAST, once the human chose that mode, are in scope; installing tools, pulling images and scanning any non-local target are not (see `phases/security-audit.md`). This includes a destructive or outside-repository operation that the user's request asks for (e.g. "delete the old bucket"): the team never plans or performs it — as soon as it is identified, follow the Hard-stop procedure in `shared/orchestration.md` (label `HARD STOP (<phase>): <operation> is human-only`), record it in state.md Open questions, and continue only after the human answers.
+7. **Hard stops.** In every autonomy mode, follow the Hard-stop procedure in `shared/orchestration.md` on: (a) a Critical finding (subject to the unreviewed-pack severity cap in `shared/findings.md`); (b) a test suite not fixed within 2 attempts; (c) destructive operations (data migrations, deletions, production deploys); (d) any action with side effects outside the repository. Never push, open PRs or change remotes; commits are local. Read-only research fetches (WebFetch, WebSearch, context7) and the standards clone into `.eng-team/.cache/` are exempt. In a security audit, running installed scanners and starting the app on localhost for DAST, once the human chose that mode, are in scope. Installing or updating tools and pulling images are asked once per run and then done by the team (Environment and tooling in `shared/orchestration.md`). Scanning any non-local target always stops (see `phases/security-audit.md`). This includes a destructive or outside-repository operation that the user's request asks for (e.g. "delete the old bucket"): the team never plans or performs it — as soon as it is identified, follow the Hard-stop procedure in `shared/orchestration.md` (label `HARD STOP (<phase>): <operation> is human-only`), record it in state.md Open questions, and continue only after the human answers.
 8. **Cite or label opinion.** Follow `challenger/citations.md`: every rule or recommendation carries a source; uncited claims are labelled `opinion:` and cannot block a gate.
 
 ## Preconditions
 
-If `.eng-team/state.md` is missing and the command is not `/eng` (which runs init first), `/eng-init`, `/eng-review` or `/eng-security-audit`, stop and say exactly:
+If `.eng-team/state.md` is missing and the command is not `/eng` (which runs init first), `/eng-init`, `/eng-review`, `/eng-security-audit` or `/eng-setup`, stop and say exactly:
 "This project isn't initialised for eng-team. Run `/eng-init` first — it takes ~5 minutes and asks only what it can't infer."
 Do not improvise a profile. `/eng-promote` and every `/eng-<phase>` command are subject to these Preconditions. `/eng-review` invoked directly is always a standalone review (see `phases/review.md`): without state it runs on an in-memory profile; with state it never changes gate statuses and reports State integrity mismatches without repairing them. `/eng-security-audit` is standalone in the same way (see `phases/security-audit.md`).
 
-**Routing without a slash command.** If the user's intent is to review, audit, harden or compliance-check something, run a standalone review (`phases/review.md`). If the intent is to security-test, scan, pen-test or find vulnerabilities in something that exists, run the security audit (`phases/security-audit.md`). If the intent is a lifecycle one (start, plan, design, build, test or document a project) and there is no state, start with init (`phases/init.md`).
+**Routing without a slash command.** If the user's intent is to review, audit, harden or compliance-check something, run a standalone review (`phases/review.md`). If the intent is to security-test, scan, pen-test or find vulnerabilities in something that exists, run the security audit (`phases/security-audit.md`). If the intent is to set up, install, configure, update or upgrade a project's environment, tooling or dependencies, run `phases/setup.md`. If the intent is a lifecycle one (start, plan, design, build, test or document a project) and there is no state, start with init (`phases/init.md`).
 
 ## Orchestration mechanics
 
@@ -37,6 +37,8 @@ Read `shared/orchestration.md` before acting on state. It defines:
 - **Loop-back** and **Loop counters** — fix tasks, reopened gates, the limit of 3.
 - **Hard-stop procedure** — gate → `failed`, Log `hard-stop`, ask the human.
 - **Critical findings** — never loop automatically.
+- **Continuous security testing** — where audits happen in the lifecycle, cadence, triggers and the due check.
+- **Environment and tooling** — the team sets up, automates and updates environments; machine-level installs are asked once, then done.
 
 ## Standards loading
 
@@ -54,13 +56,13 @@ For any profile `stacks`, `jurisdictions` or `frameworks` value with no matching
 | 0 | init | `phases/init.md` | orchestrator | no blank required profile fields |
 | 1 | discover | `phases/discover.md` | orchestrator + eng-architect | human approves brief; open questions resolved or recorded as assumptions |
 | 2 | research | `phases/research.md` | eng-researcher | every claim has a source; unreviewed packs flagged |
-| 3 | architect | `phases/architect.md` | eng-architect, then reviewers in `plan` mode | devil's-advocate round done; no open Critical; human approves design + plan |
+| 3 | architect | `phases/architect.md` | eng-architect, then reviewers in `plan` mode | devil's-advocate round done; no open Critical; security testing strategy + environment/security-tooling tasks in plan; human approves design + plan |
 | 4 | build | `phases/build.md` | eng-builder (one plan task at a time) | per task: acceptance check passes + reviewer spot-check in `gate` mode on the diff |
-| 5 | test | `phases/test.md` | eng-tester | critical flows covered; suite green; results recorded |
+| 5 | test | `phases/test.md` | eng-tester, then the security audit | critical flows covered; suite green; security audit for the commit with no open Critical/High; results recorded |
 | 6 | document | `phases/document.md` | eng-tech-writer | docs match code (writer cites `path:line`) |
 | 7 | review | `phases/review.md` | activated reviewers | no open Critical/High, or accepted risk signed in state.md |
 
-Entry, running a phase, loop-back, loop counters and Critical findings are in `shared/orchestration.md`. `/eng-promote` is separate: see `shared/promotion.md`. `/eng-security-audit` is a standalone tool-backed audit outside the gate sequence: see `phases/security-audit.md`; the lifecycle review (phase 7) reuses its static layer when scanners are available.
+Entry, running a phase, loop-back, loop counters and Critical findings are in `shared/orchestration.md`. `/eng-promote` is separate: see `shared/promotion.md`. `/eng-security-audit` runs `phases/security-audit.md` standalone; inside the lifecycle the test and review phases run it. `/eng-setup` runs `phases/setup.md` (environment check, setup, update) standalone, any time.
 
 ## Autonomy
 

@@ -38,5 +38,8 @@ C4Container
 | Attribute | Target | How met | Evidence |
 |---|---|---|---|
 
+## Security testing strategy
+<!-- guidance: up to 15 lines. Threat surfaces (external endpoints, auth boundaries, data stores, AI features), audit mode per stage (static / dast / full, see phases/security-audit.md), where DAST runs (local compose, preview or staging; never production), test users and seed data, which scanners run in CI on every pull request, and the re-audit cadence. -->
+
 ## Decisions
 <!-- guidance: one bullet per ADR, linking to its file with a one-line summary. Up to 15 lines. -->

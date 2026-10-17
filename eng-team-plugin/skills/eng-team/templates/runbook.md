@@ -18,5 +18,8 @@ Last verified against: <commit sha>
 ## Common incidents
 <!-- guidance: up to 5 incidents, 5-8 lines each: symptom, likely cause, diagnosis steps, fix. -->
 
+## Vulnerability response
+<!-- guidance: up to 10 lines. Who triages scanner and external reports, fix deadlines by severity, how to rotate a leaked secret, the incident-reporting clocks that apply to the profile (GDPR Art. 33: 72 h; NIS2 Art. 23: 24 h early warning; DORA Art. 19 major ICT incidents), and where audit reports live (docs/security/). -->
+
 ## Contacts
 <!-- guidance: up to 10 lines. Role, name or channel, and escalation order. No personal phone numbers in the repository. -->

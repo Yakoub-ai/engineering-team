@@ -38,6 +38,10 @@ Status values: open | in-progress | passed | failed | forced | skipped. `Approve
 | Finding | Severity | Accepted by | Date | Review on |
 |---|---|---|---|---|
 
+## Security audits
+| Date | Trigger | Mode | Commit | Report | Open C/H/M/L | Next due |
+|---|---|---|---|---|---|---|
+
 ## Loop counters
 | Loop (from→to) | Count (max 3) |
 |---|---|

@@ -37,6 +37,7 @@ eng-team is an **engineering lead (orchestrator) plus 14 specialist agents**. It
 | **Build & test** | Test-first implementation one plan task at a time, with a reviewer spot-check after each. Critical flows (money, data access, irreversible actions) are mapped to tests, and the suite is run and recorded. |
 | **Documentation** | Docs-as-code in `docs/`: a 1-page business brief, the architecture, ADRs, the testing strategy, a runbook and a compliance evidence log. Each doc names its audience and the commit it was verified against. |
 | **Security testing** | `/eng-security-audit` runs real scanners on any repo, whether or not eng-team built it: SAST, secrets in git history, dependencies, IaC, containers and SBOM, plus DAST against the app started locally. Agents triage every tool hit against the code, add logic flaws that scanners miss, map findings to GDPR, NIS2, DORA and the AI Act, and write a report and an ordered remediation plan. With `--fix` the team then carries out the plan and re-scans. |
+| **Environment** | `/eng-setup` and the architect plan give every project a pinned toolchain, a one-command setup, local services, pre-commit hooks, CI security checks and automated dependency updates. The team installs and updates tools on your machine after one approval, then verifies them. |
 | **Review** | Security, compliance, data, platform, SRE, QA, integration, AI and product reviewers. Each finding cites `path:line` evidence. Secrets are never printed. The report includes a "Not covered" section. |
 | **Coaching** | Each recommendation explains *why* and links to a source, so developers learn the practice instead of just following it. |
 
@@ -54,6 +55,7 @@ All progress lives in your project under `.eng-team/` (profile, state, plan, pac
 | Check a pull request or branch for security and compliance regressions | `/eng-review gate <diff range>` | standalone |
 | Deep security test of a finished product (static, live DAST, or both) with report and fix plan | `/eng-security-audit` | standalone |
 | Fix what the audit found, then verify with a re-scan | `/eng-security-audit --fix` | standalone |
+| Set up, repair or update a project's environment and dependencies | `/eng-setup [check\|install\|update]` | standalone |
 | Plan production readiness for a regulated product (finance, health, public sector, AI) | `/eng-init` → `/eng` | gated |
 | Keep a federation of developer groups on the same standards | federation `standards:` repo + `/eng-promote` | any |
 | Document an existing system for business, ops and compliance readers | `/eng-document` | gated |
@@ -101,11 +103,12 @@ flowchart LR
   R -->|sources cited| A[3 architect]
   A -->|GATE: human approves design + plan| B[4 build]
   B -->|per task: acceptance + reviewer spot-check| T[5 test]
-  T -->|suite green| DOC[6 document]
+  T -->|suite green + security audit clean| DOC[6 document]
   DOC --> REV[7 review]
   REV -->|GATE: no open Critical/High, or signed accepted risk| DONE((done))
   T -. fails .-> B
   REV -. fix tasks .-> B
+  DONE -. cadence / triggers: re-audit, updates .-> B
 ```
 
 | # | Phase | What happens | Output |
@@ -113,11 +116,13 @@ flowchart LR
 | 0 | **init** | Infers the project profile from manifests, IaC, CI, README and env samples. Asks only for what it can't infer. | `.eng-team/profile.md`, `state.md` |
 | 1 | **discover** | Interview and pushback. Destructive requests are flagged as human-only hard stops. | `docs/brief.md`, open questions, assumptions |
 | 2 | **research** | Resolves packs (project → federation → plugin) and researches gaps with citations. | packs in use, `.eng-team/research/` |
-| 3 | **architect** | Options and trade-offs, devil's advocate, C4, ADRs, plan. Reviewers check the design in `plan` mode. | `docs/architecture.md`, `docs/adr/`, `.eng-team/plan.md` |
-| 4 | **build** | One task at a time, test-first. The lead re-runs each acceptance check itself, and reviewers check the diff in `gate` mode. | code |
-| 5 | **test** | Critical flows mapped to tests, missing tests written, suite run and recorded. | tests, `.eng-team/test-results.md` |
+| 3 | **architect** | Options and trade-offs, devil's advocate, C4, ADRs, a security testing strategy, and a plan that always includes environment, security-tooling and DAST-readiness tasks. Reviewers check the design in `plan` mode. | `docs/architecture.md`, `docs/adr/`, `.eng-team/plan.md` |
+| 4 | **build** | One task at a time, test-first, starting with the environment task. The lead re-runs each acceptance check itself, scans the diff for secrets and SAST issues, and reviewers check the diff in `gate` mode. | code, automation |
+| 5 | **test** | Critical flows mapped to tests, missing tests written, suite run and recorded. Then the security audit (full when the app runs locally, else static); Critical and High findings loop back to build. | tests, `.eng-team/test-results.md`, `docs/security/` |
 | 6 | **document** | Docs written or updated in place; human edits are preserved. | `docs/` set |
-| 7 | **review** | Activated reviewers run in parallel, and findings are deduped, verified and ranked. | `docs/reviews/eng-review-<date>.md` |
+| 7 | **review** | Re-audits what changed since the test-phase audit. Activated reviewers run in parallel, and findings are deduped, verified and ranked. | `docs/reviews/eng-review-<date>.md` |
+
+**Continuous security testing and upkeep.** Testing is planned in architect, run per task in build, per release in test and review, and continues after the lifecycle. Every audit is a row in `state.md` → Security audits with a `Next due` date. Cadence follows the stage (production: scanners on every PR, a full audit before each release and at least monthly). Lockfile, IaC, endpoint, auth or stage changes trigger a re-audit early. Each time the lead starts, it tells you when a re-audit or environment update is due.
 
 **Gates and loops.**
 - Every phase has checkable exit criteria. The lead verifies them itself instead of trusting an agent's "done".
@@ -156,6 +161,8 @@ flowchart TB
   DOC -->|docs changed, Status| L
   L -->|mode: plan · gate · review| REV[9 reviewers, read-only<br/>security · compliance · data · platform<br/>SRE · QA · integration · AI · product]
   REV -->|findings with path:line evidence| L
+  L -->|runs scanners · starts app for DAST · installs after approval| SC[Security + environment tooling<br/>SAST · secrets · SCA · IaC · SBOM · ZAP]
+  SC -->|raw output in temp dir, never the repo| REV
 
   L -->|saves brief, ADRs, C4, reports| D[(docs/)]
   DOC --> D
@@ -264,7 +271,19 @@ Advice and safety rules:
 - **Leaked secrets need you.** Rotation, history purges, cloud changes and breach notification (GDPR Art. 33, within 72 hours) are `owner: human` tasks in the plan.
 - **Automated DAST is not a pen test.** It does not replace a manual penetration test or a DORA threat-led penetration test (TLPT). The report's "Not covered" section says so.
 
-For a quick, fully local setup: `brew install semgrep gitleaks osv-scanner trivy syft` and Docker (for `ghcr.io/zaproxy/zaproxy:stable`).
+Missing scanners? The team offers one consolidated install command (for example `brew install semgrep gitleaks osv-scanner trivy syft && docker pull ghcr.io/zaproxy/zaproxy:stable`). After your yes, it runs the command and verifies the versions. It then offers to make the tooling reproducible in the repo with a `make security` target, pre-commit hooks and a CI workflow.
+
+### Environment setup and updates
+
+`/eng-setup` works on any project in any state, and the lifecycle plans the same work as its first build task. Standards: `practices/environment-setup.md`.
+
+| Mode | What the team does |
+|---|---|
+| `check` (default) | Inventories tools vs. pinned versions, lockfiles, one-command setup, `.env.example`, local services, pre-commit, CI (tests, scans, pinned actions, permissions), dependency-update automation, outdated and vulnerable dependencies. Reports each item with evidence and a fix. |
+| `install` | Writes the in-repo automation (version pins, `setup/test/lint/security/run` targets, compose services, devcontainer when useful, pre-commit, CI, Dependabot or Renovate). Then runs approved machine-level installs and verifies a clean setup. |
+| `update` | Updates dependencies in safe batches: security fixes first, patch/minor grouped, each major on its own with release notes read. Every batch is verified by a frozen install, the test suite and a re-scan. A failure is reverted, never left broken. |
+
+In-repo changes go through the normal build flow. Anything on your machine is asked about once per run as one command, then run and verified by the team. `sudo`, `curl | sh` and unofficial sources always need a separate yes.
 
 ## 7. Best practices
 
@@ -276,6 +295,7 @@ For a quick, fully local setup: `brew install semgrep gitleaks osv-scanner trivy
 - **Treat `needs-evidence` as a to-do list, not a failure.** Tested restores, pen tests, DPAs and access reviews can't be proven from code. They get a named owner instead.
 - **Don't fight hard stops.** Destructive or outside-repo actions are yours to perform. Do them, then tell the lead to continue.
 - **Use one federation standards repo** for shared packs, conventions and priority order, so decentralised teams stay consistent without a central gatekeeper.
+- **Let the team own the environment.** Run `/eng-setup check` when you join a project and `/eng-setup update` on a schedule. Pinned tools, lockfiles, pre-commit and automated updates prevent most "works on my machine" and supply-chain problems.
 - **Scan before you ship, and after you fix.** Run `/eng-security-audit full` before a stage change to production, and re-run the scan after fixes. Add the same scanners as pull-request checks so the same issues don't come back.
 - **Keep runs lean.** For a quick check use `/eng-review gate <diff>` instead of a full review. Run the eval suite one case at a time (see [Testing](#testing-this-plugin)).
 
@@ -368,6 +388,7 @@ All commands also work namespaced, e.g. `/eng-team:eng-init`.
 | `/eng-discover` · `/eng-research` · `/eng-architect` · `/eng-build` · `/eng-test` · `/eng-document` | `[--force "<reason>"] [--skip "<reason>"] [--autonomous\|--gated] [notes]` | Runs one phase |
 | `/eng-review` | `[plan\|review\|gate] [paths or diff range]` | Standalone review/audit; no setup; never changes lifecycle gates |
 | `/eng-security-audit` | `[auto\|static\|dast\|full] [--target <url>] [--fix] [paths]` | Tool-backed security audit of any repo; report + remediation plan in `docs/security/`; no setup; never changes lifecycle gates |
+| `/eng-setup` | `[check\|install\|update] [notes]` | Environment check, setup or update; machine-level installs asked once, then done and verified; never changes lifecycle gates |
 | `/eng-promote` | `<pack-id>` | Copies a reviewed project pack to the federation repo (local only, never pushes) |
 
 A phase command refuses until every earlier gate is `passed`, `skipped` or `forced`, and it names the blocking gate. `--force "<reason>"` overrides this and the override is logged. `--skip "<reason>"` is human-only and gated-only.

@@ -4,7 +4,9 @@
 
 Deep security test of whatever is in the repository, whether or not eng-team built it. Real scanners find, specialist agents triage: every tool finding is checked against the code, false positives are dropped, logic flaws the tools cannot see are added, and each finding is mapped to the regulation it touches. The output is a findings report, a fix for each finding, and an ordered remediation plan that can be executed and re-verified.
 
-Like a standalone `/eng-review`, this works without `/eng-init` and never changes lifecycle gate statuses. When `.eng-team/state.md` exists it only appends the Log line `- YYYY-MM-DD security-audit: <mode> <scope>`.
+It runs in two ways:
+- **In the lifecycle**: the test phase (`phases/test.md` step 4) and the review phase run it; findings loop back to build like any other, and each run adds a row to state.md Security audits.
+- **Standalone** (`/eng-security-audit`): works without `/eng-init` and never changes gate statuses by itself. When `.eng-team/state.md` exists it adds a Security audits row (Trigger `adhoc` or `scheduled`) and the Log line `- YYYY-MM-DD security-audit: <mode> <scope>`. Only `--fix` on an initialised project changes gates, through Loop-back (see step 9).
 
 ## Inputs
 
@@ -16,7 +18,7 @@ Like a standalone `/eng-review`, this works without `/eng-init` and never change
 
 ## Steps
 
-1. **Choose the mode, with advice.** Read the repo first (manifests, `Dockerfile`, `docker-compose*.yml`, `Procfile`, `package.json` scripts, `Makefile`, OpenAPI/GraphQL schemas, IaC), then recommend a mode with one line of reasoning and let the human choose. If the human is away, use the recommendation.
+1. **Choose the mode, with advice.** Start from `profile.security_testing.dast_target` when it is set (`none` → `static`; `local` or a URL → `full`). Otherwise read the repo first (manifests, `Dockerfile`, `docker-compose*.yml`, `Procfile`, `package.json` scripts, `Makefile`, OpenAPI/GraphQL schemas, IaC), then recommend a mode with one line of reasoning and let the human choose. If the human is away, use the recommendation.
 
    | Mode | What runs | Recommend when |
    |---|---|---|
@@ -28,7 +30,7 @@ Like a standalone `/eng-review`, this works without `/eng-init` and never change
 
 2. **Profile.** Use `.eng-team/profile.md` or build the in-memory profile (`phases/review.md` step 2; do not write `.eng-team/`). Activate roles with `shared/project-profile.md`; `security-engineer` and `compliance-officer` are always on for this audit, plus `data-engineer`, `ai-engineer`, `platform-engineer` when their triggers match.
 
-3. **Tool inventory.** Check which scanners exist (`command -v <tool>`) and whether `docker` is available. Do not install anything or pull images without asking once (outside-repository side effect, `SKILL.md` rule 7(d)); offer the exact install or `docker pull` commands. Preferred tools, by layer:
+3. **Tool inventory.** Check which scanners exist (`command -v <tool>`, with versions) and whether `docker` is available. For missing tools, follow Environment and tooling in `shared/orchestration.md`: ask once, with one consolidated command (for example `brew install semgrep gitleaks osv-scanner trivy syft && docker pull ghcr.io/zaproxy/zaproxy:stable`); on approval run it yourself and verify each version; on refusal continue with what exists. Then offer to make the tooling reproducible in the repo (a `make security` or `just security` target, pre-commit hooks, a CI workflow) per `practices/environment-setup.md`. Preferred tools, by layer:
 
    | Layer | Preferred | Fallbacks |
    |---|---|---|
@@ -70,8 +72,8 @@ Like a standalone `/eng-review`, this works without `/eng-init` and never change
 - Every finding has evidence (`path:line`, URL + request, or tool rule + location), a `Source:` line, a fix and, where one applies, a regulation reference.
 - The remediation plan exists, and every Critical and High finding is covered by a task.
 - Anything the DAST layer started has been stopped; no raw output or secret was written into the repository.
-- With `.eng-team/state.md`: only the `security-audit:` Log line was added; no gate status changed.
+- With `.eng-team/state.md`: a Security audits row and a Log line were added; gate statuses changed only through the test/review phases or `--fix` Loop-back.
 
 ## Autonomous mode
 
-Pick the recommended mode without asking, but never: install tools or pull images, scan a non-local target, use real credentials, or fix a Critical finding without the human. Those still stop and ask. Fix only High and lower when `--fix` was given, and record `Decided by: agent` for each mode choice in the report header.
+Pick the recommended mode without asking, but never scan a non-local target, use real credentials, or fix a Critical finding without the human; those still stop and ask. Installing tools and pulling images are still asked once per run (Environment and tooling in `shared/orchestration.md`). Fix only High and lower when `--fix` was given, and record `Decided by: agent` for each mode choice in the report header.

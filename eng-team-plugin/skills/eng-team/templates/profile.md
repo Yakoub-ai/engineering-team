@@ -26,6 +26,9 @@ ai_usage: none                 # optional — none | llm-api | self-hosted-model
 stacks: []                     # required — azure, gcp, databricks, wordpress, web, or any free text (aws, sap-btp, k8s, …)
 deploy_target:                 # optional — where it runs
 has_ui: no                     # optional — yes | no
+security_testing:
+  dast_target: auto            # optional — auto | local | <non-production URL> | none (static only)
+  cadence: auto                # optional — auto (from stage, see shared/orchestration.md) | per-release | monthly | quarterly
 autonomy: gated                # required — gated | autonomous
 coaching: on                   # optional — on | brief
 audiences: [engineers]         # optional — engineers, business, ops, compliance, executives
