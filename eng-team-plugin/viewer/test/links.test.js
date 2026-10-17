@@ -39,5 +39,10 @@ test('extractMentions is linear on pathological input', () => {
   extractMentions('a/'.repeat(25000) + '!');
   extractMentions('`' + 'a.'.repeat(25000));
   extractMentions('['.repeat(20000));
+  extractMentions('[](x'.repeat(12500));
+  extractMentions('[a](x'.repeat(10000));
+  extractImports('import' + ' '.repeat(50000) + 'x', 'js');
+  extractImports('from ' + '.'.repeat(50000), 'py');
+  extractImports('\n'.repeat(50000) + 'x', 'py');
   assert.ok(Date.now() - t0 < 200, `took ${Date.now() - t0}ms`);
 });
