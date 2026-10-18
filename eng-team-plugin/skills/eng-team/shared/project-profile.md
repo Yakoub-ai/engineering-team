@@ -7,7 +7,7 @@ Field definitions live in `templates/profile.md`; the project's filled copy is `
 | Role | Activate when |
 |---|---|
 | security-engineer | Always |
-| compliance-officer | Always (EU baseline). Deep mode if `data_classes` ≠ none, `financial_entity`, `nis2_entity`, or `ai_act_role` ≠ none |
+| compliance-officer | Always (EU baseline). Deep mode if `data_classes` ≠ none, `financial_entity`, `nis2_entity`, `ai_act_role` ≠ none, or `cra_role` is a named role (not none or unknown) |
 | qa-engineer | Always |
 | data-engineer | Any persistent store, data pipeline, or `payments` ≠ none |
 | platform-engineer | Anything deployed beyond a local machine |
@@ -31,6 +31,7 @@ Selection is by each pack's `applies_when` frontmatter (see `templates/pack.md`)
 | `compliance/eu-dora.md` | `financial_entity: yes` |
 | `compliance/eu-nis2.md` | `nis2_entity: yes/unknown` and not covered by DORA (DORA is lex specialis for financial entities) |
 | `compliance/eu-ai-act.md` | `ai_act_role` ≠ none |
+| `compliance/eu-cra.md` | `cra_role` ≠ none (`unknown` loads it until classified) |
 | `compliance/eu-accessibility.md` | consumer-facing UI or public-sector customer |
 | `compliance/us-optional.md` | only if user states US customers, HIPAA, PCI or SOC 2 |
 
