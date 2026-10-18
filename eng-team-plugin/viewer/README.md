@@ -9,6 +9,7 @@ Requires Node 18 or newer. No required npm dependencies: it works offline right 
 - The server binds to `127.0.0.1` only and rejects any `Host` other than `127.0.0.1:<port>` or `localhost:<port>`.
 - Writes need the header `X-Eng-View: 1` and are allowed only to `.md` files under `docs/` and `.eng-team/*.md` (never `.eng-team/state.md`). Code is view-only. Path traversal and symlinks are refused.
 - Never indexed or served: `.git/`, `node_modules/`, `.eng-team/.cache/`, `dist/`, `build/`, binary files, files over 512 KB, `.env*`, `*.pem`, `*.key`, `id_rsa*`, and anything matched by the root `.gitignore`.
+- Files whose content looks like a credential are excluded too, and re-checked on every read: PEM private keys, GCP service-account JSON, AWS, GitHub, Slack, Stripe, Google, Anthropic and OpenAI keys, and literal `password`/`secret`/`token` assignments (the last rule skips `.md` files). They are not indexed, searched, embedded or served by the page or `get_doc`. The log names the file and rule, never the value.
 - The index lives at `<project>/.eng-team/.cache/index/index.json` (gitignore `.eng-team/.cache/`). Nothing is sent anywhere. Cache paths that are symlinks or leave the project are ignored.
 
 ## Commands
@@ -50,8 +51,10 @@ Tool failures are returned as results with `isError: true`; unknown methods retu
 Without it, "related" links use TF-IDF cosine similarity (edges labelled `lexical`). To use local embeddings (edges labelled `semantic`):
 
 ```
-npm install --prefix <plugin>/viewer @huggingface/transformers
+npm install --prefix ${CLAUDE_PLUGIN_DATA}/viewer-deps --no-save --no-fund --no-audit --ignore-scripts @huggingface/transformers@3.8.1
 ```
+
+`/eng-view` shows this command and asks once before running it. It installs into the plugin's data folder (`ENG_VIEW_DEPS_DIR` overrides the location), so plugin updates do not remove it.
 
 The model `Xenova/all-MiniLM-L6-v2` (about 25 MB) is downloaded once into `<project>/.eng-team/.cache/models/`. Pass `--no-semantic` to skip it. If the package or model is unavailable, the viewer falls back to lexical (logged to stderr).
 

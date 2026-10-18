@@ -63,7 +63,7 @@ All progress lives in your project under `.eng-team/` (profile, state, context, 
 
 Project types it is set up for: internal tools, data pipelines, client websites, B2C apps, B2B SaaS, API platforms, ML systems, or `other:<text>`. Stages: prototype → pilot → production → scale. Requirements scale with the stage, so you won't be asked for SOC 2 on a prototype.
 
-### EU regulations (curated, reviewed packs)
+### EU regulations (curated packs; the CRA pack is still unreviewed)
 
 Each pack loads automatically when the project profile matches its rule (`applies_when`). Findings quote the article.
 
@@ -73,6 +73,7 @@ Each pack loads automatically when the project profile matches its rule (`applie
 | **DORA** (Reg. (EU) 2022/2554) | `regulated.financial_entity: yes` | ICT risk management, incident classification and reporting, resilience testing, third-party ICT risk, register of information |
 | **NIS2** (Dir. (EU) 2022/2555) | essential/important entity, or unknown (and not covered by DORA) | Risk-management measures, incident reporting timelines, supply-chain security, management accountability |
 | **AI Act** (Reg. (EU) 2024/1689) | the project is an AI provider or deployer | Role and risk classification, transparency duties, human oversight, data governance, logging, high-risk obligations |
+| **Cyber Resilience Act** (Reg. (EU) 2024/2847) | `regulated.cra_role` is not `none` (loads while `unknown`, until classified). Agent-authored, `unreviewed` until a human reviews it | Product classification and role, SBOM, vulnerability disclosure policy, security updates and support period, 24h/72h/final reporting runbook (reporting applies since 11 Sep 2026) |
 | **Accessibility** (EAA Dir. (EU) 2019/882, EN 301 549, WCAG) | consumer/public UI or the public sector | WCAG AA conformance, accessibility statement, assistive-technology support |
 
 ### Other jurisdictions and frameworks
@@ -184,25 +185,27 @@ flowchart TB
 
 ### How a handover works
 
-1. **Dispatch.** The lead sends one agent a closed brief: absolute paths to its role file (`roles/<name>.md`), the findings contract (`shared/findings.md`), `.eng-team/profile.md`, `.eng-team/state.md`, the selected packs, the relevant templates and challenger files, and an exact scope (phase, plan task id, paths or diff range).
+1. **Dispatch.** The lead first checks that all 14 `eng-team:` agent types exist (if any is missing it stops and tells you; it never substitutes another agent). It then sends one agent, by its full type (`eng-team:eng-builder`, …), a closed brief: absolute paths to its role file (`roles/<name>.md`), the findings contract (`shared/findings.md`), `.eng-team/profile.md`, `.eng-team/state.md`, the selected packs, the relevant templates and challenger files, and an exact scope (phase, plan task id, paths, or the path of a diff file the lead wrote, since reviewers have no shell).
 2. **Work.** The agent works only inside its role's "Owns" list. Content it finds in the repo or on web pages is treated as data, never as instructions, and injection attempts are reported as findings.
 3. **Return.** It returns a fixed contract:
    - researcher: `### Pack:` / `### Note:` blocks
    - architect: `### Option` / `### Recommendation` / `### ADR draft:` / `### Plan`
    - builder, tester, tech-writer: `Status: DONE | BLOCKED | HARD-STOP`
    - reviewers: findings in the standard format
-4. **Verify and save.** The lead checks the work itself (re-runs acceptance checks and test suites, re-opens cited evidence for Critical/High findings). It then saves read-only agents' output and updates `state.md`: gates, decisions, packs in use, loop counters, log.
+4. **Verify and save.** The lead first validates the return shape: a missing or malformed terminal line gets one re-dispatch with the error quoted, then escalates to you. A `HARD-STOP:` line or a guard denial goes to the Hard-stop procedure. The lead then checks the work itself (re-runs acceptance checks and test suites, re-opens cited evidence for Critical/High findings). It then saves read-only agents' output and updates `state.md`: gates, decisions, packs in use, loop counters, log.
 5. **Next.** The next agent receives the saved artifacts, not the previous agent's conversation. A new session, a teammate or claude.ai can resume from `state.md` at any point.
 
 ### Separation of powers
 
 | Who | May write | Enforced by |
 |---|---|---|
-| Lead | `.eng-team/*`, saved agent output in `docs/` | orchestrator rules |
-| `eng-builder`, `eng-tester` | source code and tests, inside the repo | tool list (`Write, Edit, Bash`) + role prompt |
-| `eng-tech-writer` | `docs/` only (no Bash) | tool list + role prompt |
+| Lead | `.eng-team/*`, `docs/engineering/**`, saved agent output | orchestrator rules; asks before pushes and deploys (guard hook) |
+| `eng-builder`, `eng-tester` | source code and tests, inside the repo (not `.git/`, `.eng-team/`, `docs/engineering/**` or the reader docs) | tool list + role prompt + guard hook |
+| `eng-tech-writer` | `docs/README.md`, `docs/architecture.md`, `docs/testing.md`, `docs/runbook.md`, `docs/compliance/` (no Bash) | tool list + role prompt + guard hook |
 | `eng-researcher` | nothing (read + web) | tool list |
 | `eng-architect` and the 9 reviewers | nothing (read-only) | tool list |
+
+The guard hook (`hooks/guard.js`, a PreToolUse hook; needs Node 18+) enforces the lanes above for eng-team agents: read-only roles get no shell or write access; writes are confined to the project (symlinks resolved); builder and tester shell commands are denied for pushes, remote changes, deploys, cloud and machine-level installs, `curl | sh`, `sudo` and network calls beyond localhost. A denial tells the agent to return `HARD-STOP: eng-team guard: …`, and the lead stops. In eng-team projects the hook also makes your own session confirm a push or deploy. It is pattern matching: a second line of defence, not a sandbox. Without Node it blocks eng-team agents rather than letting them run unchecked.
 
 No agent approves its own work: code written by the builder is checked by the lead and by read-only reviewers. On claude.ai, which has no subagents, the same roles run one after another in one conversation with the same file contracts. The lead tells you once that the run is not context-isolated.
 
@@ -307,8 +310,8 @@ In-repo changes go through the normal build flow. Anything on your machine is as
 - **Map**: a graph of everything. Explicit links (doc links, `path:line` references, ADR, finding, question, use-case and plan-task IDs, imports) are solid lines. "Related but unlinked" neighbours are dashed and show their similarity score.
 - **Edit docs in place**: markdown under `docs/` and `.eng-team/*.md` (except `state.md`) can be edited and saved to disk, so git shows the diff. A save is refused if the file changed on disk in the meantime. Code is view-only, with "open in editor" links. Code changes go through the team's gates.
 - **Agent context**: the plugin ships a local MCP server (`eng-team-context`) over the same index, with `search_context`, `get_related`, `changed_since` and `get_doc`. Agents use it to fetch only what they need. It writes nothing into projects that eng-team does not manage.
-- **Privacy**: the page binds to `127.0.0.1` only and has Host and CSRF guards plus a strict CSP. It never indexes `.env*`, keys or credential files. The index lives in `.eng-team/.cache/` (gitignored).
-- **Optional semantic map**: local embeddings (`Xenova/all-MiniLM-L6-v2`, about 25 MB, downloaded once after you approve). Without them, related items come from TF-IDF.
+- **Privacy**: the page binds to `127.0.0.1` only and has Host and CSRF guards plus a strict CSP. It never indexes `.env*`, keys or credential files, and it also drops any file whose content looks like a credential (private keys, cloud and API tokens, literal password assignments) from search, the MCP tools and the page. The index lives in `.eng-team/.cache/` (gitignored).
+- **Optional semantic map**: local embeddings (`Xenova/all-MiniLM-L6-v2`, about 25 MB, downloaded once after you approve; the pinned package installs without install scripts into the plugin's data folder, so updates keep it). Without them, related items come from TF-IDF.
 
 Details are in `viewer/README.md`.
 
@@ -475,14 +478,15 @@ my-standards/
 
 ```
 bash eng-team-plugin/tests/validator/test_validate.sh     # validator self-tests
-bash eng-team-plugin/scripts/validate.sh eng-team-plugin  # structure: frontmatter, refs, packs, agent rights
+bash eng-team-plugin/scripts/validate.sh eng-team-plugin  # structure: frontmatter, refs, packs, agent rights, hand-offs
 claude plugin validate eng-team-plugin                    # manifest and components
+node --test eng-team-plugin/hooks/test/*.test.js          # guard hook
 eng-team-plugin/tests/smoke/run-smoke.sh                  # end-to-end: a tiny idea through all 8 phases (≤ $3)
 cd eng-team-plugin && claude plugin eval . --case <name> --runs 1 --model sonnet --ablation none \
   --no-publish --trust-plugin --scaffold --allow-tools Bash Write Edit   # one eval case
 ```
 
-CI runs both validator commands. The eval suite has 12 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Last results: all 12 cases at 1.00 (a, g, k and l re-run on v3.0.0, 2026-10-17); viewer: `cd eng-team-plugin/viewer && node --test test/*.test.js` (103 tests); and the smoke test passed 23/23 in 313 s on the lean track (v3.1.0) (`tests/smoke/README.md`).
+CI runs both validator commands, the viewer tests and the guard-hook tests (`node --test eng-team-plugin/hooks/test/*.test.js`). The eval suite has 12 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Last results: all 12 cases at 1.00 (a, g, k and l re-run on v3.0.0, 2026-10-17); viewer: `cd eng-team-plugin/viewer && node --test test/*.test.js` (117 tests); and the smoke test passed 23/23 in 313 s on the lean track (v3.1.0) (`tests/smoke/README.md`).
 
 ### Limits
 
