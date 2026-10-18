@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.2.0 — 2026-10-18
+
+### Added
+- **Guard hook** (`hooks/`): a PreToolUse hook that enforces agent lanes for `eng-team:*` subagents. Read-only roles get no shell or write access. Writes are confined to the project (symlinks resolved) and exclude `.git/`, `.eng-team/` and `docs/engineering/**`. The tech-writer may write only the reader docs. Builder and tester shell commands are denied for pushes, remote changes, `gh`, `curl | sh`, `sudo`, publish and deploy commands, cloud and machine-level installs, and network calls beyond localhost. In projects with `.eng-team/state.md` the main thread is asked before a push or deploy. A denial tells the agent to return `HARD-STOP: eng-team guard: …`. Pattern matching, not a sandbox. Without Node, eng-team agents are blocked.
+- **Hand-off contract** (`shared/orchestration.md`): exact dispatch-prompt contents, a return shape per agent, validation of every return (one re-dispatch, then escalate) and guard denials handled as hard stops.
+- **Preflight**: all 14 `eng-team:` agents must exist before the first dispatch; if any is missing the run stops. The general-purpose fallback is removed.
+- Validator check `handoffs` (names, references, qualified types, guard rule, read-only tool lists) with 10 self-tests.
+- Viewer: content-based secret detection (private keys, cloud and API tokens, literal password assignments). Matching files are excluded from the index, search, MCP tools and the page.
+- Compliance pack `eu-cra` (EU Cyber Resilience Act, `unreviewed`) and profile field `regulated.cra_role`.
+- `marketplace.json` description.
+
+### Changed
+- Agents are dispatched by their registered type `eng-team:<agent>`. Before, the skill named bare `eng-builder` and so on.
+- Reviewers have no shell, so the lead writes the diff to a file outside the repo and passes its path (`phases/build.md` step 4, `phases/review.md`). Reviewers come from the plan task's reviewer roles.
+- All 14 agents may use the `eng-team-context` MCP tools.
+- Security references pinned to OWASP Top 10:2025, ASVS 5.0.0 and the OWASP LLM Top 10 (2025); AI engineer gains an Agents & MCP checklist. Packs were not re-reviewed: please re-review `stacks/web.md`, `roles/security-engineer.md` and `roles/ai-engineer.md`.
+- CI: `contents: read` token, actions pinned to commit SHAs, `persist-credentials: false`, concurrency and timeout; runs the viewer and hook tests.
+- Optional embeddings package pinned to 3.8.1 and installed with `--ignore-scripts` into `${CLAUDE_PLUGIN_DATA}/viewer-deps`, so plugin updates keep it.
+
 ## 3.1.0 — 2026-10-17
 
 ### Added
