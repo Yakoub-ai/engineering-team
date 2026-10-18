@@ -3,7 +3,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { execFileSync } from 'node:child_process';
 import { updateIndex, buildIndex, search } from './index.js';
-import { classify, readText } from './scan.js';
+import { classify, readIndexable } from './scan.js';
 import { cleanRel, resolveNoSymlink, isIndexedFile } from './project-files.js';
 
 const PROTOCOL_VERSION = '2025-06-18';
@@ -154,7 +154,7 @@ export function createMcp({ projectDir, embedder = null, getEmbedder = null }) {
     const idx = await currentIndex();
     const abs = resolveNoSymlink(root, rel);
     if (!abs || !isIndexedFile(root, idx, rel)) throw new ToolError('not found');
-    const text = readText(abs);
+    const text = readIndexable(abs, rel);
     if (text === null) throw new ToolError('not found');
     if (classify(rel).type !== 'code') return textResult(text);
     const lines = text.split('\n');

@@ -7,7 +7,7 @@ Run the activated specialist reviewers, merge their findings into one ranked rep
 ## Inputs
 
 - `.eng-team/profile.md` and `.eng-team/state.md`, or an in-memory profile when `.eng-team/` does not exist.
-- The repository (or the diff, in `gate` mode).
+- The repository (or the diff file you wrote, in `gate` mode).
 - `.eng-team/research/findings-*.md` if present (researcher and architect findings): merge them into the consolidation in step 5.
 - `shared/project-profile.md` (activation matrix), `shared/findings.md`, the role files in `roles/`, packs in use, `roles/lead-architecture.md`.
 
@@ -19,7 +19,7 @@ Run the activated specialist reviewers, merge their findings into one ranked rep
    |---|---|---|
    | `plan` | New project, design doc, "what do we need before launch" | Produce a scoped requirements list per stage gate. No code needed. |
    | `review` | Existing repo / app audit | Full audit of the repo against activated roles. |
-   | `gate` | PR, diff, branch, "check this change" | Only the diff + files it touches; only roles whose triggers the diff hits. |
+   | `gate` | PR, diff, branch, "check this change" | Only the diff + files it touches; only roles whose triggers the diff hits. Reviewers have no Bash: you run `git diff`, write it to `${TMPDIR:-/tmp}/eng-team-<YYYY-MM-DD>/diff-<id>.patch` (outside the repo) and pass that absolute path plus the changed-file list. |
 
    If unclear, ask once. If the user is away, default to `review` when a repo is present, else `plan`. Inside the `/eng` pipeline the mode is `review`. `/eng-review` invoked directly is standalone: it never changes gate statuses, writes the report, and, if `.eng-team/state.md` exists, appends the Log line `- YYYY-MM-DD adhoc-review: <mode> <scope>`. Only the `/eng` lifecycle reaching phase 7 sets the review gate; steps 7 and 8 below then apply.
 2. **Profile.** With `.eng-team/`, use `.eng-team/profile.md`. Without it, build an in-memory profile as v1 did: read `templates/profile.md`, infer from the repo first (manifests, IaC, CI files, README, env samples), ask the user only for what changes the outcome (usually data classes, regulated status, stage), and show it in a compact block before dispatching. Do not write `.eng-team/` in this case; accepted risks then go only in the report.

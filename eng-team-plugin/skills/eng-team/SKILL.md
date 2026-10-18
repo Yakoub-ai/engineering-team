@@ -46,7 +46,7 @@ Read `shared/orchestration.md` before acting on state. It defines:
 
 Read `shared/context.md` at the start of every command, after Preconditions and before State integrity, and again at the end of every phase. It builds and refreshes the context snapshot `.eng-team/context.md`, shows the human a short "What I know" block, and keeps the marked eng-team block in `CLAUDE.md` current. When `.eng-team/` does not exist (standalone review, audit or setup without init), it builds the snapshot in memory, shows the block, writes nothing and skips the `CLAUDE.md` integration.
 
-When the `eng-team-context` MCP tools are available (`search_context`, `get_related`, `changed_since`, `get_doc`, from the plugin's local index), use them to fetch exactly the docs, decisions, findings and code a step needs instead of re-reading the repository, and mention them in agent dispatch prompts. They are read-only and local; fall back to reading files when they are absent. `/eng-view` opens the same index as a local visual workspace for the human.
+When the `eng-team-context` MCP tools are available (`mcp__plugin_eng-team_eng-team-context__search_context`, `..._get_related`, `..._changed_since`, `..._get_doc`, from the plugin's local index), use them to fetch exactly the docs, decisions, findings and code a step needs instead of re-reading the repository. Every dispatch prompt says agents may use them when available and must fall back to Read/Grep when not. They are read-only and local. `/eng-view` opens the same index as a local visual workspace for the human.
 
 ## Standards loading
 
@@ -78,23 +78,22 @@ Entry, running a phase, loop-back, loop counters and Critical findings are in `s
 - `gated` (default): stop for human approval at discover (brief), architect (design + plan) and review (final verdict). Record approver name and date in the Gates table.
 - `autonomous`: set only by `--autonomous` or an explicit human instruction; the team never switches to it on its own (if the human is unavailable, stay in the current mode, ask the first question and stop). No approval stops. Record `Approved by: agent`; decisions become ADRs with `Decided by: agent`; interview questions become Assumptions rows.
 Before each phase post a Next up note (at most 5 lines); the team plan is approved with the brief in gated mode; every gate writes a handover and rewrites STATUS.md; every gated approval starts with the gap review (autonomous mode records the open items as Assumptions).
-Hard stops (rule 7) apply in both modes. When any agent returns a line starting `HARD-STOP:`, follow the Hard-stop procedure in `shared/orchestration.md`.
+Hard stops (rule 7) apply in both modes. When any agent returns a line starting `HARD-STOP:`, or reports an `eng-team guard:` denial, follow the Hard-stop procedure in `shared/orchestration.md`.
 
 ## Dispatching agents
 
-**Claude Code (subagents available):** dispatch by agent type: `eng-researcher`, `eng-architect`, `eng-builder`, `eng-tester`, `eng-tech-writer`, and the reviewers `eng-security-engineer`, `eng-compliance-officer`, `eng-data-engineer`, `eng-platform-engineer`, `eng-sre`, `eng-qa-engineer`, `eng-integration-engineer`, `eng-ai-engineer`, `eng-product-engineer`. Run independent dispatches in parallel. If those agent types aren't installed, use a general-purpose agent with the same prompt. Every prompt contains:
-- absolute paths of this skill directory, the role file (`roles/<name>.md`), `shared/findings.md`, `.eng-team/profile.md`, `.eng-team/state.md`, the selected packs, and the templates and challenger files the phase names
-- the mode and scope (paths, plan task, or diff range)
-- for reviewers, architect and researcher: "Return output only in the format from your role file and shared/findings.md. Do not modify files."
+**Claude Code (Agent tool available):** `subagent_type` is always `eng-team:<agent>`. Every `eng-<x>` agent name in this skill, its phase files and the commands means subagent_type `eng-team:eng-<x>`. The 14 types: `eng-team:eng-researcher`, `eng-team:eng-architect`, `eng-team:eng-builder`, `eng-team:eng-tester`, `eng-team:eng-tech-writer`, and the reviewers `eng-team:eng-security-engineer`, `eng-team:eng-compliance-officer`, `eng-team:eng-data-engineer`, `eng-team:eng-platform-engineer`, `eng-team:eng-sre`, `eng-team:eng-qa-engineer`, `eng-team:eng-integration-engineer`, `eng-team:eng-ai-engineer`, `eng-team:eng-product-engineer`.
+- **Preflight before the first dispatch of a run** (`shared/orchestration.md` → Preflight): all 14 types must be in your Agent tool's list. If any is missing, stop and tell the user which; never substitute any other agent type.
+- Run independent dispatches in parallel. Every dispatch prompt and every returned result follows the Hand-off contract in `shared/orchestration.md`; you validate each return.
 
 Save any `### Findings` block returned by `eng-researcher` or `eng-architect` to `.eng-team/research/findings-<YYYY-MM-DD>.md` (append if the file exists); `phases/review.md` reads it. Agents cannot spawn agents and cannot talk to the user; you stay in the main thread and run every user conversation (interview, devil's-advocate, approvals) yourself. `roles/lead-architecture.md` holds your own checks; run them yourself in the review phase.
 
-**claude.ai or no subagents:** run roles **sequentially** in this conversation. For each role: read its file, do the work, record the output, then drop the role mindset before the next. Tell the user once that this run isn't context-isolated; for high-stakes work, recommend re-running in Claude Code.
+**No Agent tool at all (claude.ai, or any session without it):** run roles **sequentially** in this conversation. For each role: read its file, do the work, record the output, then drop the role mindset before the next. Tell the user once that this run isn't context-isolated; for high-stakes work, recommend re-running in Claude Code.
 
 ## claude.ai mode
 
 - No slash commands: route by intent, using "Routing without a slash command" under Preconditions.
-- No subagents: roles run sequentially, per the "claude.ai or no subagents" paragraph under Dispatching agents.
+- No Agent tool: roles run sequentially, per the "No Agent tool at all" paragraph under Dispatching agents.
 - Write `.eng-team/` and `docs/` files in the code-execution workspace and offer them for download at each gate. To resume in a new chat, the user uploads the whole `.eng-team/` and `docs/` folders (as a zip); copy the uploads into the workspace before reading state, then continue from state.md.
 - Repo-dependent steps (git diff, running tests) need the user's code uploaded, or must be done in Claude Code. Say so instead of guessing.
 

@@ -3,7 +3,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { updateIndex, buildIndex, reindexFile, saveIndex, search } from './index.js';
-import { classify, readText } from './scan.js';
+import { classify, readIndexable } from './scan.js';
 import { renderMarkdown } from './markdown.js';
 import { cleanRel, isEditablePath, resolveNoSymlink, isIndexedFile } from './project-files.js';
 
@@ -214,7 +214,7 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
     if (!cls || !types.includes(cls.type)) throw new HttpError(404, 'not found');
     const abs = resolveNoSymlink(root, rel);
     if (!abs || !isIndexedFile(root, index, rel)) throw new HttpError(404, 'not found');
-    const text = readText(abs);
+    const text = readIndexable(abs, rel);
     if (text === null) throw new HttpError(404, 'not found');
     return { rel, text, abs };
   }

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { scanProject, readText } from './scan.js';
+import { scanProject, readIndexable } from './scan.js';
 import { extractItems, extractMentions, extractImports } from './links.js';
 import { tokenize, termFreq, buildTfidf, queryVector, cosine, topNeighbours } from './similarity.js';
 
@@ -280,6 +280,9 @@ function semanticEdges(nodes, explicit) {
 
 /* ---------- build ---------- */
 
+/** Files skipped as binary/secret, by abs path -> mtime:size, so refreshes don't re-read them. */
+const refused = new Map();
+
 async function build(root, previous, force, embedder = null, keepEmbeddings = false) {
   const keepVecs = keepEmbeddings && !embedder && previous?.semantic === 'embeddings';
   const prevFiles = previous?.version === INDEX_VERSION ? previous.files : {};
@@ -302,8 +305,14 @@ async function build(root, previous, force, embedder = null, keepEmbeddings = fa
       reused++;
       continue;
     }
-    const text = readText(entry.abs);
-    if (text === null) continue;
+    const stamp = `${entry.mtime}:${entry.size}`;
+    if (refused.get(entry.abs) === stamp) continue;
+    const text = readIndexable(entry.abs, entry.path);
+    if (text === null) {
+      refused.set(entry.abs, stamp);
+      continue;
+    }
+    refused.delete(entry.abs);
     const hash = sha1(text);
     if (old && old.sha1 === hash && reusable(entry.path) && !force.has(entry.path)) {
       files[entry.path] = { ...old, mtime: entry.mtime, size: entry.size };

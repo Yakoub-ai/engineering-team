@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { createEmbedder } from './embed.js';
+import { createEmbedder, loadTransformers, depsDir, resolveInstalled } from './embed.js';
+
+export { loadTransformers, depsDir, resolveInstalled };
 import { safeCacheDir } from './index.js';
 
 const MODEL_CACHE_PARTS = ['.eng-team', '.cache', 'models'];
@@ -26,7 +28,7 @@ export function resolveProjectDir(flag, env = process.env) {
  *   models cache, so nothing is downloaded or written
  * @returns {Promise<{embed: Function, model: string}|null>}
  */
-export async function setupEmbedder(projectDir, { semantic = true, cachedOnly = false, probe = () => import('@huggingface/transformers') } = {}) {
+export async function setupEmbedder(projectDir, { semantic = true, cachedOnly = false, probe = () => loadTransformers() } = {}) {
   if (!semantic) return null;
   // Touch the project only when the optional package is actually present.
   try {

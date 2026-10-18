@@ -2,14 +2,14 @@
 """Structural validator for the eng-team plugin (stdlib only).
 
 Usage: validate.py [plugin_root] [--only check1,check2]
-Checks: frontmatter, refs, packs, applies, rights, headings, placeholders.
+Checks: frontmatter, refs, packs, applies, rights, headings, placeholders, handoffs.
 Prints '<check>: <path>: <message>' per error; exit 1 if any.
 """
 import pathlib
 import re
 import sys
 
-CHECKS = ["frontmatter", "refs", "packs", "applies", "rights", "headings", "placeholders"]
+CHECKS = ["frontmatter", "refs", "packs", "applies", "rights", "headings", "placeholders", "handoffs"]
 
 READ_ONLY = {"Read", "Grep", "Glob"}
 CONTEXT7 = {
@@ -17,12 +17,25 @@ CONTEXT7 = {
     "mcp__plugin_context7_context7__resolve-library-id",
     "mcp__plugin_context7_context7__query-docs",
 }
-ALLOWED_TOOLS = {
-    "eng-builder": READ_ONLY | {"Write", "Edit", "Bash"},
-    "eng-tester": READ_ONLY | {"Write", "Edit", "Bash"},
-    "eng-tech-writer": READ_ONLY | {"Write", "Edit"},
-    "eng-researcher": READ_ONLY | {"WebFetch", "WebSearch"} | CONTEXT7,
+MCP_CONTEXT = {
+    f"mcp__plugin_eng-team_eng-team-context__{n}"
+    for n in ("search_context", "get_related", "changed_since", "get_doc")
 }
+ALLOWED_TOOLS = {
+    "eng-builder": READ_ONLY | MCP_CONTEXT | {"Write", "Edit", "Bash"},
+    "eng-tester": READ_ONLY | MCP_CONTEXT | {"Write", "Edit", "Bash"},
+    "eng-tech-writer": READ_ONLY | MCP_CONTEXT | {"Write", "Edit"},
+    "eng-researcher": READ_ONLY | MCP_CONTEXT | {"WebFetch", "WebSearch"} | CONTEXT7,
+}
+WRITERS = {"eng-builder", "eng-tester", "eng-tech-writer"}
+EXPECTED_AGENTS = [
+    "eng-researcher", "eng-architect", "eng-builder", "eng-tester", "eng-tech-writer",
+    "eng-security-engineer", "eng-compliance-officer", "eng-data-engineer",
+    "eng-platform-engineer", "eng-sre", "eng-qa-engineer", "eng-integration-engineer",
+    "eng-ai-engineer", "eng-product-engineer",
+]
+QUALIFIED_RE = re.compile(r"eng-team:(eng-[a-z][a-z-]*)")
+BACKTICK_AGENT_RE = re.compile(r"`(eng-[a-z][a-z-]*)`")
 REQUIRED_TOOLS = {
     "eng-builder": {"Write", "Edit", "Bash"},
     "eng-tester": {"Write", "Edit", "Bash"},
@@ -130,7 +143,7 @@ def main(argv):
             if kind == "agents" and fm.get("tools"):
                 tools = {t.strip() for t in fm["tools"].split(",") if t.strip()}
                 name = fm.get("name", p.stem)
-                allowed = ALLOWED_TOOLS.get(name, READ_ONLY)
+                allowed = ALLOWED_TOOLS.get(name, READ_ONLY | MCP_CONTEXT)
                 extra = tools - allowed
                 if extra:
                     err("rights", p, f"{name} must not have {sorted(extra)}")
@@ -206,6 +219,51 @@ def main(argv):
         for n, line in enumerate(p.read_text().splitlines(), 1):
             if PLACEHOLDER_RE.search(line):
                 err("placeholders", p, f"line {n}: placeholder text")
+
+    # handoffs
+    agent_names = {p.stem for p in (root / "agents").glob("*.md")}
+    command_names = {p.stem for p in (root / "commands").glob("*.md")}
+    for a in EXPECTED_AGENTS:
+        if a not in agent_names:
+            err("handoffs", root / "agents" / f"{a}.md", "expected agent file is missing")
+    for p in sorted((root / "agents").glob("*.md")):
+        text = p.read_text()
+        fm, body = split_frontmatter(text)
+        name = (fm or {}).get("name", "")
+        if name != p.stem:
+            err("handoffs", p, f"name '{name}' must equal filename '{p.stem}'")
+        role = p.stem[len("eng-"):] if p.stem.startswith("eng-") else p.stem
+        if not (skill / "roles" / f"{role}.md").exists():
+            err("handoffs", p, f"no matching roles/{role}.md")
+        if "HARD-STOP" not in body:
+            err("handoffs", p, "agent body must mention HARD-STOP")
+        if "eng-team guard" not in body:
+            err("handoffs", p, "agent body must state the 'eng-team guard:' rule")
+        if p.stem not in WRITERS:
+            tools = {x.strip() for x in (fm or {}).get("tools", "").split(",")}
+            bad = tools & {"Write", "Edit", "Bash"}
+            if bad:
+                err("handoffs", p, f"read-only agent must not have {sorted(bad)}")
+    for d in ("skills", "commands"):
+        for p in md_files(root / d):
+            text = p.read_text()
+            for ref in QUALIFIED_RE.findall(text):
+                if ref == "eng-team":
+                    continue
+                if ref not in agent_names:
+                    err("handoffs", p, f"eng-team:{ref} is not an agent in agents/")
+            for ref in BACKTICK_AGENT_RE.findall(text):
+                if ref.startswith("eng-team") or ref in agent_names or ref in command_names:
+                    continue
+                err("handoffs", p, f"`{ref}` is neither an agent nor a command")
+    if skill_md.exists():
+        sm = skill_md.read_text()
+        for a in EXPECTED_AGENTS:
+            if f"eng-team:{a}" not in sm:
+                err("handoffs", skill_md, f"SKILL.md must list subagent_type eng-team:{a}")
+    for p in md_files(skill):
+        if "general-purpose" in p.read_text():
+            err("handoffs", p, "no general-purpose agent substitution allowed")
 
     for e in errors:
         print(e)
