@@ -1,6 +1,7 @@
 ---
 id: area-criminal
 kind: questionnaire
+domain: legal
 scope: area
 status: unreviewed
 reviewed_by:

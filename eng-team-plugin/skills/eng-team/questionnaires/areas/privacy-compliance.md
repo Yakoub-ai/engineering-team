@@ -1,6 +1,7 @@
 ---
 id: area-privacy-compliance
 kind: questionnaire
+domain: legal
 scope: area
 status: unreviewed
 reviewed_by:

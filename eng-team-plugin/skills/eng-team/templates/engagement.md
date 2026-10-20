@@ -6,6 +6,7 @@ Last verified against: <date>
 
 stage: scoping
 client: <name>
+domain: legal
 country: se
 languages: [sv]
 client_type: law-firm
@@ -15,7 +16,7 @@ approved_by:
 approved_on:
 
 ## Teams
-<!-- guidance: one row per team. Areas use the ids in questionnaires/areas (criminal, litigation, contracts-corporate, public-administrative, employment, ip, privacy-compliance) or a project module. Status: scoped | pack-sent | answered | met | mapped. -->
+<!-- guidance: one row per team. Domain is free text (legal, finance, hr, healthcare, operations, ...). Areas use a shipped legal area id (criminal, litigation, contracts-corporate, public-administrative, employment, ip, privacy-compliance) or the id of a module the agents formulated in .eng-team/questionnaires. Status: scoped | pack-sent | answered | met | mapped. -->
 
 | Team | Areas | Attendees (roles) | Status |
 |---|---|---|---|

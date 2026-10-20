@@ -1,6 +1,7 @@
 ---
 id: area-public-administrative
 kind: questionnaire
+domain: legal
 scope: area
 status: unreviewed
 reviewed_by:

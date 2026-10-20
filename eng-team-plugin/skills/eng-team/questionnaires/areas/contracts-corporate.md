@@ -1,6 +1,7 @@
 ---
 id: area-contracts-corporate
 kind: questionnaire
+domain: legal
 scope: area
 status: unreviewed
 reviewed_by:

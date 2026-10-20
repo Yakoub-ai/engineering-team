@@ -1,6 +1,7 @@
 ---
 id: country-se
 kind: questionnaire
+domain: any
 scope: country
 status: unreviewed
 reviewed_by:

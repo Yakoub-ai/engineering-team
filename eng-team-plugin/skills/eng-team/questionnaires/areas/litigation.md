@@ -1,6 +1,7 @@
 ---
 id: area-litigation
 kind: questionnaire
+domain: legal
 scope: area
 status: unreviewed
 reviewed_by:

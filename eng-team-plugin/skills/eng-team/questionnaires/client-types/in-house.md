@@ -1,6 +1,7 @@
 ---
 id: client-in-house
 kind: questionnaire
+domain: legal
 scope: client-type
 status: unreviewed
 reviewed_by:

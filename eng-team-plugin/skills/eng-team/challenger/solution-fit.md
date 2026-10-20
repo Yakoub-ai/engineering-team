@@ -13,7 +13,7 @@ Decide, per opportunity, whether to do nothing, fix the process, configure what 
    - readiness: data available digitally, an owner, a stable process;
    - exposure: the opposite of safety, from data class and consequence of error (1 = low exposure, 5 = high).
    Rank by value × clarity × readiness, then show exposure beside it. Do not hide a high-value, high-exposure item; mark it for a guarded approach. Scores are the consultant's judgement and are labelled `opinion:` unless backed by a measurement.
-3. **Apply the guardrails first.** Load the guardrails of the country and area modules in play (`questionnaires/countries/*.md`, `questionnaires/areas/*.md`). A guardrail marked Stop removes the option it names for that opportunity until its condition is documented; record the removal and the condition in the recommendation. A guardrail marked Flag adds a check to the plan. Never recommend around a Stop.
+3. **Apply the guardrails first.** Load the guardrails of the country and area modules in play (shipped under `questionnaires/` or formulated under `.eng-team/questionnaires/`), applying each only where its condition matches the team's data and decisions. A guardrail marked Stop removes the option it names for that opportunity until its condition is documented; record the removal and the condition in the recommendation. A guardrail marked Flag adds a check to the plan. Never recommend around a Stop.
 4. **Choose the outcome** per opportunity with this order, and state which row applied:
 
    | Outcome | Choose when |

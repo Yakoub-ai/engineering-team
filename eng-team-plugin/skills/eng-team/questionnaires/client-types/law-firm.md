@@ -1,6 +1,7 @@
 ---
 id: client-law-firm
 kind: questionnaire
+domain: legal
 scope: client-type
 status: unreviewed
 reviewed_by:

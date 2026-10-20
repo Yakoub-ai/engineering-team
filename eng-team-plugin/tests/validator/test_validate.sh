@@ -68,6 +68,7 @@ EOF
 ---
 id: core
 kind: questionnaire
+domain: any
 scope: core
 status: unreviewed
 reviewed_by:
@@ -102,6 +103,7 @@ EOF
 ---
 id: area-x
 kind: questionnaire
+domain: legal
 scope: area
 status: unreviewed
 reviewed_by:
@@ -177,6 +179,11 @@ expect_fail questionnaires "sed -i.bak '/^## Guardrails/d' skills/eng-team/quest
 expect_fail questionnaires "sed -i.bak '/url:/d' skills/eng-team/questionnaires/areas/x.md"
 expect_fail questionnaires "sed -i.bak 's/^- stage: pre/- stage: later/' skills/eng-team/questionnaires/areas/x.md"
 expect_fail questionnaires "sed -i.bak 's/^status: unreviewed/status: reviewed/' skills/eng-team/questionnaires/core.md"
+expect_fail questionnaires "sed -i.bak '/^domain:/d' skills/eng-team/questionnaires/core.md"
+expect_exit "--modules accepts a labelled project module" 0 "mkdir -p pm && sed -e 's/^id: area-x/id: area-pm/; s/Q-X-01/Q-PM-01/; /url:/d; s/^- Example. Source: Example./- Example. needs-evidence/' skills/eng-team/questionnaires/areas/x.md > pm/pm.md" --modules pm
+expect_exit "--modules rejects unlabelled guardrail without url" 1 "mkdir -p pm && sed -e 's/^id: area-x/id: area-pm/; s/Q-X-01/Q-PM-01/; /url:/d' skills/eng-team/questionnaires/areas/x.md > pm/pm.md" --modules pm
+expect_exit "--modules rejects id clash with shipped module" 1 "mkdir -p pm && sed -e 's/^id: area-x/id: area-pm/; /url:/d; s/^- Example. Source: Example./- Example. needs-evidence/; s/Q-X-01/Q-CORE-01/' skills/eng-team/questionnaires/areas/x.md > pm/pm.md" --modules pm
+expect_exit "--modules rejects a reviewed draft" 1 "mkdir -p pm && sed -e 's/^id: area-x/id: area-pm/; s/Q-X-01/Q-PM-01/; s/^status: unreviewed/status: reviewed/; s/^reviewed_by:/reviewed_by: someone/' skills/eng-team/questionnaires/areas/x.md > pm/pm.md" --modules pm
 expect_exit "questionnaires passes on good plugin" 0 ":" --only questionnaires
 expect_fail frontmatter  "printf 'no frontmatter\n' > agents/eng-broken.md"
 

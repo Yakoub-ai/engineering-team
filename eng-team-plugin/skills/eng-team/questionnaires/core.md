@@ -1,6 +1,7 @@
 ---
 id: core
 kind: questionnaire
+domain: any
 scope: core
 status: unreviewed
 reviewed_by:
@@ -27,8 +28,8 @@ Asked of every team regardless of client type or legal area. Format and selectio
 - priority: 1
 - topic: volume
 - type: number
-- sv: Ungefär hur många ärenden eller uppdrag hanterar teamet per månad, och hur många personer arbetar i teamet?
-- en: Roughly how many matters or assignments does the team handle per month, and how many people work in the team?
+- sv: Ungefär hur många ärenden, uppdrag eller leveranser hanterar teamet per månad, och hur många personer arbetar i teamet?
+- en: Roughly how many cases, assignments or deliveries does the team handle per month, and how many people work in the team?
 - why_sv: Volym avgör om en förändring lönar sig och vilken typ av lösning som är rimlig.
 - why_en: Volume decides whether a change pays off and which kind of solution is reasonable.
 - fills: workflow.volume
@@ -49,8 +50,8 @@ Asked of every team regardless of client type or legal area. Format and selectio
 - priority: 1
 - topic: tools
 - type: list
-- sv: Vilka system och verktyg använder ni dagligen, till exempel ärendehantering, dokumenthantering, e-post, tidredovisning, rättsdatabaser och mallar?
-- en: Which systems and tools do you use daily, for example case management, document management, email, time recording, legal databases and templates?
+- sv: Vilka system och verktyg använder ni dagligen, till exempel ärendehantering, dokumenthantering, e-post, tidredovisning, branschspecifika system och mallar?
+- en: Which systems and tools do you use daily, for example case management, document management, email, time recording, industry-specific systems and templates?
 - why_sv: Vi måste utgå från det ni redan har och betalar för innan vi föreslår något nytt.
 - why_en: We must start from what you already have and pay for before suggesting anything new.
 - fills: systems.inventory
@@ -94,8 +95,8 @@ Asked of every team regardless of client type or legal area. Format and selectio
 - priority: 2
 - topic: knowledge
 - type: open
-- sv: Hur hittar och återanvänder ni tidigare arbete, till exempel avtalsklausuler, utlåtanden, praxis eller interna riktlinjer?
-- en: How do you find and reuse earlier work, for example contract clauses, opinions, case law or internal guidelines?
+- sv: Hur hittar och återanvänder ni tidigare arbete, till exempel mallar, beslut, utlåtanden eller interna riktlinjer?
+- en: How do you find and reuse earlier work, for example templates, decisions, opinions or internal guidelines?
 - why_sv: Kunskapsåteranvändning är ett av de vanligaste och mest värdefulla förbättringsområdena.
 - why_en: Knowledge reuse is one of the most common and most valuable areas for improvement.
 - fills: opportunities.knowledge
@@ -105,8 +106,8 @@ Asked of every team regardless of client type or legal area. Format and selectio
 - priority: 3
 - topic: constraints
 - type: open
-- sv: Finns regler eller policyer som begränsar vilka verktyg ni får använda, till exempel IT-policy, klientkrav, sekretess eller upphandlingsregler?
-- en: Are there rules or policies that limit which tools you may use, for example IT policy, client requirements, confidentiality or procurement rules?
+- sv: Finns regler eller policyer som begränsar vilka verktyg ni får använda, till exempel IT-policy, kundkrav, sekretess, branschregler eller upphandlingsregler?
+- en: Are there rules or policies that limit which tools you may use, for example IT policy, customer requirements, confidentiality, industry rules or procurement rules?
 - why_sv: Det avgör direkt vilka lösningar som är möjliga att köpa eller bygga.
 - why_en: It directly decides which solutions are possible to buy or build.
 - fills: constraints.policy
@@ -129,10 +130,10 @@ Asked of every team regardless of client type or legal area. Format and selectio
 - priority: 1
 - topic: walkthrough
 - type: open
-- sv: Gå igenom ett nyligen avslutat ärende från start till slut: vad hände, i vilken ordning, vem gjorde vad och i vilket system?
-- en: Walk us through a recently closed matter from start to finish: what happened, in which order, who did what and in which system?
-- why_sv: Ett verkligt ärende avslöjar steg och överlämningar som en beskrivning missar.
-- why_en: A real matter reveals steps and handoffs that a description misses.
+- sv: Gå igenom ett nyligen avslutat ärende eller en leverans från start till slut: vad hände, i vilken ordning, vem gjorde vad och i vilket system?
+- en: Walk us through a recently closed case or delivery from start to finish: what happened, in which order, who did what and in which system?
+- why_sv: Ett verkligt exempel avslöjar steg och överlämningar som en beskrivning missar.
+- why_en: A real example reveals steps and handoffs that a description misses.
 - fills: workflow.as-is
 
 ### Q-CORE-12
@@ -142,8 +143,8 @@ Asked of every team regardless of client type or legal area. Format and selectio
 - type: open
 - sv: Var uppstår fel, omarbete eller risk för att något missas, och vad kostar det?
 - en: Where do errors, rework or the risk of missing something arise, and what does it cost?
-- why_sv: Risk och kvalitetsbrister väger ofta tyngre än tidsbesparing i juridiskt arbete.
-- why_en: Risk and quality gaps often weigh more than time savings in legal work.
+- why_sv: Risk och kvalitetsbrister väger ofta tyngre än tidsbesparing i reglerat arbete.
+- why_en: Risk and quality gaps often weigh more than time savings in regulated work.
 - fills: opportunities.risk
 
 ### Q-CORE-13
@@ -173,8 +174,8 @@ Asked of every team regardless of client type or legal area. Format and selectio
 - priority: 2
 - topic: success
 - type: open
-- sv: Hur skulle ni mäta att något har blivit bättre, till exempel timmar per ärende, ledtid eller antal fel?
-- en: How would you measure that something has improved, for example hours per matter, lead time or number of errors?
+- sv: Hur skulle ni mäta att något har blivit bättre, till exempel timmar per ärende eller leverans, ledtid eller antal fel?
+- en: How would you measure that something has improved, for example hours per case or delivery, lead time or number of errors?
 - why_sv: Mätbara mål gör att vi kan visa effekt och prioritera rätt.
 - why_en: Measurable goals let us show effect and prioritise correctly.
 - fills: opportunities.success-metric
@@ -184,8 +185,8 @@ Asked of every team regardless of client type or legal area. Format and selectio
 - priority: 2
 - topic: ai-attitude
 - type: open
-- sv: Hur ser teamet på AI-stöd, och finns det röda linjer, till exempel att klientmaterial aldrig får lämna er egen miljö?
-- en: How does the team see AI support, and are there red lines, for example that client material may never leave your own environment?
+- sv: Hur ser teamet på AI-stöd, och finns det röda linjer, till exempel att kund- eller känsligt material aldrig får lämna er egen miljö?
+- en: How does the team see AI support, and are there red lines, for example that customer or sensitive material may never leave your own environment?
 - why_sv: Inställning och röda linjer styr vilka lösningar som är värda att utreda.
 - why_en: Attitude and red lines steer which solutions are worth investigating.
 - fills: constraints.ai

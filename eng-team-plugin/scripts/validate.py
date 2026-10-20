@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Structural validator for the eng-team plugin (stdlib only).
 
-Usage: validate.py [plugin_root] [--only check1,check2]
+Usage: validate.py [plugin_root] [--only check1,check2] [--modules <dir>]
+--modules checks only the questionnaire modules in <dir> (for example .eng-team/questionnaires), with the project-module rules.
 Checks: frontmatter, refs, packs, applies, rights, headings, placeholders, handoffs, questionnaires.
 Prints '<check>: <path>: <message>' per error; exit 1 if any.
 """
@@ -124,10 +125,16 @@ def md_files(root):
 
 
 def main(argv):
-    args, only, i = [], None, 0
+    args, only, modules, i = [], None, None, 0
     while i < len(argv):
         a = argv[i]
-        if a == "--only":
+        if a == "--modules":
+            if i + 1 >= len(argv) or not argv[i + 1].strip():
+                print("usage: --modules requires a directory of questionnaire modules", file=sys.stderr)
+                return 2
+            modules = argv[i + 1]
+            i += 1
+        elif a == "--only":
             if i + 1 >= len(argv) or not argv[i + 1].strip():
                 print("usage: --only requires a value (comma-separated check names)", file=sys.stderr)
                 return 2
@@ -143,6 +150,8 @@ def main(argv):
         i += 1
     root = pathlib.Path(args[0] if args else pathlib.Path(__file__).resolve().parent.parent)
     run = set(only.split(",")) if only else set(CHECKS)
+    if modules:
+        run = {"questionnaires"}
     for name in sorted(run):
         if name not in CHECKS:
             print(f"usage: unknown check '{name}' (valid: {', '.join(CHECKS)})", file=sys.stderr)
@@ -292,12 +301,27 @@ def main(argv):
 
     # questionnaires
     seen_q = {}
-    for p in sorted((skill / "questionnaires").rglob("*.md")):
+    plugin_modules = sorted((skill / "questionnaires").rglob("*.md"))
+    if modules:
+        for p in plugin_modules:  # ids of shipped modules are taken
+            _, b = split_frontmatter(p.read_text())
+            for qid, _f in parse_questions(b):
+                seen_q[qid] = p.name
+        mdir = pathlib.Path(modules)
+        if not mdir.is_absolute() and not mdir.exists():
+            mdir = root / mdir
+        if not mdir.is_dir():
+            print(f"usage: --modules directory not found: {modules}", file=sys.stderr)
+            return 2
+        qfiles = sorted(mdir.rglob("*.md"))
+    else:
+        qfiles = plugin_modules
+    for p in qfiles:
         fm, body = split_frontmatter(p.read_text())
         if fm is None:
             err("questionnaires", p, "module has no frontmatter")
             continue
-        for k in ("id", "kind", "scope", "status", "reviewed_by", "review_by", "languages"):
+        for k in ("id", "kind", "domain", "scope", "status", "reviewed_by", "review_by", "languages"):
             if k not in fm or (k != "reviewed_by" and not fm[k]):
                 err("questionnaires", p, f"missing key '{k}'")
         if fm.get("kind") and fm["kind"] != "questionnaire":
@@ -311,11 +335,19 @@ def main(argv):
             err("questionnaires", p, "reviewed module needs reviewed_by")
         if fm.get("review_by") and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", fm["review_by"]):
             err("questionnaires", p, "review_by must be YYYY-MM-DD")
+        if modules and fm.get("status") != "unreviewed":
+            err("questionnaires", p, "a drafted project module must be status: unreviewed")
         if scope in {"area", "country"}:
-            if "url:" not in fm.get("sources", ""):
-                err("questionnaires", p, "area and country modules need sources with a url")
-            if not re.search(r"^## Guardrails\s*$", body, re.M):
+            gm = re.search(r"^## Guardrails\s*$(.*?)(?=^## |\Z)", body, re.M | re.S)
+            if not gm:
                 err("questionnaires", p, "missing heading '## Guardrails'")
+            if "url:" not in fm.get("sources", ""):
+                bullets = [l for l in (gm.group(1) if gm else "").splitlines() if l.startswith("- ")]
+                unlabelled = [l for l in bullets if "needs-evidence" not in l and "opinion:" not in l]
+                if not modules:
+                    err("questionnaires", p, "area and country modules need sources with a url")
+                elif not bullets or unlabelled:
+                    err("questionnaires", p, "project module without a source url: every guardrail must be labelled needs-evidence or opinion:")
         qs = parse_questions(body)
         if scope != "country" and not qs:
             err("questionnaires", p, "module has no questions")

@@ -1,6 +1,7 @@
 ---
 id: client-public-authority
 kind: questionnaire
+domain: legal
 scope: client-type
 status: unreviewed
 reviewed_by:

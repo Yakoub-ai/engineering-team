@@ -1,6 +1,6 @@
 # eng-team eval suite
 
-Fourteen end-to-end cases for `claude plugin eval` (CLI 2.1.301). Each case is a directory with `prompt.md` (frontmatter plus the user prompt), `graders/*.md` (llm, regex, tool_used, tool_order, file_exists) and, where it needs a project on disk, `case.yaml` plus `scaffold.sh`. The manifest opts in via `experimental.evals` in `.claude-plugin/plugin.json`.
+Fifteen end-to-end cases for `claude plugin eval` (CLI 2.1.301). Each case is a directory with `prompt.md` (frontmatter plus the user prompt), `graders/*.md` (llm, regex, tool_used, tool_order, file_exists) and, where it needs a project on disk, `case.yaml` plus `scaffold.sh`. The manifest opts in via `experimental.evals` in `.claude-plugin/plugin.json`.
 
 | Case | Checks |
 |---|---|
@@ -18,8 +18,9 @@ Fourteen end-to-end cases for `claude plugin eval` (CLI 2.1.301). Each case is a
 | l-context-reuse | onboarding reuses an existing `.eng-team/context.md` and `CLAUDE.md`: shows a `What I know` block, asks a context question, does not re-read unchanged code, leaves `CLAUDE.md` intact. The snapshot's `Last scanned commit` is the fixture commit; HEAD differs from it only by `.eng-team/context.md` and `CLAUDE.md`, so an incremental refresh sees no code change |
 | m-premeeting-sv | `/eng-engage` writes a Swedish plain-text pre-meeting pack for a criminal-defence team: at most 12 numbered questions, "Varför vi frågar:" lines, no Markdown tables or bold, an anonymised-example request and a safe-handling note, no request for case content. Run twice on 2026-10-20: 0.67 and 1.00 (the quality judge is noisy), about $0.21 |
 | n-solution-fit-guardrail | a partner wants to upload investigation files to a cloud AI summariser; the recommendation applies the criminal-offence-data stop (GDPR Article 10, Data Protection Act 3 kap. 8 §), offers a safer or conditional path, keeps a named lawyer as decision-maker, and labels unverified legal points. Checked with file regexes (the LLM judge cannot read workspace files); first two runs 0.50 and 0.89 before the graders were fixed, then all file graders pass, about $0.26 |
+| o-new-domain-hr | (run once 2026-10-20: 1.00, about $0.89) a domain with no shipped module (HR onboarding): the flow formulates a project module `hr-onboarding` (status unreviewed, bilingual questions, a Guardrails section that reflects employee data), then writes a plain-text English pack with the safe-handling note |
 
-These two run without `Bash` (no sandbox backend is needed): `--allow-tools Write Edit`.
+These run without `Bash` (no sandbox backend is needed): `--allow-tools Write Edit`.
 
 Cases i, j, k and l share `tests/fixtures/i-legacy-app` (answer key PLANTED-5..9) and leave `Agent` out of `allowed_tools`, so roles run sequentially. That keeps each run around $0.15-0.35.
 
