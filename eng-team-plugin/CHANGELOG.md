@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.3.0 — 2026-10-20
+
+### Added
+- **Client engagement flow** for consultants (`/eng-engage`, `phases/engage.md`): scope, a plain-text pre-meeting questionnaire per team (Swedish and English, at most 12 questions, email-ready), meeting guide, day-in-the-life visit plan, workflow mapping, opportunity scoring, solution-fit recommendation (do not automate, configure what is owned, buy, build, assist only), platform evaluation matrix with cited facts and a proof-of-concept plan, and a plain-language client report. Standalone; writes only under `docs/engineering/engagement/`, `.eng-team/questionnaires/` and `.eng-team/research/`. Autonomous mode never invents stakeholder answers.
+- **Question banks** (`skills/eng-team/questionnaires/`): `core`, three client types, seven legal areas (criminal, litigation, contracts-corporate, public-administrative, employment, ip, privacy-compliance) and country modules for the EU and Sweden. 67 bilingual questions. Country and area modules carry guardrails (GDPR Article 10, Swedish attorney confidentiality, public-sector secrecy, AI Act Annex III point 8) that remove options before a recommendation is made. All modules are `unreviewed`; unverified legal points are marked `needs-evidence`.
+- Researcher can return `### Questionnaire: <id>` blocks to draft modules for areas, client types or countries that have none.
+- Validator check `questionnaires` (frontmatter, bilingual fields, ids, stages, choice options, guardrails, sources) with 8 self-tests.
+- Eval cases `m-premeeting-sv` and `n-solution-fit-guardrail` and a fictional fixture `tests/fixtures/m-engagement` (run on 2026-10-20, see `tests/evals/README.md`).
+
+### Changed
+- `/eng-discover` reads `docs/engineering/engagement/brief-seed-*.md` when present.
+- Validator reference check accepts one subdirectory level (for example an area module inside `questionnaires`).
+
 ## 3.2.0 — 2026-10-18
 
 ### Added

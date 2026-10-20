@@ -63,6 +63,69 @@ applies_when: profile.stacks contains "azure" AND profile.regulated.financial_en
 # Stack pack: Azure
 - check
 EOF
+  mkdir -p "$d/skills/eng-team/questionnaires/areas"
+  cat > "$d/skills/eng-team/questionnaires/core.md" <<'EOF'
+---
+id: core
+kind: questionnaire
+scope: core
+status: unreviewed
+reviewed_by:
+review_by: 2027-04-20
+languages: [sv, en]
+---
+# Core
+### Q-CORE-01
+- stage: pre
+- priority: 1
+- topic: overview
+- type: open
+- sv: Beskriv teamet.
+- en: Describe the team.
+- why_sv: För att förstå.
+- why_en: To understand.
+- fills: engagement.team
+### Q-CORE-02
+- stage: meeting
+- priority: 2
+- topic: choice
+- type: choice
+- options_sv: Ja; Nej
+- options_en: Yes; No
+- sv: Finns en playbook?
+- en: Is there a playbook?
+- why_sv: Regler.
+- why_en: Rules.
+- fills: workflow.rules
+EOF
+  cat > "$d/skills/eng-team/questionnaires/areas/x.md" <<'EOF'
+---
+id: area-x
+kind: questionnaire
+scope: area
+status: unreviewed
+reviewed_by:
+review_by: 2027-04-20
+languages: [sv, en]
+sources:
+  - title: Example
+    url: https://example.org/law
+    accessed: 2026-10-20
+---
+# Area x
+### Q-X-01
+- stage: pre
+- priority: 1
+- topic: volume
+- type: number
+- sv: Hur många?
+- en: How many?
+- why_sv: Volym.
+- why_en: Volume.
+- fills: workflow.volume
+## Guardrails
+- Example. Source: Example.
+EOF
 }
 
 expect_pass() {
@@ -107,6 +170,14 @@ expect_fail handoffs     "sed -i.bak 's/HARD-STOP/STOP/' agents/eng-sre.md"
 expect_fail handoffs     "sed -i.bak 's/eng-team guard/guard/' agents/eng-qa-engineer.md"
 expect_fail handoffs     "sed -i.bak 's/^tools: Read, Grep, Glob\$/tools: Read, Grep, Glob, Bash/' agents/eng-sre.md"
 expect_exit "handoffs passes on good plugin" 0 ":" --only handoffs
+expect_fail questionnaires "sed -i.bak '/^- why_en: Volume\./d' skills/eng-team/questionnaires/areas/x.md"
+expect_fail questionnaires "sed -i.bak '/^- en: Yes/d; s/^- options_en: Yes; No/- options_en: Yes/' skills/eng-team/questionnaires/core.md"
+expect_fail questionnaires "sed -i.bak 's/^### Q-X-01/### Q-CORE-01/' skills/eng-team/questionnaires/areas/x.md"
+expect_fail questionnaires "sed -i.bak '/^## Guardrails/d' skills/eng-team/questionnaires/areas/x.md"
+expect_fail questionnaires "sed -i.bak '/url:/d' skills/eng-team/questionnaires/areas/x.md"
+expect_fail questionnaires "sed -i.bak 's/^- stage: pre/- stage: later/' skills/eng-team/questionnaires/areas/x.md"
+expect_fail questionnaires "sed -i.bak 's/^status: unreviewed/status: reviewed/' skills/eng-team/questionnaires/core.md"
+expect_exit "questionnaires passes on good plugin" 0 ":" --only questionnaires
 expect_fail frontmatter  "printf 'no frontmatter\n' > agents/eng-broken.md"
 
 [ $fails -eq 0 ] && echo "ALL VALIDATOR TESTS PASSED" || { echo "$fails validator test(s) failed"; exit 1; }

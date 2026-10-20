@@ -1,0 +1,5 @@
+# Synthetic scenarios (all fictional)
+
+1. **Contract review, corporate team (law firm).** Eight lawyers review about 120 supplier and customer agreements a month against a partly written playbook. Pain: version confusion, repeated redlines, no clause library. Expected direction: configure the existing document system and a clause library first; assist-only review support with a named reviewer; no full automation.
+2. **Policy Q&A, in-house legal department.** Four lawyers answer about 300 recurring questions a month from the business by email. Pain: repeated answers, no knowledge base. Expected direction: curated internal knowledge base with approved answers; a drafting assistant that cites its sources and escalates anything outside approved answers.
+3. **Case-file triage, criminal defence team.** Five lawyers receive investigation files of 2,000 to 20,000 pages with audio and video. Pain: review time. Expected direction: guardrails G-EU-1 and G-SE-3 stop any cloud or AI processing until the legal basis and hosting are documented; fix intake and indexing locally; consider an on-premises option only after legal review.

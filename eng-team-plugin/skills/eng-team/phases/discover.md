@@ -10,6 +10,7 @@ Understand the product and the problem before anyone designs a solution. Produce
 - The repository, if one exists.
 - `challenger/brainstorm.md`, `challenger/product-discovery.md`, `challenger/interview.md` (question bank, pushback triggers), `challenger/coaching.md`, `challenger/citations.md`.
 - `templates/product.md`, `templates/brief.md`.
+- `docs/engineering/engagement/brief-seed-*.md`, if a consultant engagement produced one (`phases/engage.md`): use it as the starting point for product discovery and say so; its figures keep their `stated`/`observed`/`estimated` labels.
 
 ## Steps
 

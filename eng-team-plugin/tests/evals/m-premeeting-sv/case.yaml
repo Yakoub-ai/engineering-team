@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: m-premeeting-sv
+context:
+  scaffold_script: scaffold.sh
