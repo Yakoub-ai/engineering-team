@@ -1,0 +1,31 @@
+# <Client> — Engagement
+
+Audience: the consultant
+Last verified against: <date>
+<!-- guidance: one file per client, kept up to date at the end of every stage. Machine-readable header first, then the tables. Never put confidential case content in this folder; anonymise first. -->
+
+stage: scoping
+client: <name>
+domain: legal
+country: se
+languages: [sv]
+client_type: law-firm
+decision_maker: <role, name if known>
+budget_owner: <role, name if known>
+approved_by:
+approved_on:
+
+## Teams
+<!-- guidance: one row per team. Domain is free text (legal, finance, hr, healthcare, operations, ...). Areas use a shipped legal area id (criminal, litigation, contracts-corporate, public-administrative, employment, ip, privacy-compliance) or the id of a module the agents formulated in .eng-team/questionnaires. Status: scoped | pack-sent | answered | met | mapped. -->
+
+| Team | Areas | Attendees (roles) | Status |
+|---|---|---|---|
+
+## Open items
+<!-- guidance: gaps, contradictions and unanswered questions, each with an owner and a date. -->
+
+| ID | Item | Owner | Date |
+|---|---|---|---|
+
+## Files
+<!-- guidance: list every artifact in this folder with its stage. -->

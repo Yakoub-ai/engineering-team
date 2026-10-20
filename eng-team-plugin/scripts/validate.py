@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """Structural validator for the eng-team plugin (stdlib only).
 
-Usage: validate.py [plugin_root] [--only check1,check2]
-Checks: frontmatter, refs, packs, applies, rights, headings, placeholders, handoffs.
+Usage: validate.py [plugin_root] [--only check1,check2] [--modules <dir>]
+--modules checks only the questionnaire modules in <dir> (for example .eng-team/questionnaires), with the project-module rules.
+Checks: frontmatter, refs, packs, applies, rights, headings, placeholders, handoffs, questionnaires.
 Prints '<check>: <path>: <message>' per error; exit 1 if any.
 """
 import pathlib
 import re
 import sys
 
-CHECKS = ["frontmatter", "refs", "packs", "applies", "rights", "headings", "placeholders", "handoffs"]
+CHECKS = ["frontmatter", "refs", "packs", "applies", "rights", "headings", "placeholders", "handoffs", "questionnaires"]
 
 READ_ONLY = {"Read", "Grep", "Glob"}
 CONTEXT7 = {
@@ -50,9 +51,34 @@ HEADINGS = {
 }
 NEW_ROLES = {"researcher", "architect", "builder", "tester", "tech-writer"}
 ROLE_HEADINGS = ["**Mission:**", "**Owns:**", "## Method", "## Output"]
-REF_RE = re.compile(r"`((?:roles|phases|challenger|stacks|compliance|practices|templates|shared)/[\w.-]+\.md)`")
+REF_RE = re.compile(r"`((?:roles|phases|challenger|stacks|compliance|practices|templates|shared|questionnaires)/(?:[\w.-]+/)?[\w.-]+\.md)`")
 FIELD_RE = re.compile(r"profile\.([A-Za-z_][\w.]*)")
 PLACEHOLDER_RE = re.compile(r"\b(TODO|TBD|FIXME)\b")
+
+
+Q_SCOPES = {"core", "client-type", "area", "country"}
+Q_STAGES = {"pre", "meeting"}
+Q_TYPES = {"open", "choice", "number", "list", "artifact"}
+Q_REQUIRED = ["stage", "priority", "topic", "type", "sv", "en", "why_sv", "why_en", "fills"]
+Q_HEAD_RE = re.compile(r"^### (Q-[A-Z]+-\d{2})\s*$", re.M)
+Q_FIELD_RE = re.compile(r"^- ([a-z_]+): ?(.*)$")
+Q_PRE_MAX = 12
+
+
+def parse_questions(body):
+    """Return [(id, {field: value})] for each '### Q-XXX-NN' block in a questionnaire module."""
+    parts = Q_HEAD_RE.split(body)
+    out = []
+    for i in range(1, len(parts), 2):
+        fields = {}
+        for line in parts[i + 1].splitlines():
+            if line.startswith("## "):
+                break
+            m = Q_FIELD_RE.match(line)
+            if m:
+                fields[m.group(1)] = m.group(2).strip()
+        out.append((parts[i], fields))
+    return out
 
 
 def split_frontmatter(text):
@@ -99,10 +125,16 @@ def md_files(root):
 
 
 def main(argv):
-    args, only, i = [], None, 0
+    args, only, modules, i = [], None, None, 0
     while i < len(argv):
         a = argv[i]
-        if a == "--only":
+        if a == "--modules":
+            if i + 1 >= len(argv) or not argv[i + 1].strip():
+                print("usage: --modules requires a directory of questionnaire modules", file=sys.stderr)
+                return 2
+            modules = argv[i + 1]
+            i += 1
+        elif a == "--only":
             if i + 1 >= len(argv) or not argv[i + 1].strip():
                 print("usage: --only requires a value (comma-separated check names)", file=sys.stderr)
                 return 2
@@ -118,6 +150,8 @@ def main(argv):
         i += 1
     root = pathlib.Path(args[0] if args else pathlib.Path(__file__).resolve().parent.parent)
     run = set(only.split(",")) if only else set(CHECKS)
+    if modules:
+        run = {"questionnaires"}
     for name in sorted(run):
         if name not in CHECKS:
             print(f"usage: unknown check '{name}' (valid: {', '.join(CHECKS)})", file=sys.stderr)
@@ -264,6 +298,84 @@ def main(argv):
     for p in md_files(skill):
         if "general-purpose" in p.read_text():
             err("handoffs", p, "no general-purpose agent substitution allowed")
+
+    # questionnaires
+    seen_q = {}
+    plugin_modules = sorted((skill / "questionnaires").rglob("*.md"))
+    if modules:
+        for p in plugin_modules:  # ids of shipped modules are taken
+            _, b = split_frontmatter(p.read_text())
+            for qid, _f in parse_questions(b):
+                seen_q[qid] = p.name
+        mdir = pathlib.Path(modules)
+        if not mdir.is_absolute() and not mdir.exists():
+            mdir = root / mdir
+        if not mdir.is_dir():
+            print(f"usage: --modules directory not found: {modules}", file=sys.stderr)
+            return 2
+        qfiles = sorted(mdir.rglob("*.md"))
+    else:
+        qfiles = plugin_modules
+    for p in qfiles:
+        fm, body = split_frontmatter(p.read_text())
+        if fm is None:
+            err("questionnaires", p, "module has no frontmatter")
+            continue
+        for k in ("id", "kind", "domain", "scope", "status", "reviewed_by", "review_by", "languages"):
+            if k not in fm or (k != "reviewed_by" and not fm[k]):
+                err("questionnaires", p, f"missing key '{k}'")
+        if fm.get("kind") and fm["kind"] != "questionnaire":
+            err("questionnaires", p, "kind must be 'questionnaire'")
+        scope = fm.get("scope", "")
+        if scope and scope not in Q_SCOPES:
+            err("questionnaires", p, f"bad scope '{scope}'")
+        if fm.get("status") and fm["status"] not in {"reviewed", "unreviewed"}:
+            err("questionnaires", p, f"bad status '{fm['status']}'")
+        if fm.get("status") == "reviewed" and not fm.get("reviewed_by"):
+            err("questionnaires", p, "reviewed module needs reviewed_by")
+        if fm.get("review_by") and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", fm["review_by"]):
+            err("questionnaires", p, "review_by must be YYYY-MM-DD")
+        if modules and fm.get("status") != "unreviewed":
+            err("questionnaires", p, "a drafted project module must be status: unreviewed")
+        if scope in {"area", "country"}:
+            gm = re.search(r"^## Guardrails\s*$(.*?)(?=^## |\Z)", body, re.M | re.S)
+            if not gm:
+                err("questionnaires", p, "missing heading '## Guardrails'")
+            if "url:" not in fm.get("sources", ""):
+                bullets = [l for l in (gm.group(1) if gm else "").splitlines() if l.startswith("- ")]
+                unlabelled = [l for l in bullets if "needs-evidence" not in l and "opinion:" not in l]
+                if not modules:
+                    err("questionnaires", p, "area and country modules need sources with a url")
+                elif not bullets or unlabelled:
+                    err("questionnaires", p, "project module without a source url: every guardrail must be labelled needs-evidence or opinion:")
+        qs = parse_questions(body)
+        if scope != "country" and not qs:
+            err("questionnaires", p, "module has no questions")
+        pre = 0
+        for qid, f in qs:
+            if qid in seen_q:
+                err("questionnaires", p, f"duplicate question id {qid} (also in {seen_q[qid]})")
+            seen_q[qid] = p.name
+            for k in Q_REQUIRED:
+                if not f.get(k):
+                    err("questionnaires", p, f"{qid}: missing field '{k}'")
+            if f.get("stage") and f["stage"] not in Q_STAGES:
+                err("questionnaires", p, f"{qid}: bad stage '{f['stage']}'")
+            if f.get("stage") == "pre":
+                pre += 1
+            if f.get("priority") and f["priority"] not in {"1", "2", "3"}:
+                err("questionnaires", p, f"{qid}: priority must be 1, 2 or 3")
+            if f.get("type") and f["type"] not in Q_TYPES:
+                err("questionnaires", p, f"{qid}: bad type '{f['type']}'")
+            if f.get("type") == "choice":
+                a = [x for x in f.get("options_sv", "").split(";") if x.strip()]
+                b = [x for x in f.get("options_en", "").split(";") if x.strip()]
+                if len(a) < 2 or len(a) != len(b):
+                    err("questionnaires", p, f"{qid}: choice needs equal numbers (2+) of options_sv and options_en")
+            if "|" in f.get("sv", "") + f.get("en", ""):
+                err("questionnaires", p, f"{qid}: question text must not contain '|'")
+        if pre > Q_PRE_MAX:
+            err("questionnaires", p, f"{pre} pre-meeting questions exceed {Q_PRE_MAX}")
 
     for e in errors:
         print(e)

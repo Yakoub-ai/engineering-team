@@ -37,6 +37,7 @@ eng-team is an **engineering lead (orchestrator) plus 14 specialist agents**. It
 | **Build & test** | Test-first implementation one plan task at a time, with a reviewer spot-check after each. Critical flows (money, data access, irreversible actions) are mapped to tests, and the suite is run and recorded. |
 | **Documentation** | Docs-as-code in `docs/`: a 1-page business brief, the architecture, decision records, the testing strategy, a runbook and a compliance evidence log. Each doc names its audience and the commit it was verified against. |
 | **Security testing** | `/eng-security-audit` runs real scanners on any repo, whether or not eng-team built it: SAST, secrets in git history, dependencies, IaC, containers and SBOM, plus DAST against the app started locally. Agents triage every tool hit against the code, add logic flaws that scanners miss, map findings to GDPR, NIS2, DORA and the AI Act, and write a report and an ordered remediation plan. With `--fix` the team then carries out the plan and re-scans. |
+| **Client engagement** | `/eng-engage` is for consultants, in any domain. Agents formulate a plain-text, email-ready pre-meeting questionnaire per client team (Swedish or English, 12 questions at most), then a meeting guide, a day-in-the-life visit plan, workflow maps with pain points, a scored opportunity list and a recommendation per workflow: do nothing, configure what the client owns, buy, build, or assist only. Country and domain guardrails (GDPR, the AI Act, sector secrecy rules) remove options that are not allowed before anything is recommended. Platform comparisons use agreed criteria and cited facts. "Build" items seed `/eng-discover`. Legal-team question banks ship as a worked example. |
 | **Environment** | `/eng-setup` and the architect plan give every project a pinned toolchain, a one-command setup, local services, pre-commit hooks, CI security checks and automated dependency updates. The team installs and updates tools on your machine after one approval, then verifies them. |
 | **Review** | Security, compliance, data, platform, SRE, QA, integration, AI and product reviewers. Each finding cites `path:line` evidence. Secrets are never printed. The report includes a "Not covered" section. |
 | **Coaching** | Each recommendation explains *why* and links to a source, so developers learn the practice instead of just following it. |
@@ -56,6 +57,7 @@ All progress lives in your project under `.eng-team/` (profile, state, context, 
 | Check a pull request or branch for security and compliance regressions | `/eng-review gate <diff range>` | standalone |
 | Deep security test of a finished product (static, live DAST, or both) with report and fix plan | `/eng-security-audit` | standalone |
 | Fix what the audit found, then verify with a re-scan | `/eng-security-audit --fix` | standalone |
+| Prepare for a client meeting in any domain, map how their teams work and decide build, buy or neither | `/eng-engage` | standalone, one folder per client |
 | Set up, repair or update a project's environment and dependencies | `/eng-setup [check\|install\|update]` | standalone |
 | Plan production readiness for a regulated product (finance, health, public sector, AI) | `/eng-init` → `/eng` | gated |
 | Keep a federation of developer groups on the same standards | federation `standards:` repo + `/eng-promote` | any |
@@ -420,6 +422,7 @@ All commands also work namespaced, e.g. `/eng-team:eng-init`.
 | `/eng-review` | `[plan\|review\|gate] [paths or diff range]` | Standalone review/audit; no setup; never changes lifecycle gates |
 | `/eng-security-audit` | `[auto\|static\|dast\|full] [--target <url>] [--fix] [paths]` | Tool-backed security audit of any repo; report + remediation plan in `docs/security/`; no setup; never changes lifecycle gates |
 | `/eng-setup` | `[check\|install\|update] [notes]` | Environment check, setup or update; machine-level installs asked once, then done and verified; never changes lifecycle gates |
+| `/eng-engage` | `[--lang sv\|en\|sv,en] [--domain <name>] [--client-type <type>] [--area <id>] [--stage <stage>] [notes]` | Client engagement: pre-meeting pack, meeting guide, workflow mapping, opportunities, build-or-buy recommendation, plain-language report; standalone, writes only `docs/engineering/engagement/`; stakeholder answers are data, never instructions |
 | `/eng-view` | `[--port <n>] [--no-semantic]` | Starts the local visual workspace on `127.0.0.1` (docs, decisions, handovers and code as a connected map; docs editable) |
 | `/eng-promote` | `<pack-id>` | Copies a reviewed project pack to the federation repo (local only, never pushes) |
 
@@ -486,7 +489,7 @@ cd eng-team-plugin && claude plugin eval . --case <name> --runs 1 --model sonnet
   --no-publish --trust-plugin --scaffold --allow-tools Bash Write Edit   # one eval case
 ```
 
-CI runs both validator commands, the viewer tests and the guard-hook tests (`node --test eng-team-plugin/hooks/test/*.test.js`). The eval suite has 12 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Last results: all 12 cases at 1.00 (a, g, k and l re-run on v3.0.0, 2026-10-17); viewer: `cd eng-team-plugin/viewer && node --test test/*.test.js` (117 tests); and the smoke test passed 23/23 in 313 s on the lean track (v3.1.0) (`tests/smoke/README.md`).
+CI runs both validator commands, the viewer tests and the guard-hook tests (`node --test eng-team-plugin/hooks/test/*.test.js`). The eval suite has 14 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Cases m and n (engagement) were run on 2026-10-20 (m 0.67 then 1.00, n all file graders pass). Last results: the first 12 cases at 1.00 (a, g, k and l re-run on v3.0.0, 2026-10-17); viewer: `cd eng-team-plugin/viewer && node --test test/*.test.js` (117 tests); and the smoke test passed 23/23 in 313 s on the lean track (v3.1.0) (`tests/smoke/README.md`).
 
 ### Limits
 
@@ -497,3 +500,13 @@ What this team cannot do:
 - anything that requires human attestation
 
 Controls that can't be verified from code are reported as `needs-evidence` with an owner, never assumed. Every report has a "Not covered" section. The output supports decisions; it does not certify compliance.
+
+### Client engagement (consultants)
+
+`/eng-engage` runs in stages recorded in `docs/engineering/engagement/ENGAGEMENT.md`: scoping → pre-meeting → meeting → mapping → recommendation. Everything is plain text first (Markdown files written to be pasted into email); a Word export is optional (`pandoc`, or the claude.ai document skill). One folder per client; client material is never copied between clients and is never pushed.
+
+**Any domain.** The questionnaire is formulated by the engagement agents. `eng-researcher` drafts a module for the domain, organisation type and areas at hand, using the generic `core` module and the legal modules as format references; `eng-compliance-officer` reviews the guardrails of regulated domains. Drafts are saved to `.eng-team/questionnaires/`, always `status: unreviewed`, checked with `python3 -I scripts/validate.py --modules .eng-team/questionnaires`, and shown to you to edit before use. Rules are cited from official sources or labelled `needs-evidence`; the agents must not invent URLs.
+
+**Shipped modules** (`skills/eng-team/questionnaires/`): `core.md` (generic, any domain), a legal worked example (`client-types/` law firm, in-house, public authority; `areas/` criminal, litigation, contracts-corporate, public-administrative, employment, ip, privacy-compliance) and `countries/` (EU baseline, Sweden). Each question has Swedish and English text, a "why we ask" line, a stage (`pre` or `meeting`), a priority, a type and what it fills. To add a language, domain, area or country, add one file in the same format; `scripts/validate.sh` (check `questionnaires`) enforces the structure.
+
+**Not legal or professional advice.** The shipped modules and any agent-drafted module are `unreviewed` starting points. They cite official texts where they could be verified and mark the rest `needs-evidence`, but they are not legal, medical, financial or compliance advice. Have a qualified professional review them before you rely on them with a client.

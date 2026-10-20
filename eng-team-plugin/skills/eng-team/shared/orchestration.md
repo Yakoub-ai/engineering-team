@@ -93,7 +93,7 @@ Applies to every dispatch, in every phase.
 | reviewers (9) | findings in the `shared/findings.md` format, or an explicit "No findings" | `Scope reviewed: <paths/patterns>` |
 | `eng-builder`, `eng-tester` | the Output section of the role file | `Status: DONE \| BLOCKED \| HARD-STOP`, then `Scope: <task id or coverage>` |
 | `eng-tech-writer` | the Output section of the role file | `Status: DONE \| BLOCKED`, then `Scope: <docs covered>` |
-| `eng-researcher` | the `### Pack:` / `### Note:` / `### Practices:` blocks the dispatch asked for, optional `### Findings` | `Scope: <what you covered>` |
+| `eng-researcher` | the `### Pack:` / `### Note:` / `### Practices:` / `### Questionnaire:` blocks the dispatch asked for, optional `### Findings` | `Scope: <what you covered>` |
 | `eng-architect` | the `### Option` / `### Recommendation` / `### ADR draft` / `### Plan` blocks the dispatch asked for, optional `### Findings` | `Scope: <what you covered>` |
 
 **Validate every return** before using it. A missing or malformed terminal line, a missing required block, or a `Status:` value outside the list is a malformed return: re-dispatch once with the exact error quoted, counting it in the Loop counters row for that dispatch. A second malformed return, or counter 3, escalates to the human. Never repair a return by guessing.
