@@ -1,4 +1,4 @@
-<!-- guidance: PLAIN TEXT for email. No tables, no Markdown emphasis, bare URLs, no HTML. Up to 12 questions. Write it in the requested language only. Keep the order of the questions as selected. Replace every <...>. Translate the labels with the language: Swedish uses "Varför vi frågar:" and "Svara med:". -->
+<!-- guidance: PLAIN TEXT for email. No tables, no Markdown emphasis, bare URLs, no HTML. Up to 12 questions. One pack per recipient level (user, manager, it): address the greeting to that level. Write it in the requested language only. Keep the order of the questions as selected. Replace every <...>. Translate the labels with the language: Swedish uses "Varför vi frågar:" and "Svara med:". -->
 <Subject line: short, in the pack language>
 
 <Greeting and one sentence on who we are and why we are asking.>
