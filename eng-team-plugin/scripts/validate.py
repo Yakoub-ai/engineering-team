@@ -58,6 +58,7 @@ PLACEHOLDER_RE = re.compile(r"\b(TODO|TBD|FIXME)\b")
 
 Q_SCOPES = {"core", "client-type", "area", "country"}
 Q_STAGES = {"pre", "meeting"}
+Q_AUDIENCES = {"user", "manager", "it"}
 Q_TYPES = {"open", "choice", "number", "list", "artifact"}
 Q_REQUIRED = ["stage", "priority", "topic", "type", "sv", "en", "why_sv", "why_en", "fills"]
 Q_HEAD_RE = re.compile(r"^### (Q-[A-Z]+-\d{2})\s*$", re.M)
@@ -351,7 +352,7 @@ def main(argv):
         qs = parse_questions(body)
         if scope != "country" and not qs:
             err("questionnaires", p, "module has no questions")
-        pre = 0
+        pre = {a: 0 for a in Q_AUDIENCES}
         for qid, f in qs:
             if qid in seen_q:
                 err("questionnaires", p, f"duplicate question id {qid} (also in {seen_q[qid]})")
@@ -362,9 +363,15 @@ def main(argv):
             if f.get("stage") and f["stage"] not in Q_STAGES:
                 err("questionnaires", p, f"{qid}: bad stage '{f['stage']}'")
             if f.get("stage") == "pre":
-                pre += 1
+                for a in (x.strip() for x in f.get("audience", "user, manager").split(",")):
+                    if a in pre:
+                        pre[a] += 1
             if f.get("priority") and f["priority"] not in {"1", "2", "3"}:
                 err("questionnaires", p, f"{qid}: priority must be 1, 2 or 3")
+            if f.get("audience"):
+                bad = [a.strip() for a in f["audience"].split(",") if a.strip() not in Q_AUDIENCES]
+                if bad or f.get("stage") == "meeting":
+                    err("questionnaires", p, f"{qid}: audience applies to pre questions and must be user, manager or it")
             if f.get("type") and f["type"] not in Q_TYPES:
                 err("questionnaires", p, f"{qid}: bad type '{f['type']}'")
             if f.get("type") == "choice":
@@ -374,8 +381,9 @@ def main(argv):
                     err("questionnaires", p, f"{qid}: choice needs equal numbers (2+) of options_sv and options_en")
             if "|" in f.get("sv", "") + f.get("en", ""):
                 err("questionnaires", p, f"{qid}: question text must not contain '|'")
-        if pre > Q_PRE_MAX:
-            err("questionnaires", p, f"{pre} pre-meeting questions exceed {Q_PRE_MAX}")
+        for a, n in pre.items():
+            if n > Q_PRE_MAX:
+                err("questionnaires", p, f"{n} pre-meeting questions for audience '{a}' exceed {Q_PRE_MAX}")
 
     for e in errors:
         print(e)
