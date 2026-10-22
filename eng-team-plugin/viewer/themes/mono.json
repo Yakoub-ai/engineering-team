@@ -1,0 +1,5 @@
+{
+  "name": "mono",
+  "colors": { "bg": "#ffffff", "surface": "#f2f2f2", "text": "#111111", "muted": "#666666", "accent": "#111111", "accent2": "#c0392b", "border": "#dddddd", "codeBg": "#f0f0f0" },
+  "fonts": { "heading": "jetbrains-mono", "body": "inter", "mono": "jetbrains-mono" }
+}
