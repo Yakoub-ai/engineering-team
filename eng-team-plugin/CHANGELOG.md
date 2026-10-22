@@ -5,6 +5,8 @@
 ### Added
 - **Diagnosis handover** at loop count 2 (`shared/orchestration.md`): a short note on what failed and what was tried, then one read-only architect or researcher dispatch with a concrete recommendation before the last attempt.
 
+- **Dispatch log** (`hooks/dispatch-log.js`): the hook appends a metadata-only JSONL line per eng-team dispatch and return to `.eng-team/.cache/dispatch-log.jsonl` (no tokens spent, real timestamps, size-capped, never blocks). Handovers gain `Loops used`; STATUS gains a Team activity line.
+
 ### Changed
 - `/eng` keeps going into the next phase after a gate passes and stops only at approvals, hard stops, human-only questions or loop count 3.
 
