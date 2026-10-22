@@ -34,7 +34,7 @@ test('deny reasons follow the hand-off contract', () => {
 });
 
 test('read-only agents cannot use Bash or write tools', () => {
-  for (const role of ['architect', 'security-engineer', 'sre', 'researcher', 'product-engineer']) {
+  for (const role of ['architect', 'security-engineer', 'sre', 'researcher', 'product-engineer', 'presenter']) {
     for (const tool of ['Bash', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit']) {
       const r = decide(sub(role, tool, { command: 'ls', file_path: 'a.js', notebook_path: 'a.ipynb' }), { projectDir: proj });
       assert.equal(r?.decision, 'deny', `${role}/${tool}`);

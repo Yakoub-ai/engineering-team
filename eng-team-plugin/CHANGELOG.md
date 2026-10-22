@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- **`/eng-present` and `eng-view build`**: deterministic, offline generation of a themed `cheatsheet.html` and `brief.html` into `docs/present/` from the existing product, brief, architecture, ADR, STATUS and context docs. Incremental (re-renders only what changed), strict CSP, no scripts; unfilled sections are listed as gaps. New read-only agent `eng-presenter` drafts missing prose on standard and full tracks; the lead saves it into empty sections only.
 - **Presentation theming foundation** (`viewer/`): five validated theme presets, bundled OFL fonts (pinned SHA-256), per-project (`.eng-team/theme.json`) or shared (`~/.eng-team/theme.json`) themes, and a small escaping template engine. Used by the upcoming `/eng-present` outputs.
 - **Diagnosis handover** at loop count 2 (`shared/orchestration.md`): a short note on what failed and what was tried, then one read-only architect or researcher dispatch with a concrete recommendation before the last attempt.
 

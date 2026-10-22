@@ -14,7 +14,7 @@ make_good() {
   mkdir -p "$d/skills/eng-team/roles" "$d/commands"
   local a tools types=""
   for a in researcher architect builder tester tech-writer security-engineer compliance-officer \
-           data-engineer platform-engineer sre qa-engineer integration-engineer ai-engineer product-engineer; do
+           data-engineer platform-engineer sre qa-engineer integration-engineer ai-engineer product-engineer presenter; do
     tools="Read, Grep, Glob"
     case "$a" in builder|tester) tools="Read, Grep, Glob, Write, Edit, Bash";; tech-writer) tools="Read, Grep, Glob, Write, Edit";; esac
     printf -- '---\nname: eng-%s\ndescription: "%s"\ntools: %s\n---\nDenied by eng-team guard: do not retry; return HARD-STOP: <reason>.\n' \

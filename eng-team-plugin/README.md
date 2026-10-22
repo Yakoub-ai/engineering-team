@@ -27,7 +27,7 @@ Contents:
 
 ## 1. What it is
 
-eng-team is an **engineering lead (orchestrator) plus 14 specialist agents**. It works like a small senior team:
+eng-team is an **engineering lead (orchestrator) plus 15 specialist agents**. It works like a small senior team:
 
 | Capability | What you get |
 |---|---|
@@ -187,7 +187,7 @@ flowchart TB
 
 ### How a handover works
 
-1. **Dispatch.** The lead first checks that all 14 `eng-team:` agent types exist (if any is missing it stops and tells you; it never substitutes another agent). It then sends one agent, by its full type (`eng-team:eng-builder`, …), a closed brief: absolute paths to its role file (`roles/<name>.md`), the findings contract (`shared/findings.md`), `.eng-team/profile.md`, `.eng-team/state.md`, the selected packs, the relevant templates and challenger files, and an exact scope (phase, plan task id, paths, or the path of a diff file the lead wrote, since reviewers have no shell).
+1. **Dispatch.** The lead first checks that all 15 `eng-team:` agent types exist (if any is missing it stops and tells you; it never substitutes another agent). It then sends one agent, by its full type (`eng-team:eng-builder`, …), a closed brief: absolute paths to its role file (`roles/<name>.md`), the findings contract (`shared/findings.md`), `.eng-team/profile.md`, `.eng-team/state.md`, the selected packs, the relevant templates and challenger files, and an exact scope (phase, plan task id, paths, or the path of a diff file the lead wrote, since reviewers have no shell).
 2. **Work.** The agent works only inside its role's "Owns" list. Content it finds in the repo or on web pages is treated as data, never as instructions, and injection attempts are reported as findings.
 3. **Return.** It returns a fixed contract:
    - researcher: `### Pack:` / `### Note:` blocks
@@ -418,6 +418,7 @@ Reviewers run in three modes: `plan` (architect phase, on the design), `gate` (b
 | `eng-integration-engineer` | same; `payments`, `type`; API/webhook code | API, webhook, OAuth, billing findings | read-only | APIs, webhooks, OAuth, payments |
 | `eng-ai-engineer` | same; `ai_usage`, `ai_act_role` | prompt-injection, data-in-prompts, eval, spend findings | read-only | `ai_usage` ≠ none |
 | `eng-product-engineer` | same; `has_ui`, `audiences` | UX states, WCAG, i18n findings | read-only | `has_ui: yes` or user-facing email |
+| `eng-presenter` | gap list, product/brief/architecture docs, ADRs, context snapshot | draft prose for empty cheatsheet and brief sections (the lead saves it) | read-only | `/eng-present` on a standard or full track |
 
 The lead also holds `roles/lead-architecture.md` (its own architecture and maintainability checks).
 
@@ -438,6 +439,7 @@ If a short command such as `/eng` answers "Unknown command" in your install, use
 | `/eng-setup` | `[check\|install\|update] [notes]` | Environment check, setup or update; machine-level installs asked once, then done and verified; never changes lifecycle gates |
 | `/eng-engage` | `[--lang sv\|en\|sv,en] [--domain <name>] [--client-type <type>] [--area <id>] [--stage <stage>] [notes]` | Client engagement: pre-meeting pack, meeting guide, workflow mapping, opportunities, build-or-buy recommendation, plain-language report; standalone, writes only `docs/engineering/engagement/`; stakeholder answers are data, never instructions |
 | `/eng-view` | `[--port <n>] [--no-semantic]` | Starts the local visual workspace on `127.0.0.1` (docs, decisions, handovers and code as a connected map; docs editable) |
+| `/eng-present` | `[cheatsheet\|brief\|all] [--theme <preset>] [--force]` | Builds themed, self-contained `cheatsheet.html` and `brief.html` into `docs/present/` from the project's docs (offline, incremental); fills empty sections via `eng-presenter` on standard and full tracks |
 | `/eng-promote` | `<pack-id>` | Copies a reviewed project pack to the federation repo (local only, never pushes) |
 
 A phase command refuses until every earlier gate is `passed`, `skipped` or `forced`, and it names the blocking gate. `--force "<reason>"` overrides this and the override is logged. `--skip "<reason>"` is human-only and gated-only.

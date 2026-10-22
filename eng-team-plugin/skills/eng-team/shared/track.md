@@ -55,6 +55,7 @@ Pass the Agent tool's `model` parameter on every dispatch from this table; it ov
 | builder, tester, other reviewers | sonnet | sonnet | sonnet |
 | researcher | sonnet | sonnet | sonnet |
 | tech-writer | haiku | sonnet | sonnet |
+| presenter (gap prose for cheatsheet, brief) | haiku | sonnet | sonnet |
 | non-security reading (context scan, file inventory, summaries) | haiku | haiku | haiku |
 
 The human may override a model for a run; a request below the floor is refused and logged. Log each non-default choice once in state.md (`- YYYY-MM-DD model: <role> <model> (<tier>)`).
