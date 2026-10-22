@@ -220,7 +220,6 @@ details.group > summary {
   border-radius: 6px;
   cursor: grab;
 }
-.map-hint { color: var(--fg-soft); font-size: 12px; margin-top: 6px; }
 #main.map-mode { display: flex; flex-direction: column; padding-bottom: 16px; }
 #main.map-mode .map-wrap { flex: 1; min-height: 0; }
 

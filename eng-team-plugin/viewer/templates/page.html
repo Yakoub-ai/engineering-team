@@ -12,22 +12,18 @@
 <body>
 <main>
 <header>
-<p class="kicker">{{kind}}</p>
 <h1>{{project}}</h1>
-{{#if verified}}<p class="meta">Verified against {{verified}}</p>{{/if}}
 </header>
 {{#each sections}}
-<section id="{{id}}">
+<section id="{{id}}" data-source="{{source}}">
 <h2>{{title}}</h2>
-<p class="tags">{{#each audiences}}<span>{{this}}</span>{{/each}}</p>
 {{{html}}}
-<p class="source">Source: {{source}}</p>
 </section>
 {{/each}}
 {{#if gaps}}
 <aside class="gaps">
-<h2>Not yet documented</h2>
-<ul>{{#each gaps}}<li>{{title}} <span>({{source}})</span></li>{{/each}}</ul>
+<h2>Missing</h2>
+<ul>{{#each gaps}}<li>{{title}}</li>{{/each}}</ul>
 </aside>
 {{/if}}
 </main>

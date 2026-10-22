@@ -11,7 +11,7 @@ import { render } from './template.js';
 const TEMPLATES = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'templates');
 const OUT_DIR = 'docs/present';
 const MANIFEST_PARTS = ['.eng-team', '.cache', 'present'];
-const BUILDER_VERSION = 1;
+const BUILDER_VERSION = 2;
 
 const P = {
   product: 'docs/engineering/product/product.md',
@@ -293,7 +293,6 @@ export function buildOutputs(projectDir, { only = Object.keys(OUTPUTS), force = 
   const deckCss = readTpl('deck.css');
   const deckTpl = readTpl('deck.html');
   const project = docs.product?.title?.replace(/\s+—\s+Product$/, '') || docs.brief?.title?.replace(/\s+—\s+Brief$/, '') || path.basename(reader.root);
-  const verified = docs.status?.verified || docs.product?.verified || '';
 
   const outDir = safeDir(reader.root, OUT_DIR);
   const cacheDir = safeDir(reader.root, MANIFEST_PARTS.join('/'));
@@ -310,7 +309,7 @@ export function buildOutputs(projectDir, { only = Object.keys(OUTPUTS), force = 
     const pageTpl = deck ? deckTpl : baseTpl;
     const pageCss = deck ? deckCss : baseCss;
     const { sections, gaps, used } = buildSections(def.spec, reader, docs);
-    const inputHash = sha(JSON.stringify([BUILDER_VERSION, name, theme, sections, gaps, project, verified, sha(pageCss + pageTpl)]));
+    const inputHash = sha(JSON.stringify([BUILDER_VERSION, name, theme, sections, gaps, project, sha(pageCss + pageTpl)]));
     const exists = fs.existsSync(path.join(outDir, def.file));
     let status = 'unchanged';
     let count = sections.length;
@@ -322,10 +321,9 @@ export function buildOutputs(projectDir, { only = Object.keys(OUTPUTS), force = 
           return pages.map((md, i) => ({ id: pages.length > 1 ? `${sec.id}-${i + 1}` : sec.id, title: pages.length > 1 ? `${sec.title} (${i + 1}/${pages.length})` : sec.title, html: renderMarkdown(md), source: sec.source, project }));
         }).map((sl, i, all) => ({ ...sl, n: i + 2, total: all.length + 1 }));
         count = slides.length + 1;
-        const tagline = (docs.product?.sections.Purpose || docs.brief?.sections['Proposed solution'] || '').replace(/<!--[\s\S]*?-->/g, '').trim().split(/(?<=[.!?])\s/)[0]?.replace(/^[-*]\s+/, '').replace(/[`*_#>]/g, '') ?? '';
-        data = { title: `${project} — ${def.kind}`, css, pageCss, project, verified, tagline, slides };
+        data = { title: `${project} — ${def.kind}`, css, pageCss, project, slides };
       } else {
-        data = { title: `${project} — ${def.kind}`, css, pageCss, kind: def.kind, project, verified, gaps, sections: sections.map((sec) => ({ ...sec, html: renderMarkdown(sec.md) })) };
+        data = { title: `${project} — ${def.kind}`, css, pageCss, project, gaps, sections: sections.map((sec) => ({ ...sec, html: renderMarkdown(sec.md) })) };
       }
       writeAtomic(outDir, def.file, render(pageTpl, data));
       status = 'built';

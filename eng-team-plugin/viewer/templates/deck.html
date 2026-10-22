@@ -11,10 +11,7 @@
 </head>
 <body>
 <section class="slide cover">
-<p class="kicker">Product deck</p>
 <h1>{{project}}</h1>
-{{#if tagline}}<p class="tagline">{{tagline}}</p>{{/if}}
-{{#if verified}}<p class="meta">Verified against {{verified}}</p>{{/if}}
 </section>
 {{#each slides}}
 <section class="slide" id="{{id}}">
@@ -22,7 +19,7 @@
 <div class="body">
 {{{html}}}
 </div>
-<footer><span>{{project}}</span><span>{{source}}</span><span>{{n}} / {{total}}</span></footer>
+<footer><span>{{project}}</span><span>{{n}} / {{total}}</span></footer>
 </section>
 {{/each}}
 </body>

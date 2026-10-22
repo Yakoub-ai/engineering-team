@@ -12,6 +12,8 @@
 - **Dispatch log** (`hooks/dispatch-log.js`): the hook appends a metadata-only JSONL line per eng-team dispatch and return to `.eng-team/.cache/dispatch-log.jsonl` (no tokens spent, real timestamps, size-capped, never blocks). Handovers gain `Loops used`; STATUS gains a Team activity line.
 
 ### Changed
+- **Lean outputs and viewer**: removed the deck tagline and kickers, the audience tags, "Source:" lines, "Verified against" meta, the deck footer source and the viewer's helper text. Sources stay in `data-source` and the viewer's "Built from" list.
+- **Experience review (UX · DX · AX)**: an advisory section in the `product-engineer` role, run in the architect phase's plan-mode review for UI, CLI, API or agent surfaces. Never blocks; no new agent. Architect asks one UI-reference question when `has_ui: yes`.
 - `/eng` keeps going into the next phase after a gate passes and stops only at approvals, hard stops, human-only questions or loop count 3.
 
 ## 3.4.0 — 2026-10-22

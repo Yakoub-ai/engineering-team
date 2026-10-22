@@ -201,7 +201,7 @@
     const home = homeNode();
     if (!home) {
       state.current = null;
-      setMain(h('h1', { text: 'eng-team viewer' }), h('p', { text: 'No STATUS.md or README found. Pick a document from the sidebar.' }));
+      setMain(h('h1', { text: 'eng-team viewer' }), h('p', { text: 'No STATUS.md or README found.' }));
       setSide(null);
       return;
     }
@@ -407,7 +407,7 @@
     })));
     const view = chosen && chosen.exists
       ? h('iframe', { class: 'preview', src: `/present/${enc(chosen.file)}`, sandbox: '', title: chosen.kind })
-      : h('p', { class: 'empty', text: 'Not built yet. Press "Build all". Sections without content are listed at the bottom of each page.' });
+      : h('p', { class: 'empty', text: 'Not built yet.' });
     const from = chosen && chosen.sources.length
       ? h('p', { class: 'empty', text: 'Built from: ' }, ...chosen.sources.flatMap((s) => [h('a', { href: `#/doc/${enc(s)}`, text: s }), ' ']))
       : null;
@@ -423,7 +423,7 @@
       h('h2', { text: g.title }),
       g.html ? serverHtml(h('div', { class: 'doc' }), g.html) : h('p', { class: 'empty', text: 'Nothing recorded yet.' }),
       h('a', { class: 'badge', href: `#/doc/${enc(g.path)}`, text: `edit in ${g.path}` })));
-    return [h('p', { class: 'empty', text: 'Read from the product doc and the questions list. Edit the source; outputs rebuild with Build all.' }), ...cards];
+    return [...cards];
   }
 
   /* ---------- timeline ---------- */
@@ -464,8 +464,7 @@
       sw.style.background = KIND_COLORS[k] || '#888';
       return h('label', {}, box, sw, k);
     }));
-    setMain(h('div', { class: 'map-wrap' }, bar, canvas,
-      h('div', { class: 'map-hint', text: 'Drag to pan, scroll to zoom, click a node to open. Solid = explicit link, dashed = semantic/lexical similarity.' })));
+    setMain(h('div', { class: 'map-wrap' }, bar, canvas));
     const sim = createMap(canvas, enabled);
     state.mapStop = sim.stop;
     state.mapRedraw = sim.draw;

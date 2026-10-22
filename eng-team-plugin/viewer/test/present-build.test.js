@@ -44,7 +44,8 @@ test('build writes escaped, script-free outputs, reports gaps, and is incrementa
     assert.match(html, /&lt;script&gt;alert\(1\)/);
     assert.doesNotMatch(html, /<script/i);
     assert.match(html, /Content-Security-Policy/);
-    assert.match(html, /Verified against abc123|<h1>Acme<\/h1>/);
+    assert.match(html, /<h1>Acme<\/h1>/);
+    assert.doesNotMatch(html, /Verified against|class="(kicker|tags|source)"/);
     assert.doesNotMatch(html, /drop me/);
     const cheat = first.results.find((r) => r.name === 'cheatsheet');
     assert.ok(cheat.gaps.some((g) => g.title === 'How it works'));
@@ -150,7 +151,7 @@ test('deck paginates long sections into slides and summary builds; both stay scr
     assert.deepEqual(r.results.map((x) => x.status), ['built', 'built']);
     const deck = fs.readFileSync(path.join(dir, 'docs/present/deck.html'), 'utf8');
     assert.match(deck, /The problem \(1\/\d+\)/);
-    assert.match(deck, /<p class="tagline">Acme makes approvals quick\.<\/p>/);
+    assert.doesNotMatch(deck, /tagline|kicker|Verified against/);
     assert.match(deck, /\d+ \/ \d+/);
     assert.doesNotMatch(deck, /<script/i);
     assert.match(deck, /Content-Security-Policy/);

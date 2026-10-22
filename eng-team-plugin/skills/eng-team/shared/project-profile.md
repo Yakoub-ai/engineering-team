@@ -14,7 +14,7 @@ Field definitions live in `templates/profile.md`; the project's filled copy is `
 | sre | `stage` ≥ pilot, or `criticality` ≥ important |
 | integration-engineer | Exposes or consumes APIs/webhooks, OAuth, or `payments` ≠ none, or type = b2b-saas/api-platform |
 | ai-engineer | `ai_usage` ≠ none |
-| product-engineer | `has_ui: yes` or sends user-facing email/notifications |
+| product-engineer | `has_ui: yes`, sends user-facing email/notifications, or exposes a CLI, API or agent interface (experience review only) |
 | researcher | Any phase needs a pack with no tier match, or the research phase runs |
 | architect | Discover and architect phases |
 | builder | Build phase |
