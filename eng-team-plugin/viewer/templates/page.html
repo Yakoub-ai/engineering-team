@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="generator" content="eng-team present">
+<title>{{title}}</title>
+<style>{{{css}}}
+{{{pageCss}}}</style>
+</head>
+<body>
+<main>
+<header>
+<p class="kicker">{{kind}}</p>
+<h1>{{project}}</h1>
+{{#if verified}}<p class="meta">Verified against {{verified}}</p>{{/if}}
+</header>
+{{#each sections}}
+<section id="{{id}}">
+<h2>{{title}}</h2>
+<p class="tags">{{#each audiences}}<span>{{this}}</span>{{/each}}</p>
+{{{html}}}
+<p class="source">Source: {{source}}</p>
+</section>
+{{/each}}
+{{#if gaps}}
+<aside class="gaps">
+<h2>Not yet documented</h2>
+<ul>{{#each gaps}}<li>{{title}} <span>({{source}})</span></li>{{/each}}</ul>
+</aside>
+{{/if}}
+</main>
+</body>
+</html>

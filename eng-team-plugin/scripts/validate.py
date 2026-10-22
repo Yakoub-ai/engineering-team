@@ -33,7 +33,7 @@ EXPECTED_AGENTS = [
     "eng-researcher", "eng-architect", "eng-builder", "eng-tester", "eng-tech-writer",
     "eng-security-engineer", "eng-compliance-officer", "eng-data-engineer",
     "eng-platform-engineer", "eng-sre", "eng-qa-engineer", "eng-integration-engineer",
-    "eng-ai-engineer", "eng-product-engineer",
+    "eng-ai-engineer", "eng-product-engineer", "eng-presenter",
 ]
 QUALIFIED_RE = re.compile(r"eng-team:(eng-[a-z][a-z-]*)")
 BACKTICK_AGENT_RE = re.compile(r"`(eng-[a-z][a-z-]*)`")
