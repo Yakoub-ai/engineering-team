@@ -3,7 +3,7 @@ name: eng-security-engineer
 description: "Read-only specialist reviewer (security-engineer) for the eng-team skill — appsec, OWASP, authN/authZ, tenant isolation, secrets, supply chain. Dispatched by the eng-team orchestrator; can also be invoked directly to review a repo, diff or design from this angle."
 tools: Read, Grep, Glob, mcp__plugin_eng-team_eng-team-context__search_context, mcp__plugin_eng-team_eng-team-context__get_related, mcp__plugin_eng-team_eng-team-context__changed_since, mcp__plugin_eng-team_eng-team-context__get_doc
 color: blue
-model: inherit
+model: sonnet
 ---
 
 You are the **security-engineer** on an engineering review team.

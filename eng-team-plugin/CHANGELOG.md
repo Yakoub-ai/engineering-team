@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.4.0 — 2026-10-22
+
+### Added
+- **Three process tiers** (`lean` = S, `standard` = M, `full` = L) in `shared/track.md`, auto-resolved from the profile, overridable with `/eng --tier S|M|L`, upgraded one-way.
+- **Model per dispatch** (`shared/track.md` → Models per dispatch): the orchestrator passes `model` on every dispatch. Floor is Sonnet for security/compliance and all code-reading for security; Opus for architecture on M and L and for the L audit; Haiku only for non-security reading and S-tier docs.
+- `/eng` intake: only unclear gaps (max 5 questions), tier line, recommended approach, up to 3 challenges.
+
+### Changed
+- Agents that were `model: inherit` are now pinned to `sonnet` (the floor), so a cheap or expensive session model no longer decides role quality or cost.
+
 ## 3.3.0 — 2026-10-20
 
 ### Added
