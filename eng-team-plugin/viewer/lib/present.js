@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { parseGitignore, readIndexable, scanProject, classify } from './scan.js';
+import { parseGitignore, readIndexable } from './scan.js';
 import { resolveNoSymlink } from './project-files.js';
 import { renderMarkdown } from './markdown.js';
 import { resolveTheme, themeCss, listPresets, loadPreset } from './theme.js';
@@ -137,51 +137,11 @@ const DECK = [
   { id: 'asks', title: 'Decisions needed', pieces: [['brief', 'Decisions needed']] },
 ];
 
-const OVERVIEW_GROUPS = [
-  ['Overview', (n) => n.kind === 'status' || n.kind === 'team-plan' || /(^|\/)questions\.md$/.test(n.path)],
-  ['Product', (n) => /^docs\/engineering\/product\//.test(n.path)],
-  ['Architecture and specs', (n) => n.kind === 'spec' || /^docs\/(engineering\/)?architecture\.md$/.test(n.path)],
-  ['Plans', (n) => n.kind === 'plan'],
-  ['Decisions', (n) => n.kind === 'decision'],
-  ['Handovers', (n) => n.kind === 'handover'],
-  ['Other docs', () => true],
-];
-
-function firstLine(text) {
-  const body = text.replace(/<!--[\s\S]*?-->/g, '').split('\n').find((l) => l.trim() && !/^(#|Audience:|Last verified|Status:|\||```|[-*] |>)/.test(l.trim()) && !/^[-=]+$/.test(l.trim()));
-  const line = (body ?? '').replace(/[`*_[\]]/g, '').trim();
-  return line.length > 140 ? `${line.slice(0, 137)}...` : line;
-}
-
-/** Docs overview: every project doc under docs/ (plus the README), grouped, with a one-line summary each. */
-function buildOverview(reader) {
-  const files = scanProject(reader.root)
-    .filter((f) => f.type === 'doc' && (f.path.startsWith('docs/') || /^readme\.md$/i.test(f.path)) && !f.path.startsWith(`${OUT_DIR}/`));
-  const nodes = files.map((f) => ({ path: f.path, kind: classify(f.path)?.kind }));
-  const taken = new Set();
-  const sections = [];
-  for (const [title, pick] of OVERVIEW_GROUPS) {
-    const rows = [];
-    for (const n of nodes) {
-      if (taken.has(n.path) || !pick(n)) continue;
-      taken.add(n.path);
-      const text = reader.read(n.path);
-      if (text === null) continue;
-      const doc = parseDoc(text);
-      const name = (doc?.title || path.posix.basename(n.path, '.md')).replace(/\|/g, '/').replace(/[[\]]/g, ' ');
-      rows.push(`| [${name}](${n.path}) | ${firstLine(text).replace(/\|/g, '/')} | ${n.path} |`);
-    }
-    if (rows.length) sections.push({ id: title.toLowerCase().replace(/[^a-z]+/g, '-'), title, audiences: ['everyone'], md: ['| Document | Summary | Path |', '|---|---|---|', ...rows].join('\n'), source: 'docs/' });
-  }
-  return { sections, gaps: sections.length ? [] : [{ title: 'Documentation', source: 'docs/' }], used: new Set() };
-}
-
 export const OUTPUTS = {
   cheatsheet: { file: 'cheatsheet.html', kind: 'Cheatsheet', spec: CHEATSHEET },
   brief: { file: 'brief.html', kind: 'Brief', spec: BRIEF },
   summary: { file: 'product-summary.html', kind: 'Product summary', spec: SUMMARY },
   deck: { file: 'deck.html', kind: 'Product deck', spec: DECK, layout: 'deck' },
-  overview: { file: 'docs-overview.html', kind: 'Documentation overview', custom: buildOverview },
 };
 
 function decisionRows(reader) {
@@ -349,7 +309,7 @@ export function buildOutputs(projectDir, { only = Object.keys(OUTPUTS), force = 
     const deck = def.layout === 'deck';
     const pageTpl = deck ? deckTpl : baseTpl;
     const pageCss = deck ? deckCss : baseCss;
-    const { sections, gaps, used } = def.custom ? def.custom(reader) : buildSections(def.spec, reader, docs);
+    const { sections, gaps, used } = buildSections(def.spec, reader, docs);
     const inputHash = sha(JSON.stringify([BUILDER_VERSION, name, theme, sections, gaps, project, verified, sha(pageCss + pageTpl)]));
     const exists = fs.existsSync(path.join(outDir, def.file));
     let status = 'unchanged';

@@ -87,8 +87,7 @@
       else if (kind === 'code' && arg) await showCode(arg, Number(params.get('line')) || 0);
       else if (kind === 'map') showMap();
       else if (kind === 'timeline') await showTimeline();
-      else if (kind === 'present') await showPresent(arg);
-      else if (kind === 'needs') await showNeeds();
+      else if (kind === 'present' || kind === 'needs') await showPresent(kind === 'needs' ? 'needs' : arg);
       else await showHome();
     } catch (err) {
       setMain(h('p', { class: 'notice', text: err.message }));
@@ -129,6 +128,21 @@
       if (name !== 'Code') details.open = true;
       tree.append(details);
     }
+    addOutputsGroup(tree);
+  }
+
+  let outputsToken = 0;
+  /** Presentation outputs sit in the same tree as the docs they are built from. */
+  async function addOutputsGroup(tree) {
+    const token = ++outputsToken;
+    let status;
+    try { status = await api('/api/present'); } catch (err) { return; }
+    if (token !== outputsToken) return;
+    const rows = [h('a', { class: 'item', href: '#/present/needs', text: 'Wants and needs' }),
+      ...status.outputs.map((o) => h('a', { class: 'item', href: `#/present/${enc(o.name)}`, text: o.kind + (o.exists ? '' : ' (not built)') }))];
+    const details = h('details', { class: 'group' }, h('summary', {}, 'Present'), rows);
+    details.open = true;
+    tree.prepend(details);
   }
 
   function byHandover(a, b) {
@@ -352,7 +366,8 @@
 
   async function showPresent(name) {
     const status = await api('/api/present');
-    const chosen = status.outputs.find((o) => o.name === name) || status.outputs.find((o) => o.exists) || status.outputs[0];
+    const needs = !name || name === 'needs';
+    const chosen = needs ? null : status.outputs.find((o) => o.name === name) || status.outputs[0];
     const msg = h('span', { class: 'notice' });
     const post = async (path, body) => {
       const res = await api(path, { method: 'POST', headers: { 'X-Eng-View': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -364,8 +379,9 @@
       try {
         const res = await post('/api/present/build', {});
         const gaps = res.results.reduce((n, r) => n + r.gaps.length, 0);
+        buildTree();
         msg.textContent = `Built ${res.results.filter((r) => r.status === 'built').length} output(s), ${gaps} gap(s) listed in the pages.`;
-        await showPresent(chosen && chosen.name);
+        await showPresent(chosen ? chosen.name : 'needs');
       } catch (err) {
         msg.textContent = `Build failed: ${err.message}`;
         build.disabled = false;
@@ -378,14 +394,15 @@
       try {
         await post('/api/present/theme', themeSel.value === '@shared' ? { use: 'shared' } : { preset: themeSel.value });
         const res = await post('/api/present/build', {});
+        buildTree();
         msg.textContent = `Theme set; rebuilt ${res.results.filter((r) => r.status === 'built').length} output(s).`;
-        await showPresent(chosen && chosen.name);
+        await showPresent(chosen ? chosen.name : 'needs');
       } catch (err) {
         msg.textContent = `Theme change failed: ${err.message}`;
       }
     });
     const bar = h('div', { class: 'toolbar' }, h('span', { class: 'path', text: `Theme: ${status.theme.name || 'error'} (${status.theme.source})` }), themeSel, build, msg);
-    const tabs = h('nav', { class: 'tabs' }, ...status.outputs.map((o) => h('a', {
+    const tabs = h('nav', { class: 'tabs' }, h('a', { class: `item${needs ? ' active' : ''}`, href: '#/present/needs', text: 'Wants and needs' }), ...status.outputs.map((o) => h('a', {
       class: `item${chosen && o.name === chosen.name ? ' active' : ''}`, href: `#/present/${enc(o.name)}`, text: o.kind + (o.exists ? '' : ' (not built)'),
     })));
     const view = chosen && chosen.exists
@@ -394,20 +411,19 @@
     const from = chosen && chosen.sources.length
       ? h('p', { class: 'empty', text: 'Built from: ' }, ...chosen.sources.flatMap((s) => [h('a', { href: `#/doc/${enc(s)}`, text: s }), ' ']))
       : null;
-    setMain(bar, tabs, from, view);
+    setMain(bar, tabs, ...(needs ? await needsCards() : [from, view]));
     setSide(null);
   }
 
   /* ---------- wants and needs ---------- */
 
-  async function showNeeds() {
+  async function needsCards() {
     const data = await api('/api/needs');
     const cards = data.groups.map((g) => h('section', { class: 'card' },
       h('h2', { text: g.title }),
       g.html ? serverHtml(h('div', { class: 'doc' }), g.html) : h('p', { class: 'empty', text: 'Nothing recorded yet.' }),
       h('a', { class: 'badge', href: `#/doc/${enc(g.path)}`, text: `edit in ${g.path}` })));
-    setMain(h('h1', { text: 'Wants and needs' }), h('p', { class: 'empty', text: 'Read from the product doc and the questions list. Edit the source; outputs rebuild with Build all.' }), ...cards);
-    setSide(null);
+    return [h('p', { class: 'empty', text: 'Read from the product doc and the questions list. Edit the source; outputs rebuild with Build all.' }), ...cards];
   }
 
   /* ---------- timeline ---------- */
@@ -728,7 +744,6 @@
     });
     $('nav-map').addEventListener('click', () => { location.hash = '#/map'; });
     $('nav-timeline').addEventListener('click', () => { location.hash = '#/timeline'; });
-    $('nav-needs').addEventListener('click', () => { location.hash = '#/needs'; });
     $('nav-present').addEventListener('click', () => { location.hash = '#/present'; });
     try {
       await refreshGraph();
