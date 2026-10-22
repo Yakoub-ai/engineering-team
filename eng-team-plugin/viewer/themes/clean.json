@@ -1,0 +1,5 @@
+{
+  "name": "clean",
+  "colors": { "bg": "#ffffff", "surface": "#f4f6f9", "text": "#1a2233", "muted": "#5b6678", "accent": "#1f5fbf", "accent2": "#0e8a7d", "border": "#dde2ea", "codeBg": "#eef1f6" },
+  "fonts": { "heading": "inter", "body": "inter", "mono": "jetbrains-mono" }
+}

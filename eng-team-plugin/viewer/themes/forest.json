@@ -1,0 +1,5 @@
+{
+  "name": "forest",
+  "colors": { "bg": "#f7faf7", "surface": "#e9f1ea", "text": "#18301f", "muted": "#587061", "accent": "#1e6b3a", "accent2": "#b5731a", "border": "#d3e2d6", "codeBg": "#e4eee6" },
+  "fonts": { "heading": "inter", "body": "source-serif-4", "mono": "jetbrains-mono" }
+}

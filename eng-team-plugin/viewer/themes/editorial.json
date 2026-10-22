@@ -1,0 +1,5 @@
+{
+  "name": "editorial",
+  "colors": { "bg": "#fbf8f3", "surface": "#f1ebe0", "text": "#2b2a28", "muted": "#6c675e", "accent": "#9c3d2e", "accent2": "#2f5d62", "border": "#e0d8c9", "codeBg": "#efe8db" },
+  "fonts": { "heading": "source-serif-4", "body": "inter", "mono": "jetbrains-mono" }
+}

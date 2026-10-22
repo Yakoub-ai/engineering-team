@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- **Presentation theming foundation** (`viewer/`): five validated theme presets, bundled OFL fonts (pinned SHA-256), per-project (`.eng-team/theme.json`) or shared (`~/.eng-team/theme.json`) themes, and a small escaping template engine. Used by the upcoming `/eng-present` outputs.
 - **Diagnosis handover** at loop count 2 (`shared/orchestration.md`): a short note on what failed and what was tried, then one read-only architect or researcher dispatch with a concrete recommendation before the last attempt.
 
 - **Dispatch log** (`hooks/dispatch-log.js`): the hook appends a metadata-only JSONL line per eng-team dispatch and return to `.eng-team/.cache/dispatch-log.jsonl` (no tokens spent, real timestamps, size-capped, never blocks). Handovers gain `Loops used`; STATUS gains a Team activity line.
