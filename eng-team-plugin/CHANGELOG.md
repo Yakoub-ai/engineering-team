@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- **Documentation overview and viewer integration**: `docs-overview.html` (every doc, grouped, with a one-line summary); the viewer gets a **Present** tab (sandboxed preview, theme switch, Build all, "built from" links), a **Needs** tab (wants and needs from the product doc and questions, with edit links) and a "Used in outputs" list in the doc side panel.
 - **Product deck and product summary** (`eng-view build`, `/eng-present`): `deck.html` (16:9 slides paginated from the docs, scroll-snap, prints one slide per page, no scripts) and `product-summary.html`, themed like the other outputs.
 - **`/eng-present` and `eng-view build`**: deterministic, offline generation of a themed `cheatsheet.html` and `brief.html` into `docs/present/` from the existing product, brief, architecture, ADR, STATUS and context docs. Incremental (re-renders only what changed), strict CSP, no scripts; unfilled sections are listed as gaps. New read-only agent `eng-presenter` drafts missing prose on standard and full tracks; the lead saves it into empty sections only.
 - **Presentation theming foundation** (`viewer/`): five validated theme presets, bundled OFL fonts (pinned SHA-256), per-project (`.eng-team/theme.json`) or shared (`~/.eng-team/theme.json`) themes, and a small escaping template engine. Used by the upcoming `/eng-present` outputs.

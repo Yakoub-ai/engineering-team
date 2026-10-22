@@ -247,3 +247,9 @@ details.group > summary {
   #side { display: none; }
   #main { padding: 16px 20px 60px; }
 }
+
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.tabs a.item.active { background: var(--accent-soft); border-color: var(--accent); }
+.preview { width: 100%; height: calc(100vh - 170px); min-height: 420px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+.card { border: 1px solid var(--border); border-radius: 8px; padding: 4px 16px 12px; margin: 14px 0; }
+.card h2 { font-size: 15px; margin: 10px 0 4px; }

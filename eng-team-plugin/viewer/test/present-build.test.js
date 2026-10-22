@@ -39,7 +39,7 @@ test('build writes escaped, script-free outputs, reports gaps, and is incrementa
   });
   try {
     const first = buildOutputs(dir);
-    assert.deepEqual(first.results.map((r) => r.status), ['built', 'built', 'built', 'built']);
+    assert.deepEqual(first.results.map((r) => r.status), ['built', 'built', 'built', 'built', 'built']);
     const html = fs.readFileSync(path.join(dir, 'docs/present/brief.html'), 'utf8');
     assert.match(html, /&lt;script&gt;alert\(1\)/);
     assert.doesNotMatch(html, /<script/i);
@@ -51,7 +51,7 @@ test('build writes escaped, script-free outputs, reports gaps, and is incrementa
     assert.ok(!cheat.gaps.some((g) => g.title === 'Decisions'));
     assert.match(fs.readFileSync(path.join(dir, 'docs/present/cheatsheet.html'), 'utf8'), /Use SQLite/);
 
-    assert.deepEqual(buildOutputs(dir).results.map((r) => r.status), ['unchanged', 'unchanged', 'unchanged', 'unchanged']);
+    assert.deepEqual(buildOutputs(dir).results.map((r) => r.status), ['unchanged', 'unchanged', 'unchanged', 'unchanged', 'unchanged']);
 
     fs.appendFileSync(path.join(dir, 'docs/engineering/product/brief.md'), '2. Pick a region.\n');
     const third = buildOutputs(dir).results;
