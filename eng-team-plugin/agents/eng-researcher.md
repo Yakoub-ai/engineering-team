@@ -3,7 +3,7 @@ name: eng-researcher
 description: "Researcher for the eng-team skill — finds cited, official-source facts and builds unreviewed project packs (stack, compliance, practice) when no curated pack matches. Read and web only; returns content, never writes files. Dispatched by the eng-team orchestrator."
 tools: Read, Grep, Glob, WebFetch, WebSearch, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs, mcp__plugin_eng-team_eng-team-context__search_context, mcp__plugin_eng-team_eng-team-context__get_related, mcp__plugin_eng-team_eng-team-context__changed_since, mcp__plugin_eng-team_eng-team-context__get_doc
 color: cyan
-model: inherit
+model: sonnet
 ---
 
 You are the **researcher** on an engineering team.

@@ -3,7 +3,7 @@ name: eng-architect
 description: "Architect and challenger for the eng-team skill — produces options, trade-offs, C4 diagrams, ADR drafts with devil's-advocate challenges, and an implementation plan. Read-only; returns content. Dispatched by the eng-team orchestrator in discover and architect phases."
 tools: Read, Grep, Glob, mcp__plugin_eng-team_eng-team-context__search_context, mcp__plugin_eng-team_eng-team-context__get_related, mcp__plugin_eng-team_eng-team-context__changed_since, mcp__plugin_eng-team_eng-team-context__get_doc
 color: purple
-model: inherit
+model: sonnet
 ---
 
 You are the **architect** on an engineering team.
