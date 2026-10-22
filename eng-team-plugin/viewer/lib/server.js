@@ -6,6 +6,7 @@ import { updateIndex, buildIndex, reindexFile, saveIndex, search } from './index
 import { classify, readIndexable } from './scan.js';
 import { renderMarkdown } from './markdown.js';
 import { cleanRel, isEditablePath, resolveNoSymlink, isIndexedFile } from './project-files.js';
+import { OUTPUTS, buildOutputs, presentStatus, setTheme, needsGroups } from './present.js';
 
 const DEFAULT_UI_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'ui');
 const MAX_BODY = 1024 * 1024;
@@ -22,6 +23,7 @@ const MIME = {
   '.png': 'image/png',
   '.ico': 'image/x-icon',
 };
+const PRESENT_FILES = new Set(Object.values(OUTPUTS).map((o) => o.file));
 const LANGUAGES = {
   js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'jsx', ts: 'typescript', tsx: 'tsx',
   py: 'python', rb: 'ruby', rs: 'rust', sh: 'bash', yml: 'yaml', kt: 'kotlin', cs: 'csharp', tf: 'hcl',
@@ -141,6 +143,7 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
       return api(req, res, url);
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'method not allowed');
+    if (url.pathname.startsWith('/present/')) return servePresent(res, url.pathname);
     return serveStatic(res, url.pathname, uiDir);
   }
 
@@ -164,6 +167,8 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
     const route = url.pathname;
     const q = url.searchParams;
     if (route === '/api/doc' && req.method === 'PUT') return sendJson(res, 200, await putDoc(req, q.get('path')));
+    if (route === '/api/present/build' && req.method === 'POST') return sendJson(res, 200, await postBuild(req));
+    if (route === '/api/present/theme' && req.method === 'POST') return sendJson(res, 200, await postTheme(req));
     if (req.method !== 'GET') throw new HttpError(405, 'method not allowed');
     if (LIVE_ROUTES.has(route)) await refreshIfStale();
     switch (route) {
@@ -173,6 +178,8 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
       case '/api/code': return sendJson(res, 200, getCode(q.get('path')));
       case '/api/search': return sendJson(res, 200, await runSearch(q.get('q'), q.get('limit')));
       case '/api/timeline': return sendJson(res, 200, timeline());
+      case '/api/present': return sendJson(res, 200, presentStatus(root));
+      case '/api/needs': return sendJson(res, 200, { groups: needsGroups(root) });
       default: throw new HttpError(404, 'not found');
     }
   }
@@ -256,6 +263,63 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
       indexedAt = Date.now();
       try { saveIndex(root, index); } catch { /* cache is best-effort */ }
       return docPayload(rel, markdown, abs);
+    });
+  }
+
+  /** Serve a generated docs/present/*.html page. It carries its own strict CSP; only the viewer itself may frame it. */
+  function servePresent(res, pathname) {
+    const name = pathname.slice('/present/'.length);
+    if (!PRESENT_FILES.has(name)) throw new HttpError(404, 'not found');
+    const abs = resolveNoSymlink(root, `docs/present/${name}`);
+    if (!abs) throw new HttpError(404, 'not found');
+    const body = fs.readFileSync(abs);
+    res.writeHead(200, {
+      ...BASE_HEADERS,
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'",
+      'Content-Type': MIME['.html'],
+      'Content-Length': body.length,
+    });
+    res.end(body);
+  }
+
+  /** Mutating present routes need the same header as doc edits, and a JSON object body. */
+  async function presentBody(req) {
+    if (req.headers['x-eng-view'] !== '1') throw new HttpError(403, 'missing X-Eng-View header');
+    let body;
+    try {
+      body = JSON.parse((await readBody(req)) || '{}');
+    } catch (err) {
+      if (err instanceof HttpError) throw err;
+      throw new HttpError(400, 'invalid JSON');
+    }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new HttpError(400, 'body must be an object');
+    return body;
+  }
+
+  async function postBuild(req) {
+    const body = await presentBody(req);
+    const only = body.only === undefined ? Object.keys(OUTPUTS) : body.only;
+    if (!Array.isArray(only) || !only.length || !only.every((n) => typeof n === 'string' && Object.hasOwn(OUTPUTS, n))) {
+      throw new HttpError(400, 'only must list known outputs');
+    }
+    return exclusive(() => {
+      try {
+        return buildOutputs(root, { only, force: body.force === true });
+      } catch (err) {
+        throw new HttpError(422, err.message);
+      }
+    });
+  }
+
+  async function postTheme(req) {
+    const body = await presentBody(req);
+    return exclusive(() => {
+      try {
+        const { theme, source } = setTheme(root, body);
+        return { theme: { name: theme.name, source } };
+      } catch (err) {
+        throw new HttpError(422, err.message);
+      }
     });
   }
 

@@ -87,6 +87,8 @@
       else if (kind === 'code' && arg) await showCode(arg, Number(params.get('line')) || 0);
       else if (kind === 'map') showMap();
       else if (kind === 'timeline') await showTimeline();
+      else if (kind === 'present') await showPresent(arg);
+      else if (kind === 'needs') await showNeeds();
       else await showHome();
     } catch (err) {
       setMain(h('p', { class: 'notice', text: err.message }));
@@ -201,9 +203,15 @@
     loadSide(p);
   }
 
+  /** The only innerHTML use: server-rendered, escaped markdown (spec B4). */
+  function serverHtml(el, html) {
+    el.innerHTML = html;
+    return el;
+  }
+
   function renderDoc(doc) {
     const body = h('div', { class: 'doc' });
-    body.innerHTML = doc.html; // server-rendered, escaped markdown (spec B4)
+    serverHtml(body, doc.html);
     const bar = h('div', { class: 'toolbar' }, h('span', { class: 'path', text: doc.path }));
     const status = h('span', { class: 'notice ok' });
     if (doc.editable) {
@@ -298,12 +306,24 @@
         else if (!mine.has(e.to) && e.type !== 'contains') outgoing.push(e);
       }
     }
+    const usedIn = await outputsUsing(p);
+    if (state.current !== p) return;
     const root = h('div', { class: 'side-section' },
+      usedIn.length && sideList('Used in outputs', usedIn.map((o) => h('a', { class: 'item', href: `#/present/${enc(o.name)}`, text: o.kind }))),
       sideList('Backlinks', dedupe(incoming, 'from').map((e) => edgeRow(e.from, e.type))),
       sideList('Links out', dedupe(outgoing, 'to').map((e) => edgeRow(e.to, e.type))),
       sideList('Related', [...related.values()].sort((a, b) => b.score - a.score).slice(0, 12)
         .map((r) => edgeRow(r.id, r.type, r.score))));
     setSide(root);
+  }
+
+  async function outputsUsing(p) {
+    try {
+      const status = await api('/api/present');
+      return status.outputs.filter((o) => o.sources.includes(p));
+    } catch (err) {
+      return [];
+    }
   }
 
   function addRelated(map, id, e) {
@@ -326,6 +346,68 @@
     return h('a', { class: 'item', href: nodeHref(n), title: n.id },
       score != null && h('span', { class: 'score', text: score.toFixed(2) }),
       h('span', { class: 'badge', text: type }), n.title || n.id);
+  }
+
+  /* ---------- presentation outputs ---------- */
+
+  async function showPresent(name) {
+    const status = await api('/api/present');
+    const chosen = status.outputs.find((o) => o.name === name) || status.outputs.find((o) => o.exists) || status.outputs[0];
+    const msg = h('span', { class: 'notice' });
+    const post = async (path, body) => {
+      const res = await api(path, { method: 'POST', headers: { 'X-Eng-View': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      return res;
+    };
+    const build = h('button', { type: 'button', class: 'primary', onclick: async () => {
+      build.disabled = true;
+      msg.textContent = 'Building...';
+      try {
+        const res = await post('/api/present/build', {});
+        const gaps = res.results.reduce((n, r) => n + r.gaps.length, 0);
+        msg.textContent = `Built ${res.results.filter((r) => r.status === 'built').length} output(s), ${gaps} gap(s) listed in the pages.`;
+        await showPresent(chosen && chosen.name);
+      } catch (err) {
+        msg.textContent = `Build failed: ${err.message}`;
+        build.disabled = false;
+      }
+    } }, 'Build all');
+    const themeSel = h('select', { 'aria-label': 'Theme' }, ...status.presets.map((n) => h('option', { value: n, text: n })), h('option', { value: '@shared', text: 'shared brand' }));
+    if (status.theme.name && status.presets.includes(status.theme.name)) themeSel.value = status.theme.name;
+    themeSel.addEventListener('change', async () => {
+      msg.textContent = 'Switching theme...';
+      try {
+        await post('/api/present/theme', themeSel.value === '@shared' ? { use: 'shared' } : { preset: themeSel.value });
+        const res = await post('/api/present/build', {});
+        msg.textContent = `Theme set; rebuilt ${res.results.filter((r) => r.status === 'built').length} output(s).`;
+        await showPresent(chosen && chosen.name);
+      } catch (err) {
+        msg.textContent = `Theme change failed: ${err.message}`;
+      }
+    });
+    const bar = h('div', { class: 'toolbar' }, h('span', { class: 'path', text: `Theme: ${status.theme.name || 'error'} (${status.theme.source})` }), themeSel, build, msg);
+    const tabs = h('nav', { class: 'tabs' }, ...status.outputs.map((o) => h('a', {
+      class: `item${chosen && o.name === chosen.name ? ' active' : ''}`, href: `#/present/${enc(o.name)}`, text: o.kind + (o.exists ? '' : ' (not built)'),
+    })));
+    const view = chosen && chosen.exists
+      ? h('iframe', { class: 'preview', src: `/present/${enc(chosen.file)}`, sandbox: '', title: chosen.kind })
+      : h('p', { class: 'empty', text: 'Not built yet. Press "Build all". Sections without content are listed at the bottom of each page.' });
+    const from = chosen && chosen.sources.length
+      ? h('p', { class: 'empty', text: 'Built from: ' }, ...chosen.sources.flatMap((s) => [h('a', { href: `#/doc/${enc(s)}`, text: s }), ' ']))
+      : null;
+    setMain(bar, tabs, from, view);
+    setSide(null);
+  }
+
+  /* ---------- wants and needs ---------- */
+
+  async function showNeeds() {
+    const data = await api('/api/needs');
+    const cards = data.groups.map((g) => h('section', { class: 'card' },
+      h('h2', { text: g.title }),
+      g.html ? serverHtml(h('div', { class: 'doc' }), g.html) : h('p', { class: 'empty', text: 'Nothing recorded yet.' }),
+      h('a', { class: 'badge', href: `#/doc/${enc(g.path)}`, text: `edit in ${g.path}` })));
+    setMain(h('h1', { text: 'Wants and needs' }), h('p', { class: 'empty', text: 'Read from the product doc and the questions list. Edit the source; outputs rebuild with Build all.' }), ...cards);
+    setSide(null);
   }
 
   /* ---------- timeline ---------- */
@@ -646,6 +728,8 @@
     });
     $('nav-map').addEventListener('click', () => { location.hash = '#/map'; });
     $('nav-timeline').addEventListener('click', () => { location.hash = '#/timeline'; });
+    $('nav-needs').addEventListener('click', () => { location.hash = '#/needs'; });
+    $('nav-present').addEventListener('click', () => { location.hash = '#/present'; });
     try {
       await refreshGraph();
       $('project-name').textContent = baseName(state.graph.project);

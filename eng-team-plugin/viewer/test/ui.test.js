@@ -63,6 +63,6 @@ test('app.js only uses innerHTML for server-rendered markdown', () => {
   const js = fs.readFileSync(path.join(UI, 'app.js'), 'utf8');
   const uses = js.match(/\.innerHTML\s*=/g) || [];
   assert.equal(uses.length, 1);
-  assert.match(js, /body\.innerHTML = doc\.html/);
+  assert.match(js, /el\.innerHTML = html;/);
   assert.doesNotMatch(js, /insertAdjacentHTML|document\.write|eval\(/);
 });

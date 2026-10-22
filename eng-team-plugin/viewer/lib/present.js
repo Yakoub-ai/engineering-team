@@ -2,10 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { parseGitignore, readIndexable } from './scan.js';
+import { parseGitignore, readIndexable, scanProject, classify } from './scan.js';
 import { resolveNoSymlink } from './project-files.js';
 import { renderMarkdown } from './markdown.js';
-import { resolveTheme, themeCss } from './theme.js';
+import { resolveTheme, themeCss, listPresets, loadPreset } from './theme.js';
 import { render } from './template.js';
 
 const TEMPLATES = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'templates');
@@ -137,11 +137,51 @@ const DECK = [
   { id: 'asks', title: 'Decisions needed', pieces: [['brief', 'Decisions needed']] },
 ];
 
+const OVERVIEW_GROUPS = [
+  ['Overview', (n) => n.kind === 'status' || n.kind === 'team-plan' || /(^|\/)questions\.md$/.test(n.path)],
+  ['Product', (n) => /^docs\/engineering\/product\//.test(n.path)],
+  ['Architecture and specs', (n) => n.kind === 'spec' || /^docs\/(engineering\/)?architecture\.md$/.test(n.path)],
+  ['Plans', (n) => n.kind === 'plan'],
+  ['Decisions', (n) => n.kind === 'decision'],
+  ['Handovers', (n) => n.kind === 'handover'],
+  ['Other docs', () => true],
+];
+
+function firstLine(text) {
+  const body = text.replace(/<!--[\s\S]*?-->/g, '').split('\n').find((l) => l.trim() && !/^(#|Audience:|Last verified|Status:|\||```|[-*] |>)/.test(l.trim()) && !/^[-=]+$/.test(l.trim()));
+  const line = (body ?? '').replace(/[`*_[\]]/g, '').trim();
+  return line.length > 140 ? `${line.slice(0, 137)}...` : line;
+}
+
+/** Docs overview: every project doc under docs/ (plus the README), grouped, with a one-line summary each. */
+function buildOverview(reader) {
+  const files = scanProject(reader.root)
+    .filter((f) => f.type === 'doc' && (f.path.startsWith('docs/') || /^readme\.md$/i.test(f.path)) && !f.path.startsWith(`${OUT_DIR}/`));
+  const nodes = files.map((f) => ({ path: f.path, kind: classify(f.path)?.kind }));
+  const taken = new Set();
+  const sections = [];
+  for (const [title, pick] of OVERVIEW_GROUPS) {
+    const rows = [];
+    for (const n of nodes) {
+      if (taken.has(n.path) || !pick(n)) continue;
+      taken.add(n.path);
+      const text = reader.read(n.path);
+      if (text === null) continue;
+      const doc = parseDoc(text);
+      const name = (doc?.title || path.posix.basename(n.path, '.md')).replace(/\|/g, '/').replace(/[[\]]/g, ' ');
+      rows.push(`| [${name}](${n.path}) | ${firstLine(text).replace(/\|/g, '/')} | ${n.path} |`);
+    }
+    if (rows.length) sections.push({ id: title.toLowerCase().replace(/[^a-z]+/g, '-'), title, audiences: ['everyone'], md: ['| Document | Summary | Path |', '|---|---|---|', ...rows].join('\n'), source: 'docs/' });
+  }
+  return { sections, gaps: sections.length ? [] : [{ title: 'Documentation', source: 'docs/' }], used: new Set() };
+}
+
 export const OUTPUTS = {
   cheatsheet: { file: 'cheatsheet.html', kind: 'Cheatsheet', spec: CHEATSHEET },
   brief: { file: 'brief.html', kind: 'Brief', spec: BRIEF },
   summary: { file: 'product-summary.html', kind: 'Product summary', spec: SUMMARY },
   deck: { file: 'deck.html', kind: 'Product deck', spec: DECK, layout: 'deck' },
+  overview: { file: 'docs-overview.html', kind: 'Documentation overview', custom: buildOverview },
 };
 
 function decisionRows(reader) {
@@ -309,7 +349,7 @@ export function buildOutputs(projectDir, { only = Object.keys(OUTPUTS), force = 
     const deck = def.layout === 'deck';
     const pageTpl = deck ? deckTpl : baseTpl;
     const pageCss = deck ? deckCss : baseCss;
-    const { sections, gaps, used } = buildSections(def.spec, reader, docs);
+    const { sections, gaps, used } = def.custom ? def.custom(reader) : buildSections(def.spec, reader, docs);
     const inputHash = sha(JSON.stringify([BUILDER_VERSION, name, theme, sections, gaps, project, verified, sha(pageCss + pageTpl)]));
     const exists = fs.existsSync(path.join(outDir, def.file));
     let status = 'unchanged';
@@ -335,4 +375,67 @@ export function buildOutputs(projectDir, { only = Object.keys(OUTPUTS), force = 
   }
   writeAtomic(cacheDir, 'manifest.json', JSON.stringify(manifest, null, 2));
   return { theme: { name: theme.name, source }, results };
+}
+
+/* ---------- helpers for the viewer ---------- */
+
+/** What exists in docs/present/, which source docs each output was built from, and the active theme. */
+export function presentStatus(projectDir) {
+  const root = fs.realpathSync(projectDir);
+  let manifest = {};
+  try {
+    manifest = JSON.parse(fs.readFileSync(path.join(root, ...MANIFEST_PARTS, 'manifest.json'), 'utf8'));
+  } catch { /* nothing built yet */ }
+  const outputs = Object.entries(OUTPUTS).map(([name, def]) => {
+    let exists = false;
+    try {
+      const st = fs.lstatSync(path.join(root, OUT_DIR, def.file));
+      exists = st.isFile() && !st.isSymbolicLink();
+    } catch { /* missing */ }
+    return { name, file: def.file, kind: def.kind, exists, sources: Array.isArray(manifest[name]?.sources) ? manifest[name].sources : [] };
+  });
+  let theme = null;
+  try {
+    const r = resolveTheme(root);
+    theme = { name: r.theme.name, source: r.source };
+  } catch (err) {
+    theme = { name: null, source: 'error', error: err.message };
+  }
+  return { outputs, theme, presets: listPresets() };
+}
+
+/** Choose the theme for this project: a bundled preset, or `{use: 'shared'}` to follow ~/.eng-team/theme.json. */
+export function setTheme(projectDir, choice) {
+  const root = fs.realpathSync(projectDir);
+  let body;
+  if (choice?.use === 'shared') body = { use: 'shared' };
+  else if (typeof choice?.preset === 'string') {
+    loadPreset(choice.preset);
+    body = { preset: choice.preset };
+  } else throw new Error('theme choice must be {"preset": name} or {"use": "shared"}');
+  writeAtomic(safeDir(root, '.eng-team'), 'theme.json', `${JSON.stringify(body)}\n`);
+  return resolveTheme(root);
+}
+
+const NEEDS = [
+  ['Use cases', 'product', 'Use cases'],
+  ['Jobs to be done', 'product', 'Jobs to be done'],
+  ['Success metrics', 'product', 'Success metrics'],
+  ['Constraints', 'product', 'Constraints'],
+  ['Non-goals', 'product', 'Non-goals'],
+  ['Fears and known risks', 'product', 'Fears and known risks'],
+];
+
+/** Wants and needs, read straight from the product doc and the questions list: groups of rendered markdown with their source file. */
+export function needsGroups(projectDir) {
+  const reader = createReader(projectDir);
+  const groups = [];
+  const product = parseDoc(reader.read(P.product));
+  for (const [title, key, heading] of NEEDS) {
+    const body = product?.sections[heading];
+    groups.push({ title, path: P[key], html: hasContent(body) ? renderMarkdown(body, { basePath: P[key] }) : '' });
+  }
+  const q = reader.read('docs/engineering/questions.md');
+  groups.push({ title: 'Open questions', path: 'docs/engineering/questions.md', html: q && hasContent(q.replace(/<!--[\s\S]*?-->/g, '').replace(/^#.*$/gm, '')) ? renderMarkdown(q.replace(/<!--[\s\S]*?-->/g, ''), { basePath: 'docs/engineering/questions.md' }) : '' });
+  return groups;
 }
