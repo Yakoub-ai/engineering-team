@@ -13,4 +13,3 @@ Home of **eng-team**: a full-lifecycle engineering team (research → challenge 
 |---|---|
 | `eng-team-plugin/` | The plugin: agents, commands, skill, local viewer + MCP context server (`viewer/`), validator, evals, smoke test |
 | `.claude-plugin/marketplace.json` | Marketplace entry (`eng-team@yakoub-ai`) |
-| `docs/superpowers/` | Design spec and implementation plan |
