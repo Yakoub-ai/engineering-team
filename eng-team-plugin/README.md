@@ -249,6 +249,18 @@ Differences from Claude Code: no context isolation, no slash commands, no parall
 
 Or in one line: `/eng I want a portal where member organisations upload yearly reports`. Add `--autonomous` to run without approval stops.
 
+### Right-sized process and models
+
+`/eng` sizes the work from your profile and tells you the tier and why; override with `--tier S|M|L`. It asks only about gaps the request and repo don't answer (at most 5), proposes an approach and challenges up to 3 of your assumptions against best practice.
+
+| Tier (`profile.track`) | For | Process | Models |
+|---|---|---|---|
+| S (`lean`) | script, one integration | short plan, build, one test pass, one security spot-check | Sonnet; Haiku for docs and non-security reading |
+| M (`standard`) | service, internal tool | research, devil's-advocate round, up to 4 relevant reviewers | Opus architect; Sonnet elsewhere |
+| L (`full`) | platform, regulated or sensitive data | all gates, full audit and compliance | Opus architect and audit; Sonnet elsewhere |
+
+Security floor: security and compliance review and any security-relevant code reading never run below Sonnet. The orchestrator passes the model on each dispatch (`skills/eng-team/shared/track.md`). Tiers only go up automatically, never down.
+
 ### Step by step
 
 1. Open the project folder in Claude Code. It can be empty or an existing repo.
@@ -415,7 +427,7 @@ All commands also work namespaced, e.g. `/eng-team:eng-init`.
 
 | Command | Arguments | What it does |
 |---|---|---|
-| `/eng` | `[--autonomous\|--gated] [request]` | Full lifecycle from `current_phase` (runs init first if needed) |
+| `/eng` | `[--tier S\|M\|L] [--autonomous\|--gated] [request]` | Full lifecycle from `current_phase` (runs init first if needed) |
 | `/eng-init` | `[--autonomous] [notes]` | Creates the profile and state; checks integrity if they exist |
 | `/eng-onboard` | `[--autonomous] [goal or context]` | Existing project in any state: scans code, docs and history, infers stage and lifecycle position, asks for your context, adopts existing evidence and recommends where to start |
 | `/eng-discover` · `/eng-research` · `/eng-architect` · `/eng-build` · `/eng-test` · `/eng-document` | `[--force "<reason>"] [--skip "<reason>"] [--autonomous\|--gated] [notes]` | Runs one phase |

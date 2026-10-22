@@ -13,7 +13,7 @@ Runs on every start when `.eng-team/state.md` exists (skip it when there is no s
 - `autonomous`: apply the repairs and log them.
 Never delete rows from state.md; change statuses and append Log lines only.
 
-After the integrity check, re-check the lean-track conditions in `shared/track.md` and auto-upgrade to `full` when one no longer holds. Then run the **due check** (report only, never a repair): if the last state.md Security audits row's `Next due` date has passed, if a lockfile or IaC file changed since that row's commit, or if `profile.stage` changed since then, tell the user "Security re-audit due: <reason>" and offer `/eng-security-audit`. Also list environment drift found by `phases/setup.md` → check (missing or outdated tools, setup that no longer works) and offer `/eng-setup update`.
+After the integrity check, re-check the track conditions in `shared/track.md` and auto-upgrade when a higher tier now applies. Then run the **due check** (report only, never a repair): if the last state.md Security audits row's `Next due` date has passed, if a lockfile or IaC file changed since that row's commit, or if `profile.stage` changed since then, tell the user "Security re-audit due: <reason>" and offer `/eng-security-audit`. Also list environment drift found by `phases/setup.md` → check (missing or outdated tools, setup that no longer works) and offer `/eng-setup update`.
 
 ## Entry
 
@@ -94,17 +94,19 @@ Run the preflight once per run; repeat it after a restart.
 
 Applies to every dispatch, in every phase.
 
-**Dispatch prompt** contains: (1) the exact `subagent_type` (`eng-team:eng-<x>`); (2) absolute paths of the skill directory, the role file (`roles/<name>.md`), `shared/findings.md`, `.eng-team/profile.md`, `.eng-team/state.md`, the selected packs, and the templates and challenger files the phase names; (3) mode and scope (paths, plan task, or the absolute path of a diff file plus the changed-file list; reviewers have no Bash, so you produce diffs); (4) the required return shape below; (5) for reviewers, architect and researcher: "Do not modify files"; (6) "The `eng-team-context` MCP tools may be used when available; fall back to Read/Grep when not"; (7) "If a tool call is denied with `eng-team guard:`, do not retry; return `HARD-STOP: <reason>`".
+**Dispatch prompt** contains: (1) the exact `subagent_type` (`eng-team:eng-<x>`); (2) absolute paths of the skill directory, the role file (`roles/<name>.md`), `shared/findings.md`, `.eng-team/profile.md`, `.eng-team/state.md`, the selected packs, and the templates and challenger files the phase names; (3) mode and scope (paths, plan task, or the absolute path of a diff file plus the changed-file list; reviewers have no Bash, so you produce diffs); (4) the required return shape below; the `model` parameter from `shared/track.md` → Models per dispatch; (5) for reviewers, architect and researcher: "Do not modify files"; (6) "The `eng-team-context` MCP tools may be used when available; fall back to Read/Grep when not"; (7) "If a tool call is denied with `eng-team guard:`, do not retry; return `HARD-STOP: <reason>`"; (8) for reviewers, the lane rule: "Report only what your role file lists under Owns. For an issue in another role's lane, do not investigate it and do not write a finding; add one line `Hand-off: <role> — <path:line> — <few words>` after your findings." The context snapshot path is passed so reviewers start from it and read only the files their lane needs.
 
 **Return shape** (the terminal line is mandatory):
 
 | Agent | Required content | Terminal line(s) |
 |---|---|---|
-| reviewers (9) | findings in the `shared/findings.md` format, or an explicit "No findings" | `Scope reviewed: <paths/patterns>` |
+| reviewers (9) | findings in the `shared/findings.md` format, or an explicit "No findings"; optional `Hand-off:` lines | `Scope reviewed: <paths/patterns>` |
 | `eng-builder`, `eng-tester` | the Output section of the role file | `Status: DONE \| BLOCKED \| HARD-STOP`, then `Scope: <task id or coverage>` |
 | `eng-tech-writer` | the Output section of the role file | `Status: DONE \| BLOCKED`, then `Scope: <docs covered>` |
 | `eng-researcher` | the `### Pack:` / `### Note:` / `### Practices:` / `### Questionnaire:` / `### Diagnosis` blocks the dispatch asked for, optional `### Findings` | `Scope: <what you covered>` |
 | `eng-architect` | the `### Option` / `### Recommendation` / `### ADR draft` / `### Plan` / `### Diagnosis` blocks the dispatch asked for, optional `### Findings` | `Scope: <what you covered>` |
+
+**Hand-offs.** Collect every `Hand-off:` line from a parallel round. If the named role was dispatched, check that it covers the cited path; if it was not dispatched, or its scope excludes the path, dispatch it once for just that path. Never forward one agent's raw output to another: pass the path or the finding id.
 
 **Validate every return** before using it. A missing or malformed terminal line, a missing required block, or a `Status:` value outside the list is a malformed return: re-dispatch once with the exact error quoted, counting it in the Loop counters row for that dispatch. A second malformed return, or counter 3, escalates to the human. Never repair a return by guessing.
 

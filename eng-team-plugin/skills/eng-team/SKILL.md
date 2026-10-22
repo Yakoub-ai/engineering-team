@@ -38,7 +38,7 @@ Read `shared/orchestration.md` before acting on state. It defines:
 - **Loop-back** and **Loop counters** — fix tasks, reopened gates, the limit of 3.
 - **Hard-stop procedure** — gate → `failed`, Log `hard-stop`, ask the human.
 - **Critical findings** — never loop automatically.
-- **Process track** — `shared/track.md`: lean vs full depth per phase, auto-resolved and auto-upgraded.
+- **Process track** — `shared/track.md`: lean / standard / full depth per phase and the model per dispatch, auto-resolved and auto-upgraded.
 - **Continuous security testing** — where audits happen in the lifecycle, cadence, triggers and the due check.
 - **Environment and tooling** — the team sets up, automates and updates environments; machine-level installs are asked once, then done.
 

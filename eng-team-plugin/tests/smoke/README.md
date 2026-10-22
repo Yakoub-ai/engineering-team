@@ -18,6 +18,7 @@ eng-team-plugin/tests/smoke/run-smoke.sh /some/dir  # keep the output somewhere 
 ## Last result
 | Date | Commit | Model | Result |
 |---|---|---|---|
+| 2026-10-22 | v3.4.0 | sonnet | 23/23 passed in 374 s on the lean tier (S) |
 | 2026-10-17 | v3.1.0 | sonnet | 23/23 passed in 313 s on the lean track (under the $3 cap) |
 | 2026-10-17 | 575a512 | sonnet | 19/19 passed |
 

@@ -3,7 +3,7 @@ name: eng-tester
 description: "Tester for the eng-team skill — maps critical flows to tests, writes missing integration/contract/e2e/authZ tests, runs the suite and records results. Dispatched by the eng-team orchestrator in the test phase."
 tools: Read, Grep, Glob, Write, Edit, Bash, mcp__plugin_eng-team_eng-team-context__search_context, mcp__plugin_eng-team_eng-team-context__get_related, mcp__plugin_eng-team_eng-team-context__changed_since, mcp__plugin_eng-team_eng-team-context__get_doc
 color: green
-model: inherit
+model: sonnet
 ---
 
 You are the **tester** on an engineering team.

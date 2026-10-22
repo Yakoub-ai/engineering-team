@@ -12,9 +12,12 @@ languages: [sv, en]
 
 Asked of every team regardless of client type or legal area. Format and selection rules: `challenger/questionnaire.md`.
 
+`audience` (pre-meeting questions only) says who the question is for: `user` (does the work), `manager` (leads the team or decides) and `it` (runs or knows the systems). A question with no `audience` is for `user` and `manager`.
+
 ### Q-CORE-01
 - stage: pre
 - priority: 1
+- audience: user, manager, it
 - topic: overview
 - type: open
 - sv: Beskriv med några meningar vad ert team gör och vilka som anlitar eller vänder sig till er.
@@ -26,6 +29,7 @@ Asked of every team regardless of client type or legal area. Format and selectio
 ### Q-CORE-02
 - stage: pre
 - priority: 1
+- audience: user, manager
 - topic: volume
 - type: number
 - sv: Ungefär hur många ärenden, uppdrag eller leveranser hanterar teamet per månad, och hur många personer arbetar i teamet?
@@ -37,6 +41,7 @@ Asked of every team regardless of client type or legal area. Format and selectio
 ### Q-CORE-03
 - stage: pre
 - priority: 1
+- audience: user, manager
 - topic: pain-points
 - type: list
 - sv: Vilka tre moment i vardagen tar mest tid eller upplevs som mest frustrerande?
@@ -48,6 +53,7 @@ Asked of every team regardless of client type or legal area. Format and selectio
 ### Q-CORE-04
 - stage: pre
 - priority: 1
+- audience: user, manager
 - topic: tools
 - type: list
 - sv: Vilka system och verktyg använder ni dagligen, till exempel ärendehantering, dokumenthantering, e-post, tidredovisning, branschspecifika system och mallar?
@@ -59,6 +65,7 @@ Asked of every team regardless of client type or legal area. Format and selectio
 ### Q-CORE-05
 - stage: pre
 - priority: 1
+- audience: user
 - topic: artifact
 - type: artifact
 - sv: Skicka gärna ett anonymiserat exempel på hur arbetet ser ut, till exempel en mall, checklista eller ett flödesschema. Ta bort namn, personnummer, ärendenummer och allt som omfattas av sekretess.
@@ -71,6 +78,7 @@ Asked of every team regardless of client type or legal area. Format and selectio
 ### Q-CORE-06
 - stage: pre
 - priority: 2
+- audience: user
 - topic: repetition
 - type: list
 - sv: Vilka uppgifter gör ni om och om igen med små variationer?
@@ -82,6 +90,7 @@ Asked of every team regardless of client type or legal area. Format and selectio
 ### Q-CORE-07
 - stage: pre
 - priority: 2
+- audience: user, manager
 - topic: waiting
 - type: list
 - sv: Var i arbetet väntar ni mest på andra, till exempel kollegor, klienter, myndigheter eller externa system?
@@ -93,6 +102,7 @@ Asked of every team regardless of client type or legal area. Format and selectio
 ### Q-CORE-08
 - stage: pre
 - priority: 2
+- audience: user
 - topic: knowledge
 - type: open
 - sv: Hur hittar och återanvänder ni tidigare arbete, till exempel mallar, beslut, utlåtanden eller interna riktlinjer?
@@ -104,6 +114,7 @@ Asked of every team regardless of client type or legal area. Format and selectio
 ### Q-CORE-09
 - stage: pre
 - priority: 3
+- audience: manager
 - topic: constraints
 - type: open
 - sv: Finns regler eller policyer som begränsar vilka verktyg ni får använda, till exempel IT-policy, kundkrav, sekretess, branschregler eller upphandlingsregler?
@@ -115,6 +126,7 @@ Asked of every team regardless of client type or legal area. Format and selectio
 ### Q-CORE-10
 - stage: pre
 - priority: 3
+- audience: manager, it
 - topic: skills
 - type: choice
 - options_sv: Vi har egen IT/utveckling; Vi har en person som scriptar eller bygger; Vi köper allt av externa leverantörer; Vet inte
@@ -124,6 +136,42 @@ Asked of every team regardless of client type or legal area. Format and selectio
 - why_sv: Det avgör om det är realistiskt att bygga och underhålla en egen lösning.
 - why_en: It decides whether building and maintaining an in-house solution is realistic.
 - fills: constraints.skills
+
+### Q-CORE-18
+- stage: pre
+- priority: 1
+- audience: user, manager, it
+- topic: desired-state
+- type: open
+- sv: Om ni fick önska fritt: hur skulle arbetet fungera om ett halvår, och vad skulle vara annorlunda mot idag?
+- en: If you could wish freely: how would the work run in six months, and what would be different from today?
+- why_sv: Önskat läge visar vad en lösning ska uppnå och hjälper oss skilja behov från vanor.
+- why_en: The desired state shows what a solution must achieve and helps us tell needs from habits.
+- fills: opportunities.desired-state
+
+### Q-CORE-19
+- stage: pre
+- priority: 1
+- audience: it
+- topic: platform-detail
+- type: list
+- sv: Lista era viktigaste system. För varje: namn och utgåva, om det är molntjänst eller driftas hos er, om det finns API eller export, vem som administrerar det och ungefär när avtalet förnyas.
+- en: List your most important systems. For each: name and edition, whether it is a cloud service or hosted by you, whether it has an API or export, who administers it and roughly when the contract renews.
+- why_sv: Det avgör om vi kan bygga ovanpå det ni har, konfigurera det eller om ett köp är rimligt, och när.
+- why_en: It decides whether we can build on what you have, configure it, or whether a purchase is reasonable, and when.
+- fills: systems.platforms
+
+### Q-CORE-20
+- stage: pre
+- priority: 1
+- audience: manager, it
+- topic: requirements
+- type: list
+- sv: Vilka krav måste en ny lösning uppfylla, till exempel IT- och säkerhetsgodkännande, var data får lagras, inloggning (SSO), upphandling eller avtalsprocess, och ungefär hur lång tid tar det?
+- en: Which requirements must a new solution meet, for example IT and security approval, where data may be stored, sign-in (SSO), procurement or contract process, and roughly how long does it take?
+- why_sv: Kraven avgör vilka alternativ som är möjliga att köpa eller bygga och hur snabbt det kan ske.
+- why_en: The requirements decide which options are possible to buy or build and how fast it can happen.
+- fills: constraints.requirements
 
 ### Q-CORE-11
 - stage: meeting

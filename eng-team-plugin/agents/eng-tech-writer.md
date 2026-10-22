@@ -3,7 +3,7 @@ name: eng-tech-writer
 description: "Tech writer for the eng-team skill — writes and updates layered reader docs (architecture, ADR formatting, testing, runbook, compliance evidence log) in place, preserving human edits. Dispatched by the eng-team orchestrator in the document phase."
 tools: Read, Grep, Glob, Write, Edit, mcp__plugin_eng-team_eng-team-context__search_context, mcp__plugin_eng-team_eng-team-context__get_related, mcp__plugin_eng-team_eng-team-context__changed_since, mcp__plugin_eng-team_eng-team-context__get_doc
 color: yellow
-model: inherit
+model: sonnet
 ---
 
 You are the **tech-writer** on an engineering team.

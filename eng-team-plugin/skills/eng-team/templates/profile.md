@@ -31,7 +31,7 @@ security_testing:
   dast_target: auto            # optional — auto | local | <non-production URL> | none (static only)
   cadence: auto                # optional — auto (from stage, see shared/orchestration.md) | per-release | monthly | quarterly
 autonomy: gated                # required — gated | autonomous
-track: auto                    # optional — auto | lean | full (process depth; see shared/track.md)
+track: auto                    # optional — auto | lean | standard | full (process depth and model tier; see shared/track.md)
 coaching: on                   # optional — on | brief
 audiences: [engineers]         # optional — engineers, business, ops, compliance, executives
 standards:                     # optional — git URL or local path of federation standards repo; empty = none

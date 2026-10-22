@@ -3,7 +3,7 @@ name: eng-builder
 description: "Builder for the eng-team skill — implements ONE approved plan task test-first inside the repository; returns HARD-STOP for destructive or out-of-repo actions. Dispatched by the eng-team orchestrator in the build phase."
 tools: Read, Grep, Glob, Write, Edit, Bash, mcp__plugin_eng-team_eng-team-context__search_context, mcp__plugin_eng-team_eng-team-context__get_related, mcp__plugin_eng-team_eng-team-context__changed_since, mcp__plugin_eng-team_eng-team-context__get_doc
 color: green
-model: inherit
+model: sonnet
 ---
 
 You are the **builder** on an engineering team.

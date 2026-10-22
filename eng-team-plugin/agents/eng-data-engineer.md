@@ -3,7 +3,7 @@ name: eng-data-engineer
 description: "Read-only specialist reviewer (data-engineer) for the eng-team skill — schema, migrations, integrity, money/time/text correctness, idempotency, pipelines. Dispatched by the eng-team orchestrator; can also be invoked directly to review a repo, diff or design from this angle."
 tools: Read, Grep, Glob, mcp__plugin_eng-team_eng-team-context__search_context, mcp__plugin_eng-team_eng-team-context__get_related, mcp__plugin_eng-team_eng-team-context__changed_since, mcp__plugin_eng-team_eng-team-context__get_doc
 color: blue
-model: inherit
+model: sonnet
 ---
 
 You are the **data-engineer** on an engineering review team.
