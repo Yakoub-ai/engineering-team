@@ -44,7 +44,7 @@ test('present: status, build, serve with strict CSP, and "used in" sources', asy
     assert.ok(before.presets.includes('midnight'));
     assert.equal((await call('GET', '/present/deck.html')).status, 404);
 
-    const built = await post('/api/present/build', { only: ['cheatsheet', 'overview'] });
+    const built = await post('/api/present/build', { only: ['cheatsheet', 'summary'] });
     assert.equal(built.status, 200);
     assert.deepEqual(built.json.results.map((r) => r.status), ['built', 'built']);
 
@@ -52,13 +52,12 @@ test('present: status, build, serve with strict CSP, and "used in" sources', asy
     const cheat = after.outputs.find((o) => o.name === 'cheatsheet');
     assert.equal(cheat.exists, true);
     assert.ok(cheat.sources.includes('docs/engineering/product/product.md'));
-    assert.deepEqual(after.outputs.find((o) => o.name === 'overview').sources, []);
 
     const page = await call('GET', '/present/cheatsheet.html');
     assert.equal(page.status, 200);
     assert.match(page.headers['content-security-policy'], /default-src 'none'.*frame-ancestors 'self'/);
     assert.doesNotMatch(page.text, /<script/i);
-    assert.match((await call('GET', '/present/docs-overview.html')).text, /Docs|Documents|Document/);
+    assert.match((await call('GET', '/present/product-summary.html')).text, /Quick approvals/);
     assert.equal((await call('GET', '/present/..%2f..%2fREADME.md')).status, 404);
     assert.equal((await call('GET', '/present/other.html')).status, 404);
   });
