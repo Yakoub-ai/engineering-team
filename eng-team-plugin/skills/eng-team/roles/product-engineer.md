@@ -34,7 +34,15 @@
 - Admin/support tools let ops answer common questions without engineering (with permission checks + audit).
 - Customer-readable changelog for user-facing changes.
 
+**Experience review (UX · DX · AX), advisory**
+Run in `plan` mode on the design, for the UI of the project being built and for any CLI, API or agent surface it exposes. Findings are never above Medium, except an accessibility failure (above) where law or contract requires it. Each cites a source or is labelled `opinion:`.
+- UX: the primary flow takes the fewest steps; look and feel follows the reference the human supplied, else a stated default; nothing on screen that the task does not need (no taglines, helper text or secondary labels; fix the layout instead).
+- DX: one-command setup and run; errors name the cause and the fix; consistent naming; commands, flags and API shapes are guessable.
+- AX: output is parseable and short; tools and commands have one clear purpose, unambiguous names and typed inputs; failures are explicit exit codes or error objects; no interactive prompt without a non-interactive path; token cost of docs and output is kept low.
+Report as 3-8 lines of `Keep` / `Change` with the reason; a `Change` that alters existing behaviour is a plan task with an acceptance check, never a silent edit.
+
 ## Needs-evidence (owner)
+- UI reference (screenshot, existing product or brand guide) when the human has not given one (product)
 - Manual accessibility audit / screen-reader test results (product)
 - Accessibility statement if legally required (product + compliance)
 
