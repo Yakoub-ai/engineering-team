@@ -2,6 +2,7 @@
 
 Commit: <sha>
 Agents: <agents run in this phase>
+Loops used: <Loop counters rows for this phase as `loop=count`, or none>
 <!-- guidance: written by the lead at every gate transition to docs/engineering/handovers/NN-<phase>.md. Whole document stays within 40 lines. Link instead of copying. -->
 
 ## Done

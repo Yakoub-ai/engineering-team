@@ -28,6 +28,9 @@ flowchart LR
 ## Security audit
 <!-- guidance: latest audit date and commit from state.md Security audits, and the Next due date. -->
 
+## Team activity
+<!-- guidance: one line: dispatches and returns per agent so far, from .eng-team/.cache/dispatch-log.jsonl when it exists (else omit), and loops used from state.md Loop counters. -->
+
 ## Environment health
 <!-- guidance: one line from the last setup check: tools present, outdated or missing. -->
 
