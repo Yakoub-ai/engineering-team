@@ -1,0 +1,25 @@
+*{box-sizing:border-box}
+html{scroll-snap-type:y proximity}
+body{margin:0;background:var(--surface);color:var(--text);font:clamp(15px,1.7vw,24px)/1.5 var(--font-body)}
+.slide{position:relative;aspect-ratio:16/9;width:100%;max-width:1600px;margin:0 auto 2px;padding:5vw 6vw 6vw;background:var(--bg);scroll-snap-align:start;display:flex;flex-direction:column;overflow:hidden}
+.slide h2{font:700 clamp(24px,3.4vw,52px)/1.15 var(--font-heading);color:var(--accent);margin:0 0 .6em;padding-bottom:.3em;border-bottom:.12em solid var(--accent2)}
+.body{flex:1;overflow:hidden}
+.body h3{font-family:var(--font-heading);margin:.8em 0 .2em;color:var(--text)}
+.cover{justify-content:center;background:var(--accent);color:var(--bg)}
+.cover h1{font:700 clamp(36px,6vw,92px)/1.05 var(--font-heading);margin:.1em 0}
+.cover .kicker{text-transform:uppercase;letter-spacing:.15em;font-size:.8em;opacity:.8;margin:0}
+.cover .tagline{font-size:1.3em;max-width:34em;opacity:.95;margin:.4em 0}
+.cover .meta{opacity:.7;font-size:.7em}
+footer{position:absolute;left:6vw;right:6vw;bottom:2vw;display:flex;justify-content:space-between;gap:2em;color:var(--muted);font-size:.55em}
+footer span:nth-child(2){flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+table{border-collapse:collapse;width:100%;font-size:.8em}
+th,td{border:1px solid var(--border);padding:.35em .6em;text-align:left;vertical-align:top}
+th{background:var(--surface)}
+code,pre{font-family:var(--font-mono);background:var(--code-bg);font-size:.75em}
+code{padding:1px 5px;border-radius:4px}
+pre{padding:.8em 1em;border-radius:8px;overflow:hidden}
+pre code{padding:0;background:none}
+a{color:var(--accent)}
+li{margin:.25em 0}
+@page{size:13.333in 7.5in;margin:0}
+@media print{body{background:#fff;font-size:17px}.slide{width:13.333in;height:7.5in;min-height:0;aspect-ratio:auto;max-width:none;margin:0;padding:.6in .8in;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact;print-color-adjust:exact}footer{left:.8in;right:.8in;bottom:.3in}}

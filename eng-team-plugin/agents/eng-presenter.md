@@ -1,6 +1,6 @@
 ---
 name: eng-presenter
-description: "Read-only presentation writer for the eng-team skill — drafts the missing prose for the cheatsheet and brief (and later the deck) from the project's existing docs, ADRs and context snapshot. Dispatched by /eng-present; the lead saves what it returns."
+description: "Read-only presentation writer for the eng-team skill — drafts the missing prose for the cheatsheet, brief, product summary and deck from the project's existing docs, ADRs and context snapshot. Dispatched by /eng-present; the lead saves what it returns."
 tools: Read, Grep, Glob, mcp__plugin_eng-team_eng-team-context__search_context, mcp__plugin_eng-team_eng-team-context__get_related, mcp__plugin_eng-team_eng-team-context__changed_since, mcp__plugin_eng-team_eng-team-context__get_doc
 color: purple
 model: sonnet
