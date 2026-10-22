@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="generator" content="eng-team present">
+<title>{{title}}</title>
+<style>{{{css}}}
+{{{pageCss}}}</style>
+</head>
+<body>
+<section class="slide cover">
+<p class="kicker">Product deck</p>
+<h1>{{project}}</h1>
+{{#if tagline}}<p class="tagline">{{tagline}}</p>{{/if}}
+{{#if verified}}<p class="meta">Verified against {{verified}}</p>{{/if}}
+</section>
+{{#each slides}}
+<section class="slide" id="{{id}}">
+<h2>{{title}}</h2>
+<div class="body">
+{{{html}}}
+</div>
+<footer><span>{{project}}</span><span>{{source}}</span><span>{{n}} / {{total}}</span></footer>
+</section>
+{{/each}}
+</body>
+</html>

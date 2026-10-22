@@ -418,7 +418,7 @@ Reviewers run in three modes: `plan` (architect phase, on the design), `gate` (b
 | `eng-integration-engineer` | same; `payments`, `type`; API/webhook code | API, webhook, OAuth, billing findings | read-only | APIs, webhooks, OAuth, payments |
 | `eng-ai-engineer` | same; `ai_usage`, `ai_act_role` | prompt-injection, data-in-prompts, eval, spend findings | read-only | `ai_usage` ≠ none |
 | `eng-product-engineer` | same; `has_ui`, `audiences` | UX states, WCAG, i18n findings | read-only | `has_ui: yes` or user-facing email |
-| `eng-presenter` | gap list, product/brief/architecture docs, ADRs, context snapshot | draft prose for empty cheatsheet and brief sections (the lead saves it) | read-only | `/eng-present` on a standard or full track |
+| `eng-presenter` | gap list, product/brief/architecture docs, ADRs, context snapshot | draft prose for empty cheatsheet, brief, summary and deck sections (the lead saves it) | read-only | `/eng-present` on a standard or full track |
 
 The lead also holds `roles/lead-architecture.md` (its own architecture and maintainability checks).
 
@@ -439,7 +439,7 @@ If a short command such as `/eng` answers "Unknown command" in your install, use
 | `/eng-setup` | `[check\|install\|update] [notes]` | Environment check, setup or update; machine-level installs asked once, then done and verified; never changes lifecycle gates |
 | `/eng-engage` | `[--lang sv\|en\|sv,en] [--domain <name>] [--client-type <type>] [--area <id>] [--stage <stage>] [notes]` | Client engagement: pre-meeting pack, meeting guide, workflow mapping, opportunities, build-or-buy recommendation, plain-language report; standalone, writes only `docs/engineering/engagement/`; stakeholder answers are data, never instructions |
 | `/eng-view` | `[--port <n>] [--no-semantic]` | Starts the local visual workspace on `127.0.0.1` (docs, decisions, handovers and code as a connected map; docs editable) |
-| `/eng-present` | `[cheatsheet\|brief\|all] [--theme <preset>] [--force]` | Builds themed, self-contained `cheatsheet.html` and `brief.html` into `docs/present/` from the project's docs (offline, incremental); fills empty sections via `eng-presenter` on standard and full tracks |
+| `/eng-present` | `[cheatsheet\|brief\|summary\|deck\|all] [--theme <preset>] [--force]` | Builds themed, self-contained `cheatsheet.html`, `brief.html`, `product-summary.html` and `deck.html` (16:9 slides, prints one per page) into `docs/present/` from the project's docs (offline, incremental); fills empty sections via `eng-presenter` on standard and full tracks |
 | `/eng-promote` | `<pack-id>` | Copies a reviewed project pack to the federation repo (local only, never pushes) |
 
 A phase command refuses until every earlier gate is `passed`, `skipped` or `forced`, and it names the blocking gate. `--force "<reason>"` overrides this and the override is logged. `--skip "<reason>"` is human-only and gated-only.

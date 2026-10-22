@@ -110,9 +110,38 @@ const BRIEF = [
   { id: 'status', title: 'Status', audiences: ['sponsors'], pieces: [['brief', 'Status'], ['status', 'Current focus and next action']] },
 ];
 
+const SUMMARY = [
+  { id: 'purpose', title: 'Purpose', audiences: ['everyone'], pieces: [['product', 'Purpose'], ['brief', 'Proposed solution']] },
+  { id: 'users', title: 'Users', audiences: ['product'], pieces: [['product', 'Users and personas'], ['product', 'Stakeholders']] },
+  { id: 'features', title: 'What it does', audiences: ['everyone'], pieces: [['product', 'Use cases'], ['product', 'Jobs to be done']] },
+  { id: 'how', title: 'How it works', audiences: ['engineering'], pieces: [['architecture', 'Context (C4 level 1)'], ['architecture', 'Containers (C4 level 2)'], ['architecture', 'Key flows']] },
+  { id: 'decisions', title: 'Key decisions', audiences: ['everyone'], decisions: true },
+  { id: 'success', title: 'Success metrics', audiences: ['exec', 'product'], pieces: [['product', 'Success metrics']] },
+  { id: 'scope', title: 'Constraints and non-goals', audiences: ['product'], pieces: [['product', 'Constraints'], ['product', 'Non-goals']] },
+  { id: 'status', title: 'Status', audiences: ['exec'], pieces: [['status', 'Gates'], ['status', 'Current focus and next action']] },
+];
+
+const DECK = [
+  { id: 'problem', title: 'The problem', pieces: [['brief', 'Problem']] },
+  { id: 'solution', title: 'The solution', pieces: [['brief', 'Proposed solution'], ['product', 'Purpose']] },
+  { id: 'users', title: 'Who it is for', pieces: [['product', 'Users and personas']] },
+  { id: 'usecases', title: 'What it does', pieces: [['product', 'Use cases']] },
+  { id: 'how', title: 'How it works', pieces: [['architecture', 'Context (C4 level 1)'], ['architecture', 'Containers (C4 level 2)']] },
+  { id: 'flows', title: 'Key flows', pieces: [['architecture', 'Key flows']] },
+  { id: 'stack', title: 'Stack and components', pieces: [['context', 'Stack'], ['context', 'Components']] },
+  { id: 'quality', title: 'Quality and security', pieces: [['architecture', 'Quality attributes'], ['architecture', 'Security testing strategy']] },
+  { id: 'decisions', title: 'Key decisions', decisions: true },
+  { id: 'success', title: 'Success metrics', pieces: [['product', 'Success metrics']] },
+  { id: 'risks', title: 'Risks', pieces: [['brief', 'Cost and risk'], ['status', 'Open Critical and High findings']] },
+  { id: 'status', title: 'Where we are', pieces: [['status', 'Gates'], ['status', 'Current focus and next action']] },
+  { id: 'asks', title: 'Decisions needed', pieces: [['brief', 'Decisions needed']] },
+];
+
 export const OUTPUTS = {
   cheatsheet: { file: 'cheatsheet.html', kind: 'Cheatsheet', spec: CHEATSHEET },
   brief: { file: 'brief.html', kind: 'Brief', spec: BRIEF },
+  summary: { file: 'product-summary.html', kind: 'Product summary', spec: SUMMARY },
+  deck: { file: 'deck.html', kind: 'Product deck', spec: DECK, layout: 'deck' },
 };
 
 function decisionRows(reader) {
@@ -141,18 +170,79 @@ function buildSections(spec, reader, docs) {
         rows.forEach((r) => used.add(r.rel));
       }
     } else {
+      const parts = [];
       for (const [key, heading] of s.pieces) {
         const body = docs[key]?.sections[heading];
         if (!hasContent(body)) continue;
-        md += `${md ? '\n\n' : ''}${s.pieces.length > 1 && heading !== s.title ? `### ${heading}\n\n` : ''}${body}`;
+        parts.push({ heading, body });
         sources.push(`${P[key]} › ${heading}`);
         used.add(P[key]);
       }
+      // sub-headings only help when several pieces share a section
+      md = parts.map((x) => (parts.length > 1 ? `### ${x.heading}\n\n${x.body}` : x.body)).join('\n\n');
     }
-    if (md) sections.push({ id: s.id, title: s.title, audiences: s.audiences, html: renderMarkdown(md), source: sources.join('; ') });
+    if (md) sections.push({ id: s.id, title: s.title, audiences: s.audiences, md, source: sources.join('; ') });
     else gaps.push({ title: s.title, source: s.decisions ? `${DECISIONS_DIR}/` : [...new Set(s.pieces.map(([k]) => P[k]))].join(', ') });
   }
   return { sections, gaps, used };
+}
+
+/* ---------- deck pagination ---------- */
+
+const SLIDE_BUDGET = 700;
+
+/** Split markdown into blocks that must stay together: fenced code, table rows, list items, paragraphs. */
+function splitBlocks(md) {
+  const blocks = [];
+  let cur = null;
+  const push = () => { if (cur) blocks.push(cur); cur = null; };
+  let fence = false;
+  for (const line of md.split('\n')) {
+    if (fence) {
+      cur.lines.push(line);
+      if (/^\s*(```|~~~)/.test(line)) { fence = false; push(); }
+      continue;
+    }
+    if (/^\s*(```|~~~)/.test(line)) { push(); cur = { type: 'code', lines: [line] }; fence = true; continue; }
+    if (!line.trim()) { push(); continue; }
+    if (line.trim().startsWith('|')) {
+      if (cur?.type !== 'table') { push(); cur = { type: 'table', lines: [] }; }
+      cur.lines.push(line);
+    } else if (/^(\s*)([-*]|\d+\.) /.test(line)) {
+      if (!/^\s/.test(line) || cur?.type !== 'list') { push(); cur = { type: 'list', lines: [] }; }
+      cur.lines.push(line);
+    } else if (cur?.type === 'list' && /^\s/.test(line)) {
+      cur.lines.push(line);
+    } else {
+      if (cur?.type !== 'text') { push(); cur = { type: 'text', lines: [] }; }
+      cur.lines.push(line);
+    }
+  }
+  push();
+  return blocks;
+}
+
+const cost = (b) => (b.type === 'table' ? b.lines.length * 90 : b.type === 'code' ? b.lines.length * 60 : b.lines.join(' ').length + 40);
+
+/** Group a section's markdown into slide-sized chunks; long tables split by row with the header repeated, code is never split. */
+export function paginate(md) {
+  let units = [];
+  for (const b of splitBlocks(md)) {
+    if (b.type === 'table' && b.lines.length > 3) {
+      const [head, sep, ...rows] = b.lines;
+      for (let i = 0; i < rows.length; i += 6) units.push({ type: 'table', lines: [head, sep, ...rows.slice(i, i + 6)] });
+    } else units.push(b);
+  }
+  const pages = [];
+  let page = [];
+  let used = 0;
+  for (const u of units) {
+    if (page.length && used + cost(u) > SLIDE_BUDGET) { pages.push(page); page = []; used = 0; }
+    page.push(u);
+    used += cost(u);
+  }
+  if (page.length) pages.push(page);
+  return pages.map((p) => p.map((b) => b.lines.join('\n')).join('\n\n'));
 }
 
 /* ---------- build ---------- */
@@ -198,8 +288,10 @@ export function buildOutputs(projectDir, { only = Object.keys(OUTPUTS), force = 
   const docs = Object.fromEntries(Object.entries(P).map(([k, rel]) => [k, parseDoc(reader.read(rel))]));
   const { theme, source } = resolveTheme(reader.root);
   const css = themeCss(theme);
-  const pageCss = readTpl('page.css');
-  const pageTpl = readTpl('page.html');
+  const baseCss = readTpl('page.css');
+  const baseTpl = readTpl('page.html');
+  const deckCss = readTpl('deck.css');
+  const deckTpl = readTpl('deck.html');
   const project = docs.product?.title?.replace(/\s+—\s+Product$/, '') || docs.brief?.title?.replace(/\s+—\s+Brief$/, '') || path.basename(reader.root);
   const verified = docs.status?.verified || docs.product?.verified || '';
 
@@ -214,17 +306,32 @@ export function buildOutputs(projectDir, { only = Object.keys(OUTPUTS), force = 
   const results = [];
   for (const name of only) {
     const def = OUTPUTS[name];
+    const deck = def.layout === 'deck';
+    const pageTpl = deck ? deckTpl : baseTpl;
+    const pageCss = deck ? deckCss : baseCss;
     const { sections, gaps, used } = buildSections(def.spec, reader, docs);
     const inputHash = sha(JSON.stringify([BUILDER_VERSION, name, theme, sections, gaps, project, verified, sha(pageCss + pageTpl)]));
     const exists = fs.existsSync(path.join(outDir, def.file));
     let status = 'unchanged';
+    let count = sections.length;
     if (force || !exists || manifest[name]?.hash !== inputHash) {
-      const html = render(pageTpl, { title: `${project} — ${def.kind}`, css, pageCss, kind: def.kind, project, verified, sections, gaps });
-      writeAtomic(outDir, def.file, html);
+      let data;
+      if (deck) {
+        const slides = sections.flatMap((sec) => {
+          const pages = paginate(sec.md);
+          return pages.map((md, i) => ({ id: pages.length > 1 ? `${sec.id}-${i + 1}` : sec.id, title: pages.length > 1 ? `${sec.title} (${i + 1}/${pages.length})` : sec.title, html: renderMarkdown(md), source: sec.source, project }));
+        }).map((sl, i, all) => ({ ...sl, n: i + 2, total: all.length + 1 }));
+        count = slides.length + 1;
+        const tagline = (docs.product?.sections.Purpose || docs.brief?.sections['Proposed solution'] || '').replace(/<!--[\s\S]*?-->/g, '').trim().split(/(?<=[.!?])\s/)[0]?.replace(/^[-*]\s+/, '').replace(/[`*_#>]/g, '') ?? '';
+        data = { title: `${project} — ${def.kind}`, css, pageCss, project, verified, tagline, slides };
+      } else {
+        data = { title: `${project} — ${def.kind}`, css, pageCss, kind: def.kind, project, verified, gaps, sections: sections.map((sec) => ({ ...sec, html: renderMarkdown(sec.md) })) };
+      }
+      writeAtomic(outDir, def.file, render(pageTpl, data));
       status = 'built';
     }
     manifest[name] = { hash: inputHash, sources: [...used].sort() };
-    results.push({ name, file: `${OUT_DIR}/${def.file}`, status, sections: sections.length, gaps });
+    results.push({ name, file: `${OUT_DIR}/${def.file}`, status, sections: count, gaps });
   }
   writeAtomic(cacheDir, 'manifest.json', JSON.stringify(manifest, null, 2));
   return { theme: { name: theme.name, source }, results };
