@@ -36,6 +36,8 @@ When a re-opened phase passes again, overwrite `docs/engineering/handovers/NN-<p
 
 Standalone commands (audit, setup, review) write a handover only when they change project direction.
 
+**Keep going.** In a lifecycle run (`/eng`), when a gate passes and the next phase needs no human decision, start that phase in the same run. End the turn only at a stop: a gated approval, a hard stop, a question only the human can answer, or a loop at count 3. Never end a turn to ask "shall I continue?". Close each gate with one line, `Continuing into <phase>` or `Stopped: <reason>`. A single-phase command (`/eng-<phase>`) runs that phase only and closes with `Next: /eng-<next phase>` instead.
+
 ## Gap review
 
 At every gated approval, before asking for approval, walk the human through the new and still-open items in `docs/engineering/questions.md`. Each answer becomes a `# stated` profile field, an ADR, a plan task or an accepted risk, and the item moves to the Answered log. In `autonomous` mode, record each open item as an Assumptions row; it stays listed until a human confirms it. `docs/engineering/questions.md` mirrors state.md Open questions and Assumptions; state.md stays the machine source, so update both together.
@@ -72,6 +74,14 @@ Fix tasks run through the normal build flow, including the gate-mode reviewer sp
 
 One row per loop in state.md → Loop counters, named `<source>→<target>`: the source is a phase (`test`) or a phase and plan task (`build:<task id>`); the target is a phase for a loop-back (`test→build`, `review→build`) or an agent for a re-dispatch inside a phase (`research→eng-researcher`, `architect→eng-architect`, `build:<task id>→eng-builder`, `test→eng-tester`, `document→eng-tech-writer`). Increment on each return, including a return the human chose (see Critical findings). At count 3, stop and escalate to the human in every mode.
 
+## Diagnosis handover
+
+At count 2 of a loop whose next return would be the last (`build:<task id>→eng-builder`, `review→build`, `test→build`), do not send the same task a third time unchanged.
+1. Write `.eng-team/diagnosis/<loop>-<YYYY-MM-DD>.md`, at most 15 lines: what failed (check or finding id, with the command output or `path:line`), what each attempt changed (paths), your hypothesis, and one thing not yet tried.
+2. Standard and full tracks: dispatch `eng-architect` (design or plan fault) or `eng-researcher` (unknown API, stack or behaviour) once, in read-only mode, with the note's path and the diff path. It returns `### Diagnosis`: cause, evidence, and one of `rewrite-task`, `change-approach` or `escalate`, with a concrete recommendation. Lean track: no dispatch; you write the recommendation yourself. This dispatch does not increment the loop counter.
+3. `rewrite-task` or `change-approach`: you update the task in `docs/engineering/plans/plan.md` (the architect's rewrite is saved by you, as with any plan) and dispatch the builder for the last attempt. `escalate`, or a third failure: follow Loop counters, and put the diagnosis and recommendation in the message to the human.
+A test suite not fixed within 2 attempts is already a hard stop (rule 7(b) in `SKILL.md`): include the note's content in the hard-stop message; no dispatch.
+
 ## Preflight (Claude Code)
 
 Before the first dispatch of a run, check your Agent tool's list of agent types for all 14 `eng-team:` types named in `SKILL.md` → Dispatching agents.
@@ -93,8 +103,8 @@ Applies to every dispatch, in every phase.
 | reviewers (9) | findings in the `shared/findings.md` format, or an explicit "No findings" | `Scope reviewed: <paths/patterns>` |
 | `eng-builder`, `eng-tester` | the Output section of the role file | `Status: DONE \| BLOCKED \| HARD-STOP`, then `Scope: <task id or coverage>` |
 | `eng-tech-writer` | the Output section of the role file | `Status: DONE \| BLOCKED`, then `Scope: <docs covered>` |
-| `eng-researcher` | the `### Pack:` / `### Note:` / `### Practices:` / `### Questionnaire:` blocks the dispatch asked for, optional `### Findings` | `Scope: <what you covered>` |
-| `eng-architect` | the `### Option` / `### Recommendation` / `### ADR draft` / `### Plan` blocks the dispatch asked for, optional `### Findings` | `Scope: <what you covered>` |
+| `eng-researcher` | the `### Pack:` / `### Note:` / `### Practices:` / `### Questionnaire:` / `### Diagnosis` blocks the dispatch asked for, optional `### Findings` | `Scope: <what you covered>` |
+| `eng-architect` | the `### Option` / `### Recommendation` / `### ADR draft` / `### Plan` / `### Diagnosis` blocks the dispatch asked for, optional `### Findings` | `Scope: <what you covered>` |
 
 **Validate every return** before using it. A missing or malformed terminal line, a missing required block, or a `Status:` value outside the list is a malformed return: re-dispatch once with the exact error quoted, counting it in the Loop counters row for that dispatch. A second malformed return, or counter 3, escalates to the human. Never repair a return by guessing.
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Diagnosis handover** at loop count 2 (`shared/orchestration.md`): a short note on what failed and what was tried, then one read-only architect or researcher dispatch with a concrete recommendation before the last attempt.
+
+### Changed
+- `/eng` keeps going into the next phase after a gate passes and stops only at approvals, hard stops, human-only questions or loop count 3.
+
 ## 3.3.0 — 2026-10-20
 
 ### Added
