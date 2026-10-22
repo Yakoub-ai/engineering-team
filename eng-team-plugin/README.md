@@ -425,6 +425,8 @@ The lead also holds `roles/lead-architecture.md` (its own architecture and maint
 
 All commands also work namespaced, e.g. `/eng-team:eng-init`.
 
+If a short command such as `/eng` answers "Unknown command" in your install, use the namespaced form `/eng-team:eng`; type `/eng-team:` to list every command. The warning `MCP server "atlassian" skipped, same command/URL as server provided by plugin ...` comes from other installed plugins that provide the same MCP server; eng-team ships only its own `eng-team-context` server, so it is harmless.
+
 | Command | Arguments | What it does |
 |---|---|---|
 | `/eng` | `[--tier S\|M\|L] [--autonomous\|--gated] [request]` | Full lifecycle from `current_phase` (runs init first if needed) |
