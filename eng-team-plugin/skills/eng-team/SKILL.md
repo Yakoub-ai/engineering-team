@@ -65,7 +65,7 @@ For any profile `stacks`, `jurisdictions` or `frameworks` value with no matching
 | 1 | discover | `phases/discover.md` | orchestrator + eng-architect | human approves brief; open questions resolved or recorded as assumptions |
 | 2 | research | `phases/research.md` | eng-researcher | every claim has a source; unreviewed packs flagged |
 | 3 | architect | `phases/architect.md` | eng-architect, then reviewers in `plan` mode | devil's-advocate round done; no open Critical; security testing strategy + environment/security-tooling tasks in plan; human approves design + plan |
-| 4 | build | `phases/build.md` | eng-builder (one plan task at a time) | per task: acceptance check passes + reviewer spot-check in `gate` mode on the diff |
+| 4 | build | `phases/build.md` | eng-builder (independent plan tasks in parallel worktrees) | per task: acceptance check passes + reviewer spot-check in `gate` mode on the diff |
 | 5 | test | `phases/test.md` | eng-tester, then the security audit | critical flows covered; suite green; security audit for the commit with no open Critical/High; results recorded |
 | 6 | document | `phases/document.md` | eng-tech-writer | docs match code (writer cites `path:line`) |
 | 7 | review | `phases/review.md` | activated reviewers | no open Critical/High, or accepted risk signed in state.md |
