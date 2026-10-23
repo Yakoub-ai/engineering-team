@@ -72,6 +72,15 @@ When a gate fails back to an earlier phase (test → build, review → build):
 (d) set `current_phase` to the target.
 Fix tasks run through the normal build flow, including the gate-mode reviewer spot-check.
 
+## Auto-fix of non-critical findings
+
+After the test and review phases (and a lifecycle `--fix` audit), findings and failures that are not Critical are fixed without asking, in the same run, in every autonomy mode:
+- **Eligible:** every High and Medium finding, and every failing flow or bug found by the tests. Low and Info are listed in the report, not fixed, unless the same file is already being changed.
+- **Never automatic (wait for the human, per Critical findings or Deviations):** a Critical; any finding in a hard-gated class (secrets, auth, migrations, dependency or lockfile changes, anything outside the repository); a finding with `owner: human`; a fix whose only option changes the approved design (that needs an ADR).
+- **How:** run Loop-back with one fix task per eligible finding, each with `files`, `depends_on` and the acceptance check "the finding or failure no longer reproduces". Post a note of at most 5 lines listing the fix tasks before they start; do not wait for an answer. They run through the build flow (task graph, independent gate review, serial merge), then the failing phase re-runs from its start so the fix is proven by the same tests and re-scan, not by the builder's word.
+- **Limits:** one round per phase on top of the existing counters (`test→build`, `review→build`); at count 3 the finding is escalated to the human. More than 8 eligible items run as a sweep (`phases/sweep.md`). A fix that fails twice follows the Diagnosis handover, then is escalated; it is never retried silently.
+- **Report:** the handover lists what was auto-fixed (finding id, task id, commit) and what was not and why.
+
 ## Loop counters
 
 One row per loop in state.md → Loop counters, named `<source>→<target>`: the source is a phase (`test`) or a phase and plan task (`build:<task id>`); the target is a phase for a loop-back (`test→build`, `review→build`) or an agent for a re-dispatch inside a phase (`research→eng-researcher`, `architect→eng-architect`, `build:<task id>→eng-builder`, `test→eng-tester`, `document→eng-tech-writer`). Increment on each return, including a return the human chose (see Critical findings). At count 3, stop and escalate to the human in every mode.
