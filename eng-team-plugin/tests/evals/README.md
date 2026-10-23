@@ -25,6 +25,16 @@ These run without `Bash` (no sandbox backend is needed): `--allow-tools Write Ed
 
 Cases i, j, k and l share `tests/fixtures/i-legacy-app` (answer key PLANTED-5..9) and leave `Agent` out of `allowed_tools`, so roles run sequentially. That keeps each run around $0.15-0.35.
 
+## Tiers
+
+`tests/evals/run.sh [smoke|changed|full]` runs cases one at a time. `tiers.conf` lists each case's tier and the changed paths that make it relevant.
+
+- `smoke` (default): d, j, b, i. About $0.8 in total, and it keeps the security checks (review finds planted defects, audit, init gate).
+- `changed`: smoke plus any case whose paths match your diff against `origin/main`.
+- `full`: all cases. Run it before a release or after broad prompt changes.
+
+Add `--list` to see the selection without running. New cases need a line in `tiers.conf`.
+
 ## How scaffolding works
 
 - Scaffolding runs only with `--scaffold`. Without it the agent starts in an empty workspace.
