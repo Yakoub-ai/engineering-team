@@ -80,7 +80,7 @@ test('gitignored, secret-bearing and symlinked sources are not read', () => {
   const dir = project({
     '.gitignore': 'docs/engineering/product/\n',
     'docs/engineering/product/brief.md': BRIEF,
-    'docs/engineering/architecture.md': '# A\n\n## Key flows\nkey ghp_abcdefghijklmnopqrstuvwxyz0123456789 here\n',
+    'docs/architecture.md': '# A\n\n## Key flows\nkey ghp_abcdefghijklmnopqrstuvwxyz0123456789 here\n',
   });
   try {
     const r = buildOutputs(dir, { only: ['brief'] }).results[0];

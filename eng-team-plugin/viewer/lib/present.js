@@ -16,7 +16,7 @@ const BUILDER_VERSION = 2;
 const P = {
   product: 'docs/engineering/product/product.md',
   brief: 'docs/engineering/product/brief.md',
-  architecture: 'docs/engineering/architecture.md',
+  architecture: 'docs/architecture.md',
   status: 'docs/engineering/STATUS.md',
   context: '.eng-team/context.md',
 };
