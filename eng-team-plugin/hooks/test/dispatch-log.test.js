@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { entryFor, record } = require('../dispatch-log.js');
+const { entryFor, record, summarize } = require('../dispatch-log.js');
 
 const proj = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'englog-')));
 const bare = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'englog-bare-')));
@@ -65,4 +65,29 @@ test('script: silent on malformed input, writes on valid input', () => {
   assert.equal(bad.stdout + bad.stderr, '');
   assert.equal(run(JSON.stringify(dispatch('eng-team:eng-architect', 'opus'))).status, 0);
   assert.match(fs.readFileSync(logPath(proj), 'utf8'), /eng-architect/);
+});
+
+test('task id is read from a Task: line, never the rest of the prompt', () => {
+  const d = (prompt) => entryFor({ tool_name: 'Agent', tool_input: { subagent_type: 'eng-team:eng-builder', prompt } });
+  assert.equal(d('Scope\nTask: T3\nsecret').task, 'T3');
+  assert.equal('task' in d('Task: bad id with spaces'), false);
+  assert.equal('task' in d('no marker'), false);
+});
+
+test('return keeps a well-formed agent_id only', () => {
+  const stop = (agent_id) => ({ hook_event_name: 'SubagentStop', agent_type: 'eng-team:eng-builder', agent_id });
+  assert.equal(entryFor(stop('a1b2')).agent_id, 'a1b2');
+  assert.equal('agent_id' in entryFor(stop('bad id!')), false);
+});
+
+test('summarize pairs dispatch and return per agent', () => {
+  const l = (ts, event, agent) => JSON.stringify({ ts, event, agent });
+  const text = [
+    l('2026-10-23T10:00:00Z', 'dispatch', 'eng-builder'),
+    l('2026-10-23T10:00:10Z', 'return', 'eng-builder'),
+    l('2026-10-23T10:01:00Z', 'dispatch', 'eng-builder'),
+    l('2026-10-23T10:01:50Z', 'return', 'eng-builder'),
+    'garbage',
+  ].join('\n');
+  assert.deepEqual(summarize(text), [{ agent: 'eng-builder', runs: 2, seconds: 60, max: 50 }]);
 });
