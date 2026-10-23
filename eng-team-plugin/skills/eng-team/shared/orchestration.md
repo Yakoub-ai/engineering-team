@@ -114,6 +114,16 @@ Applies to every dispatch, in every phase.
 
 **Stop signals.** A line starting `HARD-STOP:` (reason = text after the colon) or any `eng-team guard:` denial reported by an agent or shown by the Agent tool → Hard-stop procedure, with the guard's text as the reason. Do not retry the denied call, do not re-dispatch to work around it, and do not perform the denied action yourself unless it is in your own lane and the human agrees.
 
+## Deviations
+
+The approved plan is the baseline (tasks, `depends_on`, `files`, caps, and the hard-gated classes). Tell the human at once, in every autonomy mode, and stop starting new work until they decide, when any of these happens:
+- a task wrote a path outside its `files`, or needs a file another task owns;
+- a task must be added, removed, split or reordered, or a dependency turns out wrong;
+- a prerequisite failed or was blocked, so its dependents cannot start;
+- a cap was hit (parallel limit, attempts, `max_dispatches` in a sweep);
+- an item is hard-gated (secrets, auth, migrations, dependencies) and was not in the plan.
+The message starts with the literal label `DEVIATION (<phase>): <what changed from the approved plan>`, then lists the affected task ids, what is already merged, what is paused, and two or three options with a recommendation. Work already running finishes but nothing merges until the human answers. Log `- YYYY-MM-DD deviation <phase>: <what>`. An answer that changes the plan is saved to the plan and becomes the new baseline. A deviation is not a hard stop and does not set the gate to `failed`.
+
 ## Hard-stop procedure
 
 The single procedure for every hard stop: set the current gate to `failed`, add the Log line `- YYYY-MM-DD hard-stop <phase>: <reason>`, and ask the human how to proceed. The message to the human starts with the literal label `HARD STOP (<phase>): <reason>`, says what was not done, and lists the decision the human must make. It applies in every autonomy mode.

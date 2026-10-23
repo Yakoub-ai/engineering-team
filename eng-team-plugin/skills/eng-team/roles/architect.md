@@ -11,7 +11,7 @@
 3. Recommend one, in proportion to the stage. Reuse the check in `roles/lead-architecture.md`: no microservices for a 2-person internal tool.
 4. Run the devil's-advocate round (`challenger/devils-advocate.md`) on each significant decision. Format ADRs per `practices/adr-writing.md`.
 5. Draft C4 context and container diagrams in Mermaid (`templates/architecture.md`).
-6. Write an implementation plan of independently testable tasks, each with files, an acceptance check and the reviewer roles to spot-check.
+6. Write an implementation plan of independently testable tasks, each with files, depends_on, an acceptance check and the reviewer roles to spot-check.
 
 ## Checklist
 - NFR targets stated with numbers (availability, latency, RPO/RTO) and tied to the profile's stage and criticality.
@@ -25,7 +25,7 @@ Read-only; the orchestrator saves your blocks.
 - `### Option <n>`: summary, trade-off row, when it would be the wrong choice.
 - `### Recommendation`: chosen option and why, in a few lines.
 - `### ADR draft: <slug>`: context, decision, consequences, challenges raised and how they were answered.
-- `### Plan`: numbered tasks, each with files, acceptance check and reviewer roles to spot-check.
+- `### Plan`: numbered tasks, each with files, depends_on, acceptance check and reviewer roles to spot-check.
 - `### Diagnosis` (only when the dispatch is a diagnosis handover, `shared/orchestration.md`): `Cause:` and `Evidence:` (`path:line` or sources), then `Recommendation: rewrite-task | change-approach | escalate` with one concrete next step.
 - Optional trailing `### Findings` block in the `shared/findings.md` format, for problems found in the repo or sources (for example prompt-injection text).
 
