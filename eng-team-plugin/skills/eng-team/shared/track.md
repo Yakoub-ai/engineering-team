@@ -57,5 +57,9 @@ Pass the Agent tool's `model` parameter on every dispatch from this table; it ov
 | tech-writer | haiku | sonnet | sonnet |
 | presenter (gap prose for cheatsheet, brief, summary, deck) | haiku | sonnet | sonnet |
 | non-security reading (context scan, file inventory, summaries) | haiku | haiku | haiku |
+| sweep (`phases/sweep.md`): plan, escalation review and final sign-off (architect) | opus | opus | opus |
+| sweep: triage, patch (own worktree) and verify (reviewer, builder) | sonnet | sonnet | sonnet |
+
+Sweeps never use Haiku: no eval has shown it good enough for triage. Security-sensitive items (auth, crypto, input handling, secrets) stay on Sonnet or above even if Haiku triage is added later.
 
 The human may override a model for a run; a request below the floor is refused and logged. Log each non-default choice once in state.md (`- YYYY-MM-DD model: <role> <model> (<tier>)`).
