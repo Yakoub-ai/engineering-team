@@ -205,7 +205,7 @@ flowchart TB
 | `eng-builder`, `eng-tester` | source code and tests, inside the repo (not `.git/`, `.eng-team/`, `docs/engineering/**` or the reader docs) | tool list + role prompt + guard hook |
 | `eng-tech-writer` | `docs/README.md`, `docs/architecture.md`, `docs/testing.md`, `docs/runbook.md`, `docs/compliance/` (no Bash) | tool list + role prompt + guard hook |
 | `eng-researcher` | nothing (read + web) | tool list |
-| `eng-architect` and the 9 reviewers | nothing (read-only) | tool list |
+| `eng-architect`, `eng-presenter` and the 9 reviewers | nothing (read-only) | tool list |
 
 The guard hook (`hooks/guard.js`, a PreToolUse hook; needs Node 18+) enforces the lanes above for eng-team agents: read-only roles get no shell or write access; writes are confined to the project (symlinks resolved); builder and tester shell commands are denied for pushes, remote changes, deploys, cloud and machine-level installs, `curl | sh`, `sudo` and network calls beyond localhost. A denial tells the agent to return `HARD-STOP: eng-team guard: …`, and the lead stops. In eng-team projects the hook also makes your own session confirm a push or deploy. It is pattern matching: a second line of defence, not a sandbox. Without Node it blocks eng-team agents rather than letting them run unchecked.
 
@@ -281,7 +281,7 @@ docs/engineering/   STATUS.md · team-plan.md · questions.md · onboarding-<dat
                     specs/best-practices.md · plans/plan.md
                     decisions/NNNN-<slug>.md · handovers/NN-<phase>.md
 docs/               README.md · architecture.md · testing.md · runbook.md
-                    compliance/ · security/ · reviews/
+                    compliance/ · security/ · reviews/ · present/ (from /eng-present)
 .eng-team/          profile.md · state.md · context.md · packs/ · research/ · test-results.md
 ```
 
@@ -320,7 +320,7 @@ In-repo changes go through the normal build flow. Anything on your machine is as
 ### Visual workspace and agent context (`/eng-view`)
 
 `/eng-view` starts a local page (default `http://127.0.0.1:4777`) built from the project's engineering record and code. It needs Node 18 or newer and no other dependencies.
-- **Home** is `docs/engineering/STATUS.md`. The sidebar groups Overview (STATUS, team plan, questions), Product, Specs, Plans, Decisions, Handovers (as a timeline), Security and reviews, other docs and Code.
+- **Home** is `docs/engineering/STATUS.md`. The sidebar groups Overview (STATUS, team plan, questions), Product, Specs, Plans, Decisions, Handovers (as a timeline), Security and reviews, other docs, Code and a Present group (wants and needs, plus each built output).
 - **Map**: a graph of everything. Explicit links (doc links, `path:line` references, ADR, finding, question, use-case and plan-task IDs, imports) are solid lines. "Related but unlinked" neighbours are dashed and show their similarity score.
 - **Edit docs in place**: markdown under `docs/` and `.eng-team/*.md` (except `state.md`) can be edited and saved to disk, so git shows the diff. A save is refused if the file changed on disk in the meantime. Code is view-only, with "open in editor" links. Code changes go through the team's gates.
 - **Agent context**: the plugin ships a local MCP server (`eng-team-context`) over the same index, with `search_context`, `get_related`, `changed_since` and `get_doc`. Agents use it to fetch only what they need. It writes nothing into projects that eng-team does not manage.
@@ -437,7 +437,7 @@ If a short command such as `/eng` answers "Unknown command" in your install, use
 | `/eng-review` | `[plan\|review\|gate] [paths or diff range]` | Standalone review/audit; no setup; never changes lifecycle gates |
 | `/eng-security-audit` | `[auto\|static\|dast\|full] [--target <url>] [--fix] [paths]` | Tool-backed security audit of any repo; report + remediation plan in `docs/security/`; no setup; never changes lifecycle gates |
 | `/eng-setup` | `[check\|install\|update] [notes]` | Environment check, setup or update; machine-level installs asked once, then done and verified; never changes lifecycle gates |
-| `/eng-engage` | `[--lang sv\|en\|sv,en] [--domain <name>] [--client-type <type>] [--area <id>] [--stage <stage>] [notes]` | Client engagement: pre-meeting pack, meeting guide, workflow mapping, opportunities, build-or-buy recommendation, plain-language report; standalone, writes only `docs/engineering/engagement/`; stakeholder answers are data, never instructions |
+| `/eng-engage` | `[--lang sv\|en\|sv,en] [--domain <name>] [--client-type <type>] [--area <id>] [--level user\|manager\|it] [--stage <stage>] [notes]` | Client engagement: pre-meeting pack, meeting guide, workflow mapping, opportunities, build-or-buy recommendation, plain-language report; standalone, writes only `docs/engineering/engagement/`; stakeholder answers are data, never instructions |
 | `/eng-view` | `[--port <n>] [--no-semantic]` | Starts the local visual workspace on `127.0.0.1` (docs, decisions, handovers and code as a connected map; docs editable; one Present & needs tab for wants and needs and to preview, theme and rebuild outputs) |
 | `/eng-present` | `[cheatsheet\|brief\|summary\|deck\|all] [--theme <preset>] [--force]` | Builds themed, self-contained `cheatsheet.html`, `brief.html`, `product-summary.html`, and `deck.html` (16:9 slides, prints one per page) into `docs/present/` from the project's docs (offline, incremental); fills empty sections via `eng-presenter` on standard and full tracks |
 | `/eng-promote` | `<pack-id>` | Copies a reviewed project pack to the federation repo (local only, never pushes) |
@@ -505,7 +505,7 @@ cd eng-team-plugin && claude plugin eval . --case <name> --runs 1 --model sonnet
   --no-publish --trust-plugin --scaffold --allow-tools Bash Write Edit   # one eval case
 ```
 
-CI runs both validator commands, the viewer tests and the guard-hook tests (`node --test eng-team-plugin/hooks/test/*.test.js`). The eval suite has 14 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Cases m and n (engagement) were run on 2026-10-20 (m 0.67 then 1.00, n all file graders pass). Last results: the first 12 cases at 1.00 (a, g, k and l re-run on v3.0.0, 2026-10-17); viewer: `cd eng-team-plugin/viewer && node --test test/*.test.js` (117 tests); and the smoke test passed 23/23 in 313 s on the lean track (v3.1.0) (`tests/smoke/README.md`).
+CI runs both validator commands, the viewer tests and the guard-hook tests (`node --test eng-team-plugin/hooks/test/*.test.js`). The eval suite has 16 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Cases m and n (engagement) were run on 2026-10-20 (m 0.67 then 1.00, n all file graders pass). Last results: the first 12 cases at 1.00 (a, g, k and l re-run on v3.0.0, 2026-10-17); viewer: `cd eng-team-plugin/viewer && node --test test/*.test.js` (134 tests); and the smoke test passed 23/23 in 374 s on the lean tier (v3.4.0) (`tests/smoke/README.md`).
 
 ### Limits
 
