@@ -57,6 +57,7 @@ All progress lives in your project under `.eng-team/` (profile, state, context, 
 | Check a pull request or branch for security and compliance regressions | `/eng-review gate <diff range>` | standalone |
 | Deep security test of a finished product (static, live DAST, or both) with report and fix plan | `/eng-security-audit` | standalone |
 | Fix what the audit found, then verify with a re-scan | `/eng-security-audit --fix` | standalone |
+| Fix many findings, or refactor many files, in one run | `/eng-sweep` (also used by `--fix` for 8+ tasks) | standalone |
 | Prepare for a client meeting in any domain, map how their teams work and decide build, buy or neither | `/eng-engage` | standalone, one folder per client |
 | Set up, repair or update a project's environment and dependencies | `/eng-setup [check\|install\|update]` | standalone |
 | Plan production readiness for a regulated product (finance, health, public sector, AI) | `/eng-init` → `/eng` | gated |
@@ -436,6 +437,7 @@ If a short command such as `/eng` answers "Unknown command" in your install, use
 | `/eng-discover` · `/eng-research` · `/eng-architect` · `/eng-build` · `/eng-test` · `/eng-document` | `[--force "<reason>"] [--skip "<reason>"] [--autonomous\|--gated] [notes]` | Runs one phase |
 | `/eng-review` | `[plan\|review\|gate] [paths or diff range]` | Standalone review/audit; no setup; never changes lifecycle gates |
 | `/eng-security-audit` | `[auto\|static\|dast\|full] [--target <url>] [--fix] [paths]` | Tool-backed security audit of any repo; report + remediation plan in `docs/security/`; no setup; never changes lifecycle gates |
+| `/eng-sweep` | `[audit\|refactor] [--max-items N] [--max-parallel N] [paths or request]` | Big jobs (8+ independent items): Opus writes the plan and caps for you to approve, deterministic tools find the items, Sonnet fixes each in its own worktree, a separate verifier checks every fix, Opus signs off on the real diff; secrets, auth, migrations and dependencies wait for a human; commits stay local |
 | `/eng-setup` | `[check\|install\|update] [notes]` | Environment check, setup or update; machine-level installs asked once, then done and verified; never changes lifecycle gates |
 | `/eng-engage` | `[--lang sv\|en\|sv,en] [--domain <name>] [--client-type <type>] [--area <id>] [--level user\|manager\|it] [--stage <stage>] [notes]` | Client engagement: pre-meeting pack, meeting guide, workflow mapping, opportunities, build-or-buy recommendation, plain-language report; standalone, writes only `docs/engineering/engagement/`; stakeholder answers are data, never instructions |
 | `/eng-view` | `[--port <n>] [--no-semantic]` | Starts the local visual workspace on `127.0.0.1` (docs, decisions, handovers and code as a connected map; docs editable; one Present & needs tab for wants and needs and to preview, theme and rebuild outputs) |
@@ -505,7 +507,7 @@ cd eng-team-plugin && claude plugin eval . --case <name> --runs 1 --model sonnet
   --no-publish --trust-plugin --scaffold --allow-tools Bash Write Edit   # one eval case
 ```
 
-CI runs both validator commands, the viewer tests and the guard-hook tests (`node --test eng-team-plugin/hooks/test/*.test.js`). The eval suite has 16 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Cases m and n (engagement) were run on 2026-10-20 (m 0.67 then 1.00, n all file graders pass). Last results: the first 12 cases at 1.00 (a, g, k and l re-run on v3.0.0, 2026-10-17); viewer: `cd eng-team-plugin/viewer && node --test test/*.test.js` (134 tests); and the smoke test passed 23/23 in 374 s on the lean tier (v3.4.0) (`tests/smoke/README.md`).
+CI runs both validator commands, the viewer tests and the guard-hook tests (`node --test eng-team-plugin/hooks/test/*.test.js`). The eval suite has 17 cases with planted issues (see `tests/evals/README.md`). Cases i, j and k cover the security audit, environment check and onboarding cheaply (no subagents, about $0.15-0.35 each). Its LLM graders are noisy, so re-run a failing case once before changing anything. Run cases one at a time to stay within usage limits. Cases m and n (engagement) were run on 2026-10-20 (m 0.67 then 1.00, n all file graders pass). Last results: the first 12 cases at 1.00 (a, g, k and l re-run on v3.0.0, 2026-10-17); viewer: `cd eng-team-plugin/viewer && node --test test/*.test.js` (134 tests); and the smoke test passed 23/23 in 374 s on the lean tier (v3.4.0) (`tests/smoke/README.md`).
 
 ### Limits
 
