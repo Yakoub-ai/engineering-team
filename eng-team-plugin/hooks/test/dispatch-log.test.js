@@ -80,28 +80,50 @@ test('return keeps a well-formed agent_id only', () => {
   assert.equal('agent_id' in entryFor(stop('bad id!')), false);
 });
 
-test('summarize pairs dispatch with the next final return, ignoring pauses', () => {
-  const l = (ts, event, agent, extra = {}) => JSON.stringify({ ts, event, agent, ...extra });
+test('summarize: start/stop by agent_id wins; last stop ends the work; pauses do not add runs', () => {
+  const l = (ts, event, agent_id, agent = 'eng-builder') => JSON.stringify({ ts, event, agent, agent_id });
   const text = [
-    l('2026-10-23T10:00:00Z', 'dispatch', 'eng-builder'),
-    l('2026-10-23T10:00:30Z', 'return', 'eng-builder'),
-    l('2026-10-23T10:01:00Z', 'dispatch', 'eng-builder'),
-    l('2026-10-23T10:01:30Z', 'return', 'eng-builder', { final: true }),
-    l('2026-10-23T10:03:00Z', 'return', 'eng-builder', { final: true }),
+    l('2026-10-23T10:00:00Z', 'start', 'a1'),
+    l('2026-10-23T10:00:00Z', 'start', 'b2'),
+    l('2026-10-23T10:00:30Z', 'return', 'a1'),
+    l('2026-10-23T10:03:00Z', 'return', 'a1'),
+    l('2026-10-23T10:01:00Z', 'return', 'b2'),
+    l('2026-10-23T10:05:00Z', 'start', 'c3'),
     'garbage',
   ].join('\n');
-  assert.deepEqual(summarize(text), [{ agent: 'eng-builder', runs: 2, seconds: 210, max: 120 }]);
+  const s = summarize(text);
+  assert.deepEqual(s.agents, [{ agent: 'eng-builder', runs: 2, seconds: 240, max: 180 }]);
+  assert.equal(s.source, 'start/stop by agent_id');
+  assert.deepEqual(s.lines, { start: 3, return: 3 });
+  assert.equal(s.withId, 6);
 });
 
-test('summarize prefers harness durations and honours --since', () => {
+test('summarize: falls back to harness durations, then to final-return pairing, and honours --since', () => {
   const l = (ts, event, extra) => JSON.stringify({ ts, event, agent: 'eng-builder', ...extra });
-  const text = [
+  const dur = [
     l('2026-10-22T10:00:00Z', 'done', { duration_ms: 9000000 }),
-    l('2026-10-23T10:00:00Z', 'dispatch'),
     l('2026-10-23T10:05:00Z', 'done', { duration_ms: 120000 }),
     l('2026-10-23T10:06:00Z', 'done', { duration_ms: 60000 }),
   ].join('\n');
-  assert.deepEqual(summarize(text, '2026-10-23T00:00:00Z'), [{ agent: 'eng-builder', runs: 2, seconds: 180, max: 120 }]);
+  const d = summarize(dur, '2026-10-23T00:00:00Z');
+  assert.deepEqual(d.agents, [{ agent: 'eng-builder', runs: 2, seconds: 180, max: 120 }]);
+  assert.equal(d.source, 'harness duration');
+  const pair = [
+    l('2026-10-23T10:00:00Z', 'dispatch'),
+    l('2026-10-23T10:00:30Z', 'return'),
+    l('2026-10-23T10:01:30Z', 'return', { final: true }),
+  ].join('\n');
+  const p = summarize(pair);
+  assert.deepEqual(p.agents, [{ agent: 'eng-builder', runs: 1, seconds: 90, max: 90 }]);
+  assert.match(p.source, /approximate/);
+  assert.deepEqual(summarize('').agents, []);
+});
+
+test('SubagentStart becomes a start line with the agent id', () => {
+  const e = entryFor({ hook_event_name: 'SubagentStart', agent_type: 'eng-team:eng-builder', agent_id: 'a1b2' });
+  assert.deepEqual({ ...e, ts: undefined }, { ts: undefined, event: 'start', agent: 'eng-builder', agent_id: 'a1b2' });
+  assert.equal(entryFor({ hook_event_name: 'SubagentStart', agent_type: 'general-purpose', agent_id: 'x' }), null);
+  assert.equal('agent_id' in entryFor({ hook_event_name: 'SubagentStart', agent_type: 'eng-team:eng-sre', agent_id: 'bad id!' }), false);
 });
 
 test('PostToolUse becomes a done line with duration, id and task; junk fields are dropped', () => {

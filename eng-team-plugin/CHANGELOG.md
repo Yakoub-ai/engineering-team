@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.6.5 — 2026-10-24
+
+### Fixed
+- **Dispatch log timings no longer depend on message text**: a `SubagentStart` hook records each agent instance with its id, and the summary measures first start to last stop per id (a real run showed the terminal `Status:` line in almost no stop messages, so the earlier "final return" test could not work). Falls back to harness durations, then to approximate pairing. `--summary` now also prints the source it used, a count of log lines by event and how many carry an agent id, so a gap is visible instead of silent.
+
 ## 3.6.4 — 2026-10-24
 
 ### Changed
