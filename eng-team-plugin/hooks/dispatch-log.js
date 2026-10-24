@@ -64,7 +64,9 @@ function entryFor(input, now = new Date()) {
  * 1. `start` and `return` lines sharing an agent_id: first start to last return
  *    (SubagentStop fires on every pause, so the last one ends the work);
  * 2. `done` lines with a harness duration;
- * 3. dispatches paired first-in-first-out with the next `final` return.
+ * 3. `done` (fires at launch) to the last `return`, both by agent_id: logs
+ *    written before `start` existed;
+ * 4. dispatches paired first-in-first-out with the next `final` return.
  * Also counts lines by event and how many carry an agent_id, so an empty or
  * odd report shows which hooks actually fired.
  * @param {string} text contents of dispatch-log.jsonl
@@ -94,6 +96,7 @@ function summarize(text, since) {
     if (!e.agent_id) continue;
     const r = (byId[e.agent_id] ||= { agent: e.agent });
     if (e.event === 'start') r.start ??= Date.parse(e.ts);
+    else if (e.event === 'done') r.done ??= Date.parse(e.ts);
     else if (e.event === 'return') r.stop = Date.parse(e.ts);
   }
   const paired = Object.values(byId).filter((r) => r.start !== undefined && r.stop !== undefined);
@@ -104,6 +107,9 @@ function summarize(text, since) {
   } else if (rows.some((e) => e.event === 'done' && e.duration_ms !== undefined)) {
     source = 'harness duration';
     for (const e of rows) if (e.event === 'done' && e.duration_ms !== undefined) add(e.agent, e.duration_ms / 1000);
+  } else if (Object.values(byId).some((r) => r.done !== undefined && r.stop > r.done)) {
+    source = 'done to last return by agent_id';
+    for (const r of Object.values(byId)) if (r.done !== undefined && r.stop > r.done) add(r.agent, (r.stop - r.done) / 1000);
   } else {
     const open = {};
     for (const e of rows) {

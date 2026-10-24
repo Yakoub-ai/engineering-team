@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.6.6 — 2026-10-24
+
+### Fixed
+- **`--summary` reads logs written before 3.6.5**: when there are no `start` lines or harness durations, it measures each agent from its `done` line (logged at launch) to its last `return`, both matched by agent_id. Source is reported as `done to last return by agent_id`.
+
 ## 3.6.5 — 2026-10-24
 
 ### Fixed

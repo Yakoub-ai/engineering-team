@@ -119,6 +119,19 @@ test('summarize: falls back to harness durations, then to final-return pairing, 
   assert.deepEqual(summarize('').agents, []);
 });
 
+test('summarize: logs without start lines pair done (launch) with the last return by agent_id', () => {
+  const l = (ts, event, extra) => JSON.stringify({ ts, event, agent: 'eng-builder', ...extra });
+  const s = summarize([
+    l('2026-10-24T11:00:00Z', 'done', { agent_id: 'a1', task: 'T1' }),
+    l('2026-10-24T11:01:00Z', 'return', { agent_id: 'a1' }),
+    l('2026-10-24T11:03:00Z', 'return', { agent_id: 'a1' }),
+    l('2026-10-24T11:00:00Z', 'done', { agent_id: 'a2' }),
+    l('2026-10-24T11:02:00Z', 'return', { agent_id: 'a2' }),
+  ].join('\n'));
+  assert.deepEqual(s.agents, [{ agent: 'eng-builder', runs: 2, seconds: 300, max: 180 }]);
+  assert.equal(s.source, 'done to last return by agent_id');
+});
+
 test('SubagentStart becomes a start line with the agent id', () => {
   const e = entryFor({ hook_event_name: 'SubagentStart', agent_type: 'eng-team:eng-builder', agent_id: 'a1b2' });
   assert.deepEqual({ ...e, ts: undefined }, { ts: undefined, event: 'start', agent: 'eng-builder', agent_id: 'a1b2' });
