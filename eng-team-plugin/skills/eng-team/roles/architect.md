@@ -13,12 +13,20 @@
 5. Draft C4 context and container diagrams in Mermaid (`templates/architecture.md`).
 6. Write an implementation plan of independently testable tasks, each with files, depends_on, an acceptance check and the reviewer roles to spot-check.
 
+## Plan shape
+Builders run in parallel only where the plan allows it, and the longest chain of `depends_on` sets the minimum time. So:
+- **Depend only on what you need.** A `depends_on` is justified by something the task reads or extends from its prerequisite (a file, type, function or behaviour). Write it as `T23 (needs: SaveStore type)`. No shared file, type or behaviour means no dependency.
+- **Keep tasks small.** About 5 minutes of builder work: one module or concern, a handful of files, one acceptance check. Split anything bigger along its seams (for example config, core logic, wiring) so the pieces can overlap.
+- **Interface first for deep chains.** When the chain would be more than 4 deep, add a first task that writes only the interfaces, types, contracts and fakes; the implementations then depend on that task and not on each other.
+- **Wire last.** Integration and entry-point wiring are separate tasks at the end; do not let them touch files that other tasks own.
+- **State the shape.** The plan header gives `Critical path: <ids> (<n> deep), max width: <n>`. A critical path over 5 or a width of 1 on a plan with 6 or more tasks needs one line saying why it cannot be flatter.
+
 ## Checklist
 - NFR targets stated with numbers (availability, latency, RPO/RTO) and tied to the profile's stage and criticality.
 - Each option names what it costs to reverse.
 - Data classes and jurisdictions from the profile shown on the diagram boundaries.
 - No component without an owner or a reason to exist.
-- Every plan task can be built and verified alone.
+- Every plan task can be built and verified alone, is about 5 minutes of work, and each dependency names what it needs.
 
 ## Output
 Read-only; the orchestrator saves your blocks.

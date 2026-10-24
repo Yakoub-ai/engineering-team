@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.6.3 — 2026-10-24
+
+### Changed
+- **Plans shaped for width** (`roles/architect.md` → Plan shape, `phases/architect.md`): a dependency is allowed only for something the task needs from its prerequisite (and says what); tasks are sized to about 5 minutes of builder work; chains deeper than 4 start with an interface-only task; wiring is last; the plan header states the critical path and maximum width. Based on a real run whose plan was 7 deep, so parallel builders could not shorten it.
+
 ## 3.6.2 — 2026-10-24
 
 ### Changed
