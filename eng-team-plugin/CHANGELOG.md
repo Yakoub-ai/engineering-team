@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.6.0 — 2026-10-24
+
+### Changed
+- **Next step is offered, not just printed** (`shared/orchestration.md` → Next step): a single-phase command now names the next step with a one-line reason and asks "Run it now?" in gated mode, or continues by itself in autonomous mode. Hard stops, Critical findings, hard-gated classes (secrets, auth, migrations, dependencies) and Deviations still ask in both modes; nothing is offered after a failed gate.
+- **Namespaced command hints**: every command shown to the user is now `/eng-team:eng-<phase>` (was `/eng-<phase>`), in the orchestration rules, onboarding, engagement hand-off, init precondition and README quick start.
+
 ## 3.5.0 — 2026-10-24
 
 ### Added

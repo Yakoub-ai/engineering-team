@@ -146,7 +146,7 @@ flowchart LR
 - **Brainstorming and product discovery.** Discover brainstorms options with you, then writes `docs/engineering/product/product.md` (who it is for, the problem, success measures) before the brief.
 - **Rationale recovery.** For existing code, the team recovers why decisions were made from git history, docs and comments, and records them in `docs/engineering/decisions/`. Unknown rationale is marked unknown, not guessed.
 - **Best practices.** `docs/engineering/specs/best-practices.md` fixes the practices this project follows, each cited, so later phases check against it.
-- **Team plan and Next up.** `docs/engineering/team-plan.md` shows who works on what and in which order. Each command ends with a **Next up** note naming the next step.
+- **Team plan and Next up.** `docs/engineering/team-plan.md` shows who works on what and in which order. Each command ends by naming the next step (as `/eng-team:eng-<phase>`) with a one-line reason and offers to run it: a yes/no in gated mode, automatic in autonomous mode (hard stops and security gates still ask).
 - **Handovers and STATUS.md.** Each phase writes `docs/engineering/handovers/NN-<phase>.md` for the next one. `docs/engineering/STATUS.md` is the one-page current state.
 - **Questions and gap review.** Open questions live in `docs/engineering/questions.md`. Before a gate, a gap review lists missing answers, evidence or decisions, and you answer them or accept the risk.
 
@@ -265,14 +265,14 @@ Security floor: security and compliance review and any security-relevant code re
 ### Step by step
 
 1. Open the project folder in Claude Code. It can be empty or an existing repo.
-2. Run `/eng-init`. It fills every profile field it can infer (`# inferred: <file>`), then asks one question at a time for the rest, each with a recommended default and a line on why it matters.
+2. Run `/eng-team:eng-init`. It fills every profile field it can infer (`# inferred: <file>`), then asks one question at a time for the rest, each with a recommended default and a line on why it matters.
 3. Check `.eng-team/profile.md`. It is the **scope contract**: it decides which reviewers run and which regulations and practices apply. Edit it directly or ask the lead.
 4. Optional: set `standards:` to your federation standards repo (see [Federation](#federation)).
 5. Commit `.eng-team/`, so teammates and future sessions share the same scope and progress.
-6. Run `/eng`, or a single phase (`/eng-discover`, `/eng-research`, `/eng-architect`, `/eng-build`, `/eng-test`, `/eng-document`).
+6. Run `/eng-team:eng`, or a single phase (`/eng-team:eng-discover`, `/eng-team:eng-research`, `/eng-team:eng-architect`, `/eng-team:eng-build`, `/eng-team:eng-test`, `/eng-team:eng-document`).
 7. Answer the challenges, approve the gates, and read `docs/README.md` for the documentation index.
 
-Only an audit? Run `/eng-review` with no setup. It never changes lifecycle gates.
+Only an audit? Run `/eng-team:eng-review` with no setup. It never changes lifecycle gates.
 
 ### What you end up with
 
