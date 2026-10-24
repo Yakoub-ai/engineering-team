@@ -19,6 +19,7 @@ Builders run in parallel only where the plan allows it, and the longest chain of
 - **Keep tasks small.** About 5 minutes of builder work: one module or concern, a handful of files, one acceptance check. Split anything bigger along its seams (for example config, core logic, wiring) so the pieces can overlap.
 - **Interface first for deep chains.** When the chain would be more than 4 deep, add a first task that writes only the interfaces, types, contracts and fakes; the implementations then depend on that task and not on each other.
 - **Wire last.** Integration and entry-point wiring are separate tasks at the end; do not let them touch files that other tasks own.
+- **Register through a manifest.** When several features plug into one shared place (a scene, router, registry, DI container, menu), the first task creates a small manifest or registration point (one file listing modules, or a directory the host scans), and each feature task adds its own module and its own entry file or line there. The final wiring task is then an import list or a check, minutes long, not the slowest task in the plan. If two features must edit the same line, give the manifest one file per feature rather than ordering them.
 - **State the shape.** The plan header gives `Critical path: <ids> (<n> deep), max width: <n>`. A critical path over 5 or a width of 1 on a plan with 6 or more tasks needs one line saying why it cannot be flatter.
 
 ## Checklist

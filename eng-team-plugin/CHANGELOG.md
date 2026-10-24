@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.6.6 — 2026-10-24
+
+### Changed
+- **Plan shape: register through a manifest** (`roles/architect.md`, `phases/architect.md`). Features that plug into one shared place (scene, router, registry, container) now each add their own module and entry to a small manifest created first, so the final wiring task is an import list instead of the longest task in the plan. A real run had three wiring tasks of 28, 12 and 10 minutes, each running alone.
+
 ## 3.6.5 — 2026-10-24
 
 ### Fixed
