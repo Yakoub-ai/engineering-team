@@ -32,6 +32,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v node >/dev/null 2>&1 && node \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch-log.js\" || true",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

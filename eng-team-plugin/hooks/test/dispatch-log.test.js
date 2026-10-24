@@ -80,14 +80,46 @@ test('return keeps a well-formed agent_id only', () => {
   assert.equal('agent_id' in entryFor(stop('bad id!')), false);
 });
 
-test('summarize pairs dispatch and return per agent', () => {
-  const l = (ts, event, agent) => JSON.stringify({ ts, event, agent });
+test('summarize pairs dispatch with the next final return, ignoring pauses', () => {
+  const l = (ts, event, agent, extra = {}) => JSON.stringify({ ts, event, agent, ...extra });
   const text = [
     l('2026-10-23T10:00:00Z', 'dispatch', 'eng-builder'),
-    l('2026-10-23T10:00:10Z', 'return', 'eng-builder'),
+    l('2026-10-23T10:00:30Z', 'return', 'eng-builder'),
     l('2026-10-23T10:01:00Z', 'dispatch', 'eng-builder'),
-    l('2026-10-23T10:01:50Z', 'return', 'eng-builder'),
+    l('2026-10-23T10:01:30Z', 'return', 'eng-builder', { final: true }),
+    l('2026-10-23T10:03:00Z', 'return', 'eng-builder', { final: true }),
     'garbage',
   ].join('\n');
-  assert.deepEqual(summarize(text), [{ agent: 'eng-builder', runs: 2, seconds: 60, max: 50 }]);
+  assert.deepEqual(summarize(text), [{ agent: 'eng-builder', runs: 2, seconds: 210, max: 120 }]);
+});
+
+test('summarize prefers harness durations and honours --since', () => {
+  const l = (ts, event, extra) => JSON.stringify({ ts, event, agent: 'eng-builder', ...extra });
+  const text = [
+    l('2026-10-22T10:00:00Z', 'done', { duration_ms: 9000000 }),
+    l('2026-10-23T10:00:00Z', 'dispatch'),
+    l('2026-10-23T10:05:00Z', 'done', { duration_ms: 120000 }),
+    l('2026-10-23T10:06:00Z', 'done', { duration_ms: 60000 }),
+  ].join('\n');
+  assert.deepEqual(summarize(text, '2026-10-23T00:00:00Z'), [{ agent: 'eng-builder', runs: 2, seconds: 180, max: 120 }]);
+});
+
+test('PostToolUse becomes a done line with duration, id and task; junk fields are dropped', () => {
+  const post = (tool_response) => ({
+    hook_event_name: 'PostToolUse', tool_name: 'Agent',
+    tool_input: { subagent_type: 'eng-team:eng-builder', prompt: 'x\nTask: T29a' }, tool_response,
+  });
+  const e = entryFor(post({ totalDurationMs: 702000.4, agentId: 'a1b2', output: 'secret' }));
+  assert.deepEqual({ ...e, ts: undefined }, { ts: undefined, event: 'done', agent: 'eng-builder', agent_id: 'a1b2', task: 'T29a', duration_ms: 702000 });
+  const bad = entryFor(post({ totalDurationMs: 'soon', agentId: 'bad id' }));
+  assert.equal('duration_ms' in bad, false);
+  assert.equal('agent_id' in bad, false);
+  assert.equal(entryFor({ ...post({}), tool_input: { subagent_type: 'general-purpose' } }), null);
+});
+
+test('return marks final only on the terminal line', () => {
+  const stop = (m) => ({ hook_event_name: 'SubagentStop', agent_type: 'eng-team:eng-architect', last_assistant_message: m });
+  assert.equal(entryFor(stop('thinking, waiting on a background task')).final, undefined);
+  assert.equal(entryFor(stop('plan\nScope: whole repo')).final, true);
+  assert.equal(entryFor(stop('x\nScope reviewed: src/')).final, true);
 });

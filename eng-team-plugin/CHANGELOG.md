@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.6.1 — 2026-10-24
+
+### Fixed
+- **Dispatch log timings**: pauses (`SubagentStop` fires whenever an agent waits) no longer count as returns; only the terminal `Status:`/`Scope:` line does. A PostToolUse hook records the duration and agent id the harness reports for each dispatch, so per-task times are exact; `--summary` prefers them and accepts `--since <ISO time>` to cover one run.
+
 ## 3.6.0 — 2026-10-24
 
 ### Changed
