@@ -1,6 +1,6 @@
 {
   "name": "eng-team",
-  "version": "3.5.0",
+  "version": "3.6.0",
   "description": "Full-lifecycle engineering team: interviews and challenges, researches with citations, architects (options, ADRs, C4), builds and tests behind gates or autonomously, documents, reviews for security and EU/other compliance, and runs tool-backed security audits (static + DAST) with remediation plans as part of the lifecycle and on a cadence, sets up and updates project environments, reuses project context, records handovers and status, ships a local visual workspace with an MCP context server, and gives consultants a client-engagement flow (bilingual stakeholder questionnaires, meeting guides, workflow mapping and a build-or-buy recommendation with legal guardrails).",
   "author": {
     "name": "George Yakoub"

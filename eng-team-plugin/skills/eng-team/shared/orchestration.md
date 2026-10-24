@@ -13,7 +13,7 @@ Runs on every start when `.eng-team/state.md` exists (skip it when there is no s
 - `autonomous`: apply the repairs and log them.
 Never delete rows from state.md; change statuses and append Log lines only.
 
-After the integrity check, re-check the track conditions in `shared/track.md` and auto-upgrade when a higher tier now applies. Then run the **due check** (report only, never a repair): if the last state.md Security audits row's `Next due` date has passed, if a lockfile or IaC file changed since that row's commit, or if `profile.stage` changed since then, tell the user "Security re-audit due: <reason>" and offer `/eng-security-audit`. Also list environment drift found by `phases/setup.md` → check (missing or outdated tools, setup that no longer works) and offer `/eng-setup update`.
+After the integrity check, re-check the track conditions in `shared/track.md` and auto-upgrade when a higher tier now applies. Then run the **due check** (report only, never a repair): if the last state.md Security audits row's `Next due` date has passed, if a lockfile or IaC file changed since that row's commit, or if `profile.stage` changed since then, tell the user "Security re-audit due: <reason>" and offer `/eng-team:eng-security-audit`. Also list environment drift found by `phases/setup.md` → check (missing or outdated tools, setup that no longer works) and offer `/eng-team:eng-setup update`.
 
 ## Entry
 
@@ -36,7 +36,13 @@ When a re-opened phase passes again, overwrite `docs/engineering/handovers/NN-<p
 
 Standalone commands (audit, setup, review) write a handover only when they change project direction.
 
-**Keep going.** In a lifecycle run (`/eng`), when a gate passes and the next phase needs no human decision, start that phase in the same run. End the turn only at a stop: a gated approval, a hard stop, a question only the human can answer, or a loop at count 3. Never end a turn to ask "shall I continue?". Close each gate with one line, `Continuing into <phase>` or `Stopped: <reason>`. A single-phase command (`/eng-<phase>`) runs that phase only and closes with `Next: /eng-<next phase>` instead.
+**Keep going.** In a lifecycle run (`/eng`), when a gate passes and the next phase needs no human decision, start that phase in the same run. End the turn only at a stop: a gated approval, a hard stop, a question only the human can answer, or a loop at count 3. Never end a turn to ask "shall I continue?". Close each gate with one line, `Continuing into <phase>` or `Stopped: <reason>`. A single-phase command (`/eng-<phase>`) runs that phase only, then follows **Next step** below.
+
+**Next step.** When a single-phase command ends with its gate `passed` (or a standalone command finishes with a clear follow-up), do not just print a command. Name the next step with its namespaced command, `/eng-team:eng-<phase>`, plus one line on why it comes next, then:
+- `gated`: ask a yes/no, "Run it now?". On yes, run it in the same session under the normal Preconditions, Next up note and gates. On no, stop; the namespaced command stays printed so the human can run it later.
+- `autonomous`: say `Continuing into <phase>` and run it. This changes nothing about stops: hard stops, Critical findings, hard-gated classes (secrets, auth, migrations, dependencies) and Deviations still ask exactly as in `SKILL.md` rule 7.
+- Never offer or auto-run when the gate is `failed`, a hard stop or Critical finding is open, or the step would need `--force` or `--skip`. State the blocker instead.
+- Always write commands to the user in the namespaced form (`/eng-team:eng-architect`, never `/eng-architect`); this applies to every hint in every phase file.
 
 **Dispatch log.** The plugin's hook appends one line per eng-team dispatch and return (agent, model, UTC time, the `Task:` id, terminal status; no prompts or output) to `.eng-team/.cache/dispatch-log.jsonl`. You never write it. Read it only to fill STATUS.md → Team activity and to answer "what ran and when"; `node <plugin>/hooks/dispatch-log.js --summary <project>` prints runs and seconds per agent. The log is per project (`.eng-team/.cache/`), never global; it is absent when Node or the hook is unavailable, which is not an error.
 
