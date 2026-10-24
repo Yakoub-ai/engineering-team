@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.5.0 — 2026-10-24
 
 ### Added
 - **Auto-fix of non-critical findings** (`shared/orchestration.md`): after test and review, High and Medium findings and failing flows become fix tasks and run through the build flow without asking, then the phase re-runs to prove them. Criticals, hard-gated classes (secrets, auth, migrations, dependencies), `owner: human` items and design changes always wait for the human; more than 8 items run as a sweep; a fix failing twice is escalated, never retried silently.
