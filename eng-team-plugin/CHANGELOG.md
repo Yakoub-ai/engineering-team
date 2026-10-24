@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.6.4 — 2026-10-24
+
+### Changed
+- **Lean track builds 3 tasks at a time** (`phases/build.md`), same as the other tracks (was 2). Parallel tasks are still kept apart by the disjoint-`files` rule and the per-task scope check, so a lower cap on lean only made independent tasks wait for a slot.
+
 ## 3.6.3 — 2026-10-24
 
 ### Changed
