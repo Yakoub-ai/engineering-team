@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.6.2 — 2026-10-24
+
+### Changed
+- **Fewer re-dispatches in build**: the builder runs the repo's lint, typecheck/build and commit hooks on its changed files before returning `DONE` (never `--no-verify`, never disabling a rule), and reports each result. In per-task gate reviews only High and Medium findings send a task back; Low and Info go to the plan's `## Backlog` and are listed by the review phase. Based on a real run where 44% of builder runs were re-dispatches, 3 of them for lint or hook failures and 5 for Lows.
+
 ## 3.6.1 — 2026-10-24
 
 ### Fixed
