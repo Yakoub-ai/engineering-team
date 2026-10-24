@@ -35,7 +35,8 @@ EXPECTED_AGENTS = [
     "eng-platform-engineer", "eng-sre", "eng-qa-engineer", "eng-integration-engineer",
     "eng-ai-engineer", "eng-product-engineer", "eng-presenter",
 ]
-QUALIFIED_RE = re.compile(r"eng-team:(eng-[a-z][a-z-]*)")
+QUALIFIED_RE = re.compile(r"(?<!/)eng-team:(eng-[a-z][a-z-]*)")
+SLASH_QUALIFIED_RE = re.compile(r"/eng-team:(eng-[a-z][a-z-]*)")
 BACKTICK_AGENT_RE = re.compile(r"`(eng-[a-z][a-z-]*)`")
 REQUIRED_TOOLS = {
     "eng-builder": {"Write", "Edit", "Bash"},
@@ -287,6 +288,9 @@ def main(argv):
                     continue
                 if ref not in agent_names:
                     err("handoffs", p, f"eng-team:{ref} is not an agent in agents/")
+            for ref in SLASH_QUALIFIED_RE.findall(text):
+                if ref not in command_names:
+                    err("handoffs", p, f"/eng-team:{ref} is not a command in commands/")
             for ref in BACKTICK_AGENT_RE.findall(text):
                 if ref.startswith("eng-team") or ref in agent_names or ref in command_names:
                     continue
