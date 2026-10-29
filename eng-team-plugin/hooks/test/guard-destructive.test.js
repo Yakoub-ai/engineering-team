@@ -103,15 +103,7 @@ test('protected files: main thread writes', () => {
   assert.equal(mainWrite(path.join(__dirname, '..', 'guard.js'), 'Edit')?.decision, 'deny');
   assert.equal(mainWrite('src/a.js'), null);
   assert.equal(mainWrite('.eng-team/state.md', 'Edit'), null);
-  // init may create the policy once; changing it afterwards is denied
-  assert.equal(mainWrite('.eng-team/policy.json'), null);
-  fs.writeFileSync(path.join(proj, '.eng-team', 'policy.json'), '{}');
-  try {
-    assert.equal(mainWrite('.eng-team/policy.json')?.decision, 'deny');
-    assert.equal(mainWrite('.eng-team/policy.json', 'Edit')?.decision, 'deny');
-  } finally {
-    fs.rmSync(path.join(proj, '.eng-team', 'policy.json'));
-  }
+  // policy.json rules are covered in policy.test.js
 });
 
 test('protected files: symlink and case tricks', () => {

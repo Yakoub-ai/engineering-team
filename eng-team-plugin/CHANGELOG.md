@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.8.0 — 2026-10-29
+
+### Added
+- **Repo policy** `.eng-team/policy.json` (`hooks/policy.js`, `shared/policy.md`): `max_mode`, `human_required_paths`, `destructive_extra`, `credentials_scoped`, `approval_ttl_hours`. It can only add to the baseline; a missing or invalid file means gated with autonomous off. `/eng-init`, `/eng-onboard` and `/eng` write it the first time (two questions at most) and print CODEOWNERS, branch-protection and least-privilege steps without running them. The guard enforces `destructive_extra`.
+- **`/eng-team:eng-policy`** (user-only): typing it opens a 30-minute window in which Claude may edit the policy. Tightening goes through; loosening asks you, and is refused in `bypassPermissions`/`dontAsk` sessions. The window is recorded by a `UserPromptExpansion` hook (`hooks/intent.js`), which fires only on commands you type, in `~/.eng-team/grants/`, which the guard protects.
+- **Autonomous mode needs your confirmation**: `--autonomous` or the new alias `--auto` makes Claude ask "Activate autonomous mode for this run?" with the risks. The guard refuses any switch to `autonomy: autonomous` unless you typed the flag this session and the policy's `max_mode` allows it.
+- **SessionStart policy check** (`hooks/session.js`): a one-line policy summary for Claude, and a warning when the policy is missing or invalid.
+
 ## 3.7.0 — 2026-10-29
 
 ### Security

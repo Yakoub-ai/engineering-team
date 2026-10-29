@@ -15,6 +15,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { readPolicy, validate, loosenings, hasGrant, engHome } = require('./policy.js');
 
 const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
 const GUARDED_TOOLS = new Set(['Bash', ...WRITE_TOOLS]);
@@ -277,6 +278,9 @@ const unquoteWords = (cmd) => cmd.replace(/(["'])([\w./\\-]+)\1/g, '$2');
 function destructiveCheck(raw, projectDir, cwd) {
   const cmd = unquoteWords(raw);
   for (const r of DESTRUCTIVE) if (r.re.test(cmd)) return r.name;
+  const flat = cmd.replace(/\s+/g, ' ');
+  for (const extra of readPolicy(projectDir).policy.destructive_extra)
+    if (flat.includes(extra.trim().replace(/\s+/g, ' '))) return `repo policy: ${extra.trim()}`;
   const s = sqlViolation(cmd, cwd || projectDir);
   if (s) return s;
   const rms = invocations(cmd, 'rm').filter((toks) => toks.some((t) => /^-[a-zA-Z]*[rR]/.test(t) || t === '--recursive'));
@@ -309,6 +313,7 @@ function protectedPath(abs, root) {
     if (hit) return hit;
   }
   if (relInside(realpathNearest(PLUGIN_ROOT), abs) !== null) return 'the eng-team plugin';
+  if (relInside(realpathNearest(engHome()), abs) !== null) return '~/.eng-team (approval grants)';
   const home = os.homedir();
   for (const f of ['settings.json', 'settings.local.json'])
     if (abs === realpathNearest(path.join(home, '.claude', f))) return `~/.claude/${f}`;
@@ -322,6 +327,10 @@ function protectedBash(cmd) {
   const config =
     /\.claude\/settings|\.eng-team\/(?:policy|approvals)|(?:\.claude|\.eng-team)(?=[/\s"']|$)[^\n]*\b(?:settings(?:\.local)?\.json|policy\.json|approvals)\b/i;
   if (config.test(cmd) && (write.test(cmd) || run.test(cmd))) return 'changing eng-team policy, settings or approvals';
+  if (/(?:~|\$\{?HOME\}?|\/home\/[^/\s]+|\/Users\/[^/\s]+|\/root)\/\.eng-team\b|\.eng-team\/grants/.test(cmd) && (write.test(cmd) || run.test(cmd)))
+    return 'changing eng-team approval grants';
+  if (/\.eng-team\b[^\n]*\b(?:state|profile)\.md|\b(?:state|profile)\.md\b[^\n]*\.eng-team/.test(cmd) && /\bautonomous\b/.test(cmd) && (write.test(cmd) || run.test(cmd)))
+    return 'switching to autonomous mode from the shell';
   // Running the plugin's own scripts (node …/dispatch-log.js) is fine; changing them is not.
   if (/\/plugins\/\S*eng-team|eng-team-plugin\/hooks/.test(cmd) && write.test(cmd)) return 'changing the eng-team plugin';
   return null;
@@ -509,6 +518,84 @@ function mainThreadAsk(cmd) {
   return new RegExp(`${B}gh\\s+pr\\s+(?:create|merge)(?![\\w-])`).test(cmd);
 }
 
+// ---------------------------------------------------------------- policy and autonomy
+
+const UNATTENDED = new Set(['bypassPermissions', 'dontAsk']);
+const AUTONOMOUS_LINE = /^[\s|>*-]*`?autonomy`?\s*[:|]\s*`?autonomous\b/im;
+
+/** File content after a Write/Edit/MultiEdit, or null when it cannot be computed. */
+function contentAfter(tool, ti, abs) {
+  if (tool === 'Write') return typeof ti.content === 'string' ? ti.content : null;
+  let cur = '';
+  try {
+    cur = fs.readFileSync(abs, 'utf8');
+  } catch {
+    /* new file */
+  }
+  const edits = tool === 'MultiEdit' ? ti.edits : tool === 'Edit' ? [ti] : null;
+  if (!Array.isArray(edits)) return null;
+  for (const e of edits) {
+    if (!e || typeof e.old_string !== 'string' || typeof e.new_string !== 'string') return null;
+    cur = e.replace_all ? cur.split(e.old_string).join(e.new_string) : cur.replace(e.old_string, () => e.new_string);
+  }
+  return cur;
+}
+
+const policyDeny = (why) => ({
+  decision: 'deny',
+  reason: `eng-team guard: policy — ${why}. Do not retry or work around this; tell the user.`,
+});
+
+/**
+ * Main-thread change to .eng-team/policy.json. Creating it is allowed (init);
+ * changing it needs the human to have typed /eng-team:eng-policy this session.
+ * The result must be valid, and anything that loosens it asks the human
+ * (denied when nobody is there to answer).
+ */
+function policyWrite(input, abs, root) {
+  const next = contentAfter(input.tool_name, input.tool_input || {}, abs);
+  if (next === null) return policyDeny('the change to .eng-team/policy.json cannot be checked');
+  let parsed;
+  try {
+    parsed = JSON.parse(next);
+  } catch (e) {
+    return policyDeny(`.eng-team/policy.json would not be valid JSON (${e.message})`);
+  }
+  const errs = validate(parsed);
+  if (errs.length) return policyDeny(`.eng-team/policy.json would be invalid: ${errs.join('; ')}`);
+  const exists = fs.existsSync(abs);
+  if (exists && !hasGrant(input.session_id, 'policy'))
+    return policyDeny('changing .eng-team/policy.json needs the user to type /eng-team:eng-policy first (it opens a 30-minute window)');
+  const lost = loosenings(readPolicy(root).policy, parsed);
+  if (!lost.length) return null;
+  if (UNATTENDED.has(input.permission_mode))
+    return policyDeny(`this loosens the policy (${lost.join('; ')}) and needs a human, but the session runs in ${input.permission_mode} mode`);
+  return { decision: 'ask', reason: `eng-team policy: this loosens the policy: ${lost.join('; ')}. Approve only if you asked for it.` };
+}
+
+/**
+ * Main-thread change to state.md or profile.md that switches autonomy to
+ * autonomous: needs the human to have typed --autonomous (or --auto) on an
+ * eng-team command this session, and a valid policy whose max_mode allows it.
+ */
+function autonomyWrite(input, abs, root) {
+  const next = contentAfter(input.tool_name, input.tool_input || {}, abs);
+  let cur = '';
+  try {
+    cur = fs.readFileSync(abs, 'utf8');
+  } catch {
+    /* new file */
+  }
+  // A malformed Edit (no strings) fails in the tool itself.
+  if (next === null || !AUTONOMOUS_LINE.test(next) || AUTONOMOUS_LINE.test(cur)) return null;
+  const { policy, state } = readPolicy(root);
+  if (state !== 'ok') return policyDeny(`autonomous mode needs a valid .eng-team/policy.json (it is ${state}); the user can run /eng-team:eng-policy`);
+  if (policy.max_mode !== 'autonomous') return policyDeny('the repo policy caps this project at gated (max_mode); only the user can raise it with /eng-team:eng-policy');
+  if (!hasGrant(input.session_id, 'autonomous'))
+    return policyDeny('autonomous mode starts only when the user types --autonomous (or --auto) on an eng-team command and confirms');
+  return null;
+}
+
 // ---------------------------------------------------------------- decision
 
 /**
@@ -534,10 +621,11 @@ function decide(input, { projectDir } = {}) {
     if (WRITE_TOOLS.has(tool)) {
       if (typeof target !== 'string' || !target) return null;
       const abs = realpathNearest(path.resolve(input.cwd || root, target));
+      const rel = (relInside(realpathNearest(root), abs) || '').toLowerCase();
+      if (rel === '.eng-team/policy.json') return policyWrite(input, abs, root);
+      if (rel === '.eng-team/state.md' || rel === '.eng-team/profile.md') return autonomyWrite(input, abs, root);
       const p = protectedPath(abs, root);
-      // init may create the policy file once; changing it afterwards is the human's job.
-      if (!p || (p === '.eng-team/policy.json' && tool === 'Write' && !fs.existsSync(abs))) return null;
-      return denyMain(`changing ${p}`);
+      return p ? denyMain(`changing ${p}`) : null;
     }
     if (typeof ti.command !== 'string') return null;
     const x = destructiveCheck(ti.command, path.resolve(root), input.cwd);
