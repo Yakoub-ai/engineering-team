@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.7.0 — 2026-10-29
+
+### Security
+- **Destructive actions need a human, in every mode** (`hooks/guard.js`). A fixed baseline is denied for eng-team agents and, inside eng-team projects, for your own session too: force pushes and remote ref deletion, `git reset --hard`, `git clean -f`, branch and tag deletion, discarding uncommitted changes, history rewrites, `terraform`/`tofu` apply, destroy and state changes, `pulumi up`/`destroy`, `databricks bundle destroy` and deploys to a prod target, cloud deletes (az, aws, gcloud, gsutil, databricks, kubectl, helm, docker volumes), permission and secret changes, disk wipes, `find -delete`, piping into a shell, and SQL `DROP`/`TRUNCATE`/`GRANT`/`REVOKE` or `DELETE`/`UPDATE` without `WHERE` run through a database client (including small `-f` SQL files). Recursive `rm` is allowed only for build and cache folders (`node_modules`, `dist`, `.venv`, …) and paths that do not exist. The deny tells Claude to show you the exact command so you run it yourself.
+- **Guard-owned files are protected**: `.eng-team/policy.json` (create once, then human-only), `.eng-team/approvals/`, `.claude/settings*.json`, `~/.claude/settings*.json` and the plugin itself, through Write/Edit and Bash.
+- **MCP tools that send, post, publish, merge, share or delete** are denied for eng-team agents and need your confirmation on the main thread in eng-team projects.
+- **Fails closed**: a guard error, malformed hook input or missing Node now blocks the call inside eng-team projects (was: silently allowed), and stays a no-op elsewhere.
+- Known gaps are tested and listed: commands hidden behind variables, interpreters (`python -c`) or build scripts (`make`, `npm run`) are not detected. Use least-privilege credentials for anything that matters.
 ## 3.6.7 — 2026-10-29
 
 ### Changed
