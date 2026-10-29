@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "max_mode": "autonomous",
+  "human_required_paths": [],
+  "destructive_extra": [],
+  "credentials_scoped": false,
+  "approval_ttl_hours": 24
+}

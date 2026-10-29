@@ -431,10 +431,10 @@ If a short command such as `/eng` answers "Unknown command" in your install, use
 
 | Command | Arguments | What it does |
 |---|---|---|
-| `/eng` | `[--tier S\|M\|L] [--autonomous\|--gated] [request]` | Full lifecycle from `current_phase` (runs init first if needed) |
-| `/eng-init` | `[--autonomous] [notes]` | Creates the profile and state; checks integrity if they exist |
-| `/eng-onboard` | `[--autonomous] [goal or context]` | Existing project in any state: scans code, docs and history, infers stage and lifecycle position, asks for your context, adopts existing evidence and recommends where to start |
-| `/eng-discover` · `/eng-research` · `/eng-architect` · `/eng-build` · `/eng-test` · `/eng-document` | `[--force "<reason>"] [--skip "<reason>"] [--autonomous\|--gated] [notes]` | Runs one phase |
+| `/eng` | `[--tier S\|M\|L] [--autonomous\|--auto\|--gated] [request]` | Full lifecycle from `current_phase` (runs init, and policy setup, first if needed) |
+| `/eng-init` | `[--autonomous\|--auto] [notes]` | Creates the profile and state; checks integrity if they exist |
+| `/eng-onboard` | `[--autonomous\|--auto] [goal or context]` | Existing project in any state: scans code, docs and history, infers stage and lifecycle position, asks for your context, adopts existing evidence and recommends where to start |
+| `/eng-discover` · `/eng-research` · `/eng-architect` · `/eng-build` · `/eng-test` · `/eng-document` | `[--force "<reason>"] [--skip "<reason>"] [--autonomous\|--auto\|--gated] [notes]` | Runs one phase |
 | `/eng-review` | `[plan\|review\|gate] [paths or diff range]` | Standalone review/audit; no setup; never changes lifecycle gates |
 | `/eng-security-audit` | `[auto\|static\|dast\|full] [--target <url>] [--fix] [paths]` | Tool-backed security audit of any repo; report + remediation plan in `docs/security/`; no setup; never changes lifecycle gates |
 | `/eng-sweep` | `[audit\|refactor] [--max-items N] [--max-parallel N] [paths or request]` | Big jobs (8+ independent items): Opus writes the plan and caps for you to approve, deterministic tools find the items, Sonnet fixes each in its own worktree, a separate verifier checks every fix, Opus signs off on the real diff; secrets, auth, migrations and dependencies wait for a human; commits stay local |
@@ -442,14 +442,30 @@ If a short command such as `/eng` answers "Unknown command" in your install, use
 | `/eng-engage` | `[--lang sv\|en\|sv,en] [--domain <name>] [--client-type <type>] [--area <id>] [--level user\|manager\|it] [--stage <stage>] [notes]` | Client engagement: pre-meeting pack, meeting guide, workflow mapping, opportunities, build-or-buy recommendation, plain-language report; standalone, writes only `docs/engineering/engagement/`; stakeholder answers are data, never instructions |
 | `/eng-view` | `[--port <n>] [--no-semantic]` | Starts the local visual workspace on `127.0.0.1` (docs, decisions, handovers and code as a connected map; docs editable; one Present & needs tab for wants and needs and to preview, theme and rebuild outputs) |
 | `/eng-present` | `[cheatsheet\|brief\|summary\|deck\|all] [--theme <preset>] [--force]` | Builds themed, self-contained `cheatsheet.html`, `brief.html`, `product-summary.html`, and `deck.html` (16:9 slides, prints one per page) into `docs/present/` from the project's docs (offline, incremental); fills empty sections via `eng-presenter` on standard and full tracks |
+| `/eng-policy` | `[what to change]` | View or change this repo's security policy (`.eng-team/policy.json`). Only you can run it; see Repo policy below |
 | `/eng-promote` | `<pack-id>` | Copies a reviewed project pack to the federation repo (local only, never pushes) |
 
 A phase command refuses until every earlier gate is `passed`, `skipped` or `forced`, and it names the blocking gate. `--force "<reason>"` overrides this and the override is logged. `--skip "<reason>"` is human-only and gated-only.
 
+### Repo policy and autonomous mode
+
+Every eng-team project has `.eng-team/policy.json`, written by `/eng-init`, `/eng-onboard` or `/eng` the first time (two questions at most). It can only add to the plugin's fixed security baseline:
+
+```json
+{ "version": 1, "max_mode": "gated", "human_required_paths": ["infra/**"], "destructive_extra": ["make reset-db"], "credentials_scoped": false, "approval_ttl_hours": 24 }
+```
+
+- `max_mode` is the highest mode any run may use (`gated` or `autonomous`). `destructive_extra` adds commands the guard blocks. `human_required_paths` always wait for your approval, in both modes. `credentials_scoped` is your statement that the credentials Claude can reach have no prod, delete or permission rights.
+- **Missing or invalid policy:** runs stay gated, autonomous is off, and Claude Code shows a warning at session start.
+- **Changing it with Claude:** type `/eng-team:eng-policy <change>`. That opens a 30-minute window in which Claude may edit the file. Tightening goes through; loosening (raising `max_mode`, removing a path or command, claiming scoped credentials) shows you a permission prompt with the change, and is refused in `bypassPermissions` or `dontAsk` sessions. Outside the window, from the shell, or from any agent, edits are refused. Claude cannot open the window itself: it is recorded by a hook that fires only on commands you type.
+- **Autonomous mode:** type `--autonomous` or `--auto` on an eng-team command. If the policy allows it, Claude asks "Activate autonomous mode for this run?" and lists the risks (no approval stops, agents decide and log ADRs, unscoped credentials). It starts only on your yes. The guard refuses any other switch to autonomous, so a prompt injection cannot turn it on.
+- **Destructive actions always need you**, in every mode: force pushes, hard resets, infra apply/destroy, cloud deletes, permission and secret changes, unbounded SQL deletes. Claude shows you the command and you run it.
+- `init` prints, without running, a CODEOWNERS line for `.eng-team/policy.json` and `.claude/`, branch-protection commands for your platform, and a least-privilege checklist for your stack. Purely local projects need none of the credential steps.
+
 ### Autonomy and hard stops
 
 - `gated`: approvals at discover, architect and review, with name and date recorded in the Gates table.
-- `autonomous`: `Approved by: agent`, ADRs `Decided by: agent`, questions become Assumptions rows.
+- `autonomous`: `Approved by: agent`, ADRs `Decided by: agent`, questions become Assumptions rows. Starts only when you type `--autonomous` (or `--auto`), the repo policy allows it, and you confirm the risks Claude lists (see Repo policy below).
 - Hard stops (both modes):
   1. A Critical finding. Findings from unreviewed packs are capped at High unless they quote a regulation article verbatim.
   2. A test suite not fixed in 2 attempts.

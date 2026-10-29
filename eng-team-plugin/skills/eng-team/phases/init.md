@@ -8,7 +8,7 @@ Scaffold `.eng-team/` in the target project: a filled profile (the scope contrac
 
 - The repository contents: manifests (`package.json`, `pyproject.toml`, `go.mod`, …), IaC (`*.bicep`, `*.tf`, `cdk.json`), CI files, README, env samples (`.env.example`).
 - `templates/profile.md` (field list, required/optional markers) and `templates/state.md`.
-- The run's autonomy: what the user asked for in this command, else ask it as the `autonomy` field. Never set `autonomous` on your own: if the human is unavailable or says they cannot answer now, stay in the template's autonomy (default `gated`), ask the first question and stop. Only `--autonomous` or an explicit human instruction sets it.
+- The run's autonomy: what the user asked for in this command, else ask it as the `autonomy` field. Never set `autonomous` on your own: if the human is unavailable or says they cannot answer now, stay in the template's autonomy (default `gated`), ask the first question and stop. Only a user-typed `--autonomous` or `--auto` can set it, after the policy is written and the human confirms (`shared/policy.md` → Activating autonomous mode).
 
 ## Steps
 
@@ -16,6 +16,7 @@ Scaffold `.eng-team/` in the target project: a filled profile (the scope contrac
 2. Infer every profile field you can from the repo (e.g. `regulated.cra_role` from commercial distribution of software or devices in the EU; otherwise leave `unknown`). After each inferred value add the trailing comment `# inferred: <file>`. Never guess a field the repo does not show.
 3. For each `# required` field you could not infer, ask the user, one field per message, showing the template default as `(Recommended)` and one line on why it matters. Mark answered fields `# stated`. Accept "don't know" for `regulated.nis2_entity` as `unknown`.
 4. `owner` is required. If the user cannot or does not answer it: set `owner: unassigned`, add an Open question `Q-n | Who owns this? | Accepted risks and approvals need a named human | init`, and add an Assumptions row `No accountable owner yet | low | an owner is named | agent`.
+4a. Write `.eng-team/policy.json` by following Setup in `shared/policy.md` (skip it when a valid one exists). Its `max_mode` caps `autonomy`: if the user typed `--autonomous` or `--auto`, run Activating autonomous mode from `shared/policy.md` now, before writing the profile, and write `autonomy: gated` unless they confirmed.
 5. Write `.eng-team/profile.md` from `templates/profile.md` and `.eng-team/state.md` from `templates/state.md`. If `profile.md` already exists but `state.md` does not, keep `profile.md` and create `state.md` only. In state.md set `autonomy` to the profile value and `updated` to today (YYYY-MM-DD), and keep the Log line `- YYYY-MM-DD /eng-init — state created` with today's date.
 6. Add the line `.eng-team/.cache/` to the repository `.gitignore` (create the file if missing; do not add it twice).
 7. Resolve `profile.track` per `shared/track.md` (record the reason). Show the profile to the user as one compact block. Say it is the scope contract and how to change it (edit `.eng-team/profile.md` or tell you).
