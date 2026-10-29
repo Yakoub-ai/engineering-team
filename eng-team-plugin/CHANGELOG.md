@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.6.7 — 2026-10-29
+
+### Changed
+- **Parallel cap is a profile setting**: `build.max_parallel` (default 3, up to 8) in `.eng-team/profile.md` instead of a fixed 3.
+- **Gate scope is a profile setting**: `build.gate: auto | per-task | per-wave`. `per-wave` sends one security spot-check per wave, with a per-task gate still for hard-gated classes. `auto` is per-wave on lean and standard and per-task on full. The gate is never skipped; nothing merges or unblocks dependents before its gate has run.
+- **Builders default to Sonnet**: the architect marks a task `model: opus — <reason>` only when Sonnet is unlikely to manage it, and a task that fails twice moves to Opus. Allowing Opus raises the ceiling, not the default.
+- **One resume per fix batch**: the lead resumes an agent only with new work, sending all findings and check output for a task together, never to acknowledge or ask for status. Builders work through to one terminal return.
+- **Fix tasks run in parallel**: fix tasks from one loop-back are planned together, and a fix depends on another only when files overlap or it needs the other's change.
+
+### Fixed
+- **Every dispatch carries a task id**: the dispatch hook refuses an eng-team dispatch without a `Task: <id>` line (phase-level work uses a name such as `R11-review`), so no run step is untraceable. Only applies in eng-team projects.
+
 ## 3.6.6 — 2026-10-24
 
 ### Changed

@@ -32,7 +32,7 @@ Where this list conflicts with a phase file's steps or exit criteria, the lean r
 | discover | Skip brainstorming unless the request has no product. `product.md` ≤ 20 lines (purpose, 1-3 use cases, one numeric success metric, non-goals). Brief ≤ 20 lines. Interview only for contradictions or missing owner. |
 | research | Curated packs only; no researcher dispatch for unmatched stacks — list them as `Info` gaps instead. `best-practices.md` ≤ 30 lines, one section per pack in use. |
 | architect | One recommended option with one line per rejected alternative (satisfies "options considered"). At most one ADR, for the single most significant decision, with one devil's-advocate challenge. Plan ≤ 5 tasks; environment and security-tooling tasks may be one combined task. Security testing strategy ≤ 3 lines. Plan-mode review: `security-engineer` only, plus `product-engineer` for the experience review only when the product is mostly a UI, CLI or agent interface. |
-| build | One combined gate-mode spot-check by `security-engineer` per task. |
+| build | Gate-mode spot-check by `security-engineer` only, scoped by `profile.build.gate` (`auto` = one per wave). |
 | test | Static audit layer only (`phases/security-audit.md` step 4, `reviewed-manually` where no tool exists); no DAST. Audit report ≤ 40 lines. |
 | document | `docs/README.md`, `docs/architecture.md` (≤ 40 lines) and `docs/testing.md` only; runbook only if deployed beyond a local machine. |
 | review | `security-engineer` and `qa-engineer` only, `review` mode; report ≤ 40 lines with the Not covered section. |
@@ -52,7 +52,8 @@ Pass the Agent tool's `model` parameter on every dispatch from this table; it ov
 |---|---|---|---|
 | architect (design, ADRs, plan) | sonnet | opus | opus |
 | security-engineer, compliance-officer (review, audit) | sonnet | sonnet | opus for the audit and review phases, sonnet in per-task gate spot-checks |
-| builder, tester, other reviewers | sonnet | sonnet | sonnet |
+| builder | sonnet; opus for plan tasks marked `model: opus` | same | same |
+| tester, other reviewers | sonnet | sonnet | sonnet |
 | researcher | sonnet | sonnet | sonnet |
 | tech-writer | haiku | sonnet | sonnet |
 | presenter (gap prose for cheatsheet, brief, summary, deck) | haiku | sonnet | sonnet |
@@ -61,5 +62,7 @@ Pass the Agent tool's `model` parameter on every dispatch from this table; it ov
 | sweep: triage, patch (own worktree) and verify (reviewer, builder) | sonnet | sonnet | sonnet |
 
 Sweeps never use Haiku: no eval has shown it good enough for triage. Security-sensitive items (auth, crypto, input handling, secrets) stay on Sonnet or above even if Haiku triage is added later.
+
+**Builder model.** Sonnet builds every task it can. The architect marks a plan task `model: opus — <reason>` only when the task needs it: wiring that spans many modules, a novel algorithm (physics, pathfinding, procedural generation, concurrency), or a design with no example in the repo. A task that fails twice on Sonnet moves to Opus with the Diagnosis handover. When the human allows Opus for builders, that raises the ceiling, not the default: unmarked tasks still run on Sonnet unless the human says every builder should use Opus.
 
 The human may override a model for a run; a request below the floor is refused and logged. Log each non-default choice once in state.md (`- YYYY-MM-DD model: <role> <model> (<tier>)`).
