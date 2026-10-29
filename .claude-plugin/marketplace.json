@@ -3,6 +3,6 @@
   "owner": { "name": "George Yakoub" },
   "description": "Marketplace for the eng-team plugin: a full-lifecycle engineering team with cited research, gated or autonomous builds, security and compliance review, and tool-backed security audits.",
   "plugins": [
-    { "name": "eng-team", "source": "./eng-team-plugin", "description": "Full-lifecycle engineering team plugin", "version": "3.6.6" }
+    { "name": "eng-team", "source": "./eng-team-plugin", "description": "Full-lifecycle engineering team plugin", "version": "3.7.0" }
   ]
 }

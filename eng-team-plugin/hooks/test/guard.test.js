@@ -109,7 +109,7 @@ test('bash: allowed operations', () => {
 
 test('main thread: ask only inside eng-team projects', () => {
   const main = (command, dir = proj) => decide({ cwd: dir, tool_name: 'Bash', tool_input: { command } }, { projectDir: dir });
-  for (const c of ['git push', 'git remote add o x', 'git remote set-url o x', 'gh pr create -t x', 'gh pr merge 3', 'terraform apply', 'kubectl apply -f x', 'npm publish', 'vercel --prod', 'firebase deploy']) {
+  for (const c of ['git push', 'git remote add o x', 'git remote set-url o x', 'gh pr create -t x', 'gh pr merge 3', 'kubectl apply -f x', 'npm publish', 'vercel --prod', 'firebase deploy']) {
     const r = main(c);
     assert.equal(r?.decision, 'ask', c);
     assert.match(r.reason, /^eng-team guard: rule 7 — pushes, remote changes and deploys are human-only/);
@@ -131,17 +131,19 @@ test('guard.sh: deny output is valid hook JSON', () => {
   assert.match(out.permissionDecisionReason, /^eng-team guard: /);
 });
 
-test('guard.sh: main thread ask, silent allow, malformed input', () => {
+test('guard.sh: main thread ask, silent allow, malformed input fails closed in eng-team projects', () => {
   const env = { ...process.env, CLAUDE_PROJECT_DIR: proj };
   const ask = run({ cwd: proj, tool_name: 'Bash', tool_input: { command: 'git push' } }, env);
   assert.equal(JSON.parse(ask.stdout).hookSpecificOutput.permissionDecision, 'ask');
   const none = run({ cwd: proj, tool_name: 'Bash', tool_input: { command: 'ls' } }, env);
   assert.deepEqual([none.status, none.stdout, none.stderr], [0, '', '']);
   const bad = run('not json {', env);
-  assert.deepEqual([bad.status, bad.stdout], [0, '']);
+  assert.equal(JSON.parse(bad.stdout).hookSpecificOutput.permissionDecision, 'deny');
+  const elsewhere = run('not json {', { ...process.env, CLAUDE_PROJECT_DIR: outside });
+  assert.deepEqual([elsewhere.status, elsewhere.stdout], [0, '']);
 });
 
-test('guard.sh: node missing fails closed for eng-team subagents only', () => {
+test('guard.sh: node missing fails closed for eng-team subagents and projects', () => {
   // A PATH containing only symlinks to the tools guard.sh needs (no node).
   const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'engguard-bin-'));
   try {
@@ -149,17 +151,19 @@ test('guard.sh: node missing fails closed for eng-team subagents only', () => {
       const found = spawnSync('sh', ['-c', `command -v ${t}`], { encoding: 'utf8' }).stdout.trim();
       if (found.startsWith('/')) fs.symlinkSync(found, path.join(bin, t));
     }
-    const env = { PATH: bin };
+    const env = { PATH: bin, CLAUDE_PROJECT_DIR: outside };
     const sh = spawnSync('sh', ['-c', 'command -v sh'], { encoding: 'utf8' }).stdout.trim();
     const closed = run(sub('builder', 'Bash', { command: 'ls' }), env, sh);
     assert.equal(closed.status, 2);
-    assert.match(closed.stderr, /eng-team guard: Node 18\+ is required to run eng-team agents safely/);
+    assert.match(closed.stderr, /eng-team guard: Node 18\+ is required to run eng-team safely/);
     const spaced = run('{"agent_type" : "eng-team:eng-sre","tool_name":"Bash"}', env, sh);
     assert.equal(spaced.status, 2);
     const open = run({ tool_name: 'Bash', tool_input: { command: 'ls' } }, env, sh);
     assert.equal(open.status, 0);
     const other = run({ agent_type: 'other:x', tool_name: 'Bash' }, env, sh);
     assert.equal(other.status, 0);
+    const inProject = run({ tool_name: 'Bash', tool_input: { command: 'ls' } }, { ...env, CLAUDE_PROJECT_DIR: proj }, sh);
+    assert.equal(inProject.status, 2);
   } finally {
     fs.rmSync(bin, { recursive: true, force: true });
   }

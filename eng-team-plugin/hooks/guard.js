@@ -23,6 +23,21 @@ const WRITERS = new Set(['eng-builder', 'eng-tester', 'eng-tech-writer']);
 const DOC_FILES = new Set(['docs/readme.md', 'docs/architecture.md', 'docs/testing.md', 'docs/runbook.md']);
 const MAIN_ASK =
   'eng-team guard: rule 7 — pushes, remote changes and deploys are human-only in eng-team projects; confirm you want this.';
+const MCP_ASK =
+  'eng-team guard: rule 7 — this tool sends, publishes, changes access or deletes outside the project; confirm you want this.';
+
+/**
+ * Main-thread deny for destructive actions: the human runs these themselves.
+ * @param {string} what rule name
+ */
+function denyMain(what) {
+  return {
+    decision: 'deny',
+    reason:
+      `eng-team guard: destructive — ${what} needs a human. Do not retry or work around this ` +
+      '(no scripts, aliases, other tools or rewording). Show the user the exact command and why it is needed, and let them run it themselves.',
+  };
+}
 
 /**
  * Build a deny result in the hard-stop hand-off format.
@@ -101,7 +116,7 @@ function checkWritePath(role, filePath, projectDir, cwd) {
 // ---------------------------------------------------------------- bash scanning
 
 // Start of a command word: line start, whitespace, separators, quotes, $( or path slash.
-const B = '(?:^|[\\s;&|(){}`\'"=/])';
+const B = '(?:^|[\\s;&|(){}`\'"=/\\\\])';
 const SEG = '[^;&|\\n]*';
 const GIT = `${B}git(?:\\s+(?:-[Cc]\\s*\\S+|--[\\w-]+(?:=\\S+)?|-[\\w]+))*`;
 const NPM = `${B}(?:npm|pnpm|yarn|bun)`;
@@ -134,6 +149,183 @@ const RULES = [
   { name: 'global package install', re: new RegExp(`${B}yarn\\s+global\\s+add`) },
   { name: 'user-level pip install', re: new RegExp(`${B}(?:pip3?|python3?\\s+-m\\s+pip)\\s+install\\b${SEG}--user`) },
 ];
+
+const CLOUD = '(?:az|aws|gcloud|gsutil|databricks|kubectl|oc|doctl|heroku|flyctl|fly|vercel|firebase|netlify|wp)';
+const MUTATE = '(?:create|set|update|delete|add|remove|purge|import|restore|recover|put|patch|grant|revoke|reset)';
+
+/**
+ * Destructive or access-changing operations. Denied for subagents and, inside
+ * eng-team projects, for the main thread too: a human runs them.
+ * @type {{name: string, re: RegExp}[]}
+ */
+const DESTRUCTIVE = [
+  // git: lost history, lost work, deleted refs
+  { name: 'force push or remote ref deletion', re: new RegExp(`${GIT}\\s+push\\b${SEG}\\s(?:-(?!-)[a-zA-Z]*[fd][a-zA-Z]*|--force(?:-with-lease)?(?:=\\S*)?|--force-if-includes|--mirror|--delete|--prune|\\+[\\w./-]+|:[\\w./-]+)(?![\\w-])`) },
+  { name: 'git reset --hard', re: new RegExp(`${GIT}\\s+reset\\b${SEG}\\s--hard(?![\\w-])`) },
+  { name: 'git clean -f', re: new RegExp(`${GIT}\\s+clean\\b${SEG}\\s(?:-(?!-)[a-zA-Z]*f[a-zA-Z]*|--force)(?![\\w-])`) },
+  { name: 'branch deletion', re: new RegExp(`${GIT}\\s+branch\\b${SEG}\\s(?:-(?!-)[a-zA-Z]*[dD]|--delete)(?![\\w-])`) },
+  { name: 'tag deletion', re: new RegExp(`${GIT}\\s+tag\\b${SEG}\\s(?:-(?!-)[a-zA-Z]*d|--delete)(?![\\w-])`) },
+  { name: 'discarding uncommitted changes', re: new RegExp(`${GIT}\\s+checkout\\b${SEG}\\s(?:--(?=\\s)|-f|--force|\\.(?=\\s|$))`) },
+  { name: 'discarding uncommitted changes', re: new RegExp(`${GIT}\\s+restore\\b(?!${SEG}\\s(?:--staged|-S)(?![\\w-]))`) },
+  { name: 'discarding uncommitted changes', re: new RegExp(`${GIT}\\s+restore\\b${SEG}\\s(?:--worktree|-W)(?![\\w-])`) },
+  { name: 'git stash drop/clear', re: new RegExp(`${GIT}\\s+stash\\s+(?:drop|clear)(?![\\w-])`) },
+  { name: 'history rewrite', re: new RegExp(`${GIT}\\s+(?:filter-branch|filter-repo|replace)(?![\\w-])|${B}(?:git-filter-repo|bfg)(?![\\w-])`) },
+  { name: 'history rewrite', re: new RegExp(`${GIT}\\s+(?:reflog\\s+(?:expire|delete)|update-ref\\b${SEG}\\s-d|gc\\b${SEG}--prune)(?![\\w-])`) },
+  // infrastructure and cloud
+  { name: 'terraform/tofu apply, destroy or state change', re: new RegExp(`${B}(?:terraform|tofu)\\b${SEG}?\\s(?:apply|destroy|state\\s+(?:rm|mv|push|replace-provider)|force-unlock|workspace\\s+delete)(?![\\w-])`) },
+  { name: 'pulumi up/destroy', re: new RegExp(`${B}pulumi\\b${SEG}?\\s(?:up|destroy|stack\\s+rm)(?![\\w-])`) },
+  { name: 'databricks bundle destroy', re: new RegExp(`${B}databricks\\s+bundle\\s+destroy(?![\\w-])`) },
+  { name: 'databricks deploy to prod', re: new RegExp(`${B}databricks\\s+bundle\\s+deploy\\b${SEG}(?:-t|--target)(?:=|\\s+)["']?(?:prod|production|prd)(?![\\w-])`) },
+  { name: 'cloud delete', re: new RegExp(`${B}${CLOUD}\\b${SEG}?\\s(?:(?:delete|remove|terminate|destroy|purge)(?:-[\\w-]+)?|rm|rb|uninstall|undeploy|prune)(?![\\w-])`) },
+  { name: 'cloud delete', re: new RegExp(`${B}(?:aws\\s+s3\\s+sync|rsync)\\b${SEG}\\s--delete(?:-\\w+)?(?![\\w-])`) },
+  { name: 'helm uninstall', re: new RegExp(`${B}helm\\b${SEG}?\\s(?:uninstall|delete)(?![\\w-])`) },
+  { name: 'docker volume or prune', re: new RegExp(`${B}docker\\b${SEG}?\\s(?:volume\\s+(?:rm|prune)|(?:system|image|container|network|builder)\\s+prune)(?![\\w-])`) },
+  { name: 'docker compose down with volumes', re: new RegExp(`${B}docker(?:-compose|\\s+compose)\\b${SEG}\\sdown\\b${SEG}\\s(?:-v|--volumes)(?![\\w-])`) },
+  // access and secrets
+  { name: 'permission or secret change', re: new RegExp(`${B}az\\s+(?:role\\s+(?:assignment|definition)|ad\\s+\\S+|keyvault\\s+(?:secret|key|certificate))\\s+(?:\\S+\\s+)?${MUTATE}(?:-[\\w-]+)?(?![\\w-])`) },
+  { name: 'permission or secret change', re: new RegExp(`${B}az\\s+keyvault\\s+(?:set-policy|delete-policy)(?![\\w-])`) },
+  { name: 'permission or secret change', re: new RegExp(`${B}az\\s+(?:devops\\s+security|repos\\s+policy)\\b${SEG}\\s${MUTATE}(?![\\w-])`) },
+  { name: 'permission or secret change', re: new RegExp(`${B}aws\\s+(?:iam|secretsmanager|ssm|kms|sts)\\s+(?:create|delete|put|attach|detach|update|add|remove|tag|untag|upload|set|restore|schedule|disable|cancel|rotate|assume)-`) },
+  { name: 'permission or secret change', re: new RegExp(`${B}gcloud\\b${SEG}\\s(?:add-iam-policy-binding|remove-iam-policy-binding|set-iam-policy)(?![\\w-])`) },
+  { name: 'permission or secret change', re: new RegExp(`${B}gcloud\\s+(?:secrets|iam|kms)\\b${SEG}\\s(?:create|delete|update|add|destroy|disable|undelete)(?![\\w-])`) },
+  { name: 'permission or secret change', re: new RegExp(`${B}databricks\\s+(?:secrets|permissions|grants|account|users|groups|service-principals|token-management|tokens)\\s+(?:put|put-\\S+|delete|delete-\\S+|set|update|create|patch|remove)(?![\\w-])`) },
+  { name: 'permission or secret change', re: new RegExp(`${B}kubectl\\b${SEG}?\\screate\\s+(?:secret|role|clusterrole|rolebinding|clusterrolebinding|serviceaccount)(?![\\w-])`) },
+  { name: 'permission or secret change', re: new RegExp(`${B}gh\\s+(?:secret|variable|ssh-key|gpg-key)\\s+(?:set|delete|remove|add)(?![\\w-])`) },
+  { name: 'repository or release deletion', re: new RegExp(`${B}gh\\s+(?:repo|release)\\s+delete(?![\\w-])`) },
+  // disks and bulk deletes
+  { name: 'disk wipe', re: new RegExp(`${B}(?:mkfs(?:\\.\\w+)?|wipefs|shred|fdisk|parted|diskutil\\s+erase\\w*)(?![\\w-])`) },
+  { name: 'disk wipe', re: new RegExp(`${B}dd\\b${SEG}\\sof=`) },
+  { name: 'bulk delete with find', re: new RegExp(`${B}find\\b${SEG}\\s(?:-delete|-exec\\s+rm)(?![\\w-])`) },
+  { name: 'piping into a shell (can hide any command)', re: /\|\s*(?:sudo\s+)?(?:\S*\/)?(?:sh|bash|zsh|dash|ksh)(?=\s|$)/ },
+];
+
+const SQL_CLIENT = new RegExp(
+  `${B}(?:psql|mysql|mariadb|sqlite3|sqlcmd|snowsql|duckdb|clickhouse(?:-client)?|cockroach\\s+sql|bq\\s+query|databricks\\s+(?:sql|api)|spark-sql|beeline|trino|presto|mongosh|mongo|redis-cli)(?![\\w-])`
+);
+const SQL_RULES = [
+  { name: 'SQL DROP', re: /\bDROP\s+(?:TABLE|DATABASE|SCHEMA|VIEW|CATALOG|INDEX|USER|ROLE|FUNCTION|PROCEDURE|SEQUENCE|VOLUME|MATERIALIZED\s+VIEW|EXTERNAL\s+LOCATION)\b/i },
+  { name: 'SQL TRUNCATE', re: /\bTRUNCATE\b/i },
+  { name: 'SQL ALTER TABLE … DROP', re: /\bALTER\s+TABLE\b[^;]*\bDROP\b/i },
+  { name: 'SQL GRANT/REVOKE', re: /\b(?:GRANT|REVOKE)\s+\w/i },
+  { name: 'data store wipe', re: /\b(?:FLUSHALL|FLUSHDB)\b|\.drop(?:Database)?\s*\(|\b(?:deleteMany|remove)\s*\(\s*\{\s*\}\s*\)/i },
+];
+
+/** DELETE/UPDATE statements without WHERE. */
+function unboundedWrite(sql) {
+  for (const m of sql.matchAll(/\b(DELETE\s+FROM|UPDATE\s+\S+\s+SET)\b([^;]*)/gi))
+    if (!/\bWHERE\b/i.test(m[2])) return `SQL ${m[1].split(/\s+/)[0].toUpperCase()} without WHERE`;
+  return null;
+}
+
+/**
+ * SQL run through a database client, including small SQL files it reads.
+ * @returns {string|null}
+ */
+function sqlViolation(cmd, cwd) {
+  if (!SQL_CLIENT.test(cmd)) return null;
+  const texts = [cmd];
+  for (const m of cmd.matchAll(/(?:\s(?:-f|--file|-i|--input|--queries)(?:=|\s+)|\s<\s*)["']?([^\s"';&|<>]+)/g)) {
+    try {
+      const f = path.resolve(cwd, m[1]);
+      if (fs.statSync(f).size <= 1024 * 1024) texts.push(fs.readFileSync(f, 'utf8'));
+    } catch {
+      /* unreadable file: only the command text is checked */
+    }
+  }
+  for (const t of texts) {
+    for (const r of SQL_RULES) if (r.re.test(t)) return r.name;
+    const u = unboundedWrite(t);
+    if (u) return u;
+  }
+  return null;
+}
+
+/** Build and cache directories that a recursive rm may clear without a human. */
+const REGEN = new Set([
+  'node_modules', 'dist', 'build', 'out', '.next', '.nuxt', '.svelte-kit', '.turbo', '.parcel-cache', '.cache',
+  'coverage', '.nyc_output', 'target', '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.tox',
+  '.venv', 'venv', 'tmp', '.tmp', '.gradle', '.terraform',
+]);
+
+/**
+ * Recursive rm inside the project. Allowed only for build/cache directories
+ * and paths that do not exist; anything else may be uncommitted or ignored
+ * work (.env, local databases, state files) that git cannot bring back.
+ * @returns {string|null}
+ */
+function rmInsideViolation(tok, projectDir, cwd) {
+  if (/^"?\$\{?TMPDIR\}?(?:\/|$)/.test(tok)) return null;
+  if (unknownExpansion(tok)) return `recursive rm of an unresolvable path (${tok})`;
+  const glob = /[*?[]/.test(tok);
+  const abs = path.resolve(cwd || projectDir, tok);
+  const rel = relInside(realpathNearest(path.resolve(projectDir)), realpathNearest(abs));
+  if (rel === null) return null; // outside the project: handled by outsideProject
+  const segs = rel.split('/');
+  const fixed = glob ? segs.slice(0, segs.findIndex((s) => /[*?[]/.test(s))) : segs;
+  if (fixed.some((s) => REGEN.has(s))) return null;
+  if (!glob && rel !== '' && !fs.existsSync(abs)) return null;
+  return `recursive rm of project files (${tok})`;
+}
+
+/** `"git" push` → `git push`: quoting a single word must not hide it. */
+const unquoteWords = (cmd) => cmd.replace(/(["'])([\w./\\-]+)\1/g, '$2');
+
+/**
+ * Destructive checks shared by subagents and the main thread.
+ * @returns {string|null} rule name
+ */
+function destructiveCheck(raw, projectDir, cwd) {
+  const cmd = unquoteWords(raw);
+  for (const r of DESTRUCTIVE) if (r.re.test(cmd)) return r.name;
+  const s = sqlViolation(cmd, cwd || projectDir);
+  if (s) return s;
+  const rms = invocations(cmd, 'rm').filter((toks) => toks.some((t) => /^-[a-zA-Z]*[rR]/.test(t) || t === '--recursive'));
+  for (const toks of [...rms, ...invocations(cmd, 'rimraf|del-cli|trash')]) {
+    for (const t of operands(toks)) {
+      if (t === '/' || t === '/*') return 'recursive rm of /';
+      if (outsideProject(t, projectDir, cwd)) return `recursive rm outside the project (${t})`;
+      const v = rmInsideViolation(t, projectDir, cwd);
+      if (v) return v;
+    }
+  }
+  return protectedBash(cmd);
+}
+
+// ---------------------------------------------------------------- protected files
+
+/** Project files only a human may change: the guard's own policy, settings and approvals. */
+const PROTECTED = ['.eng-team/policy.json', '.eng-team/approvals', '.claude/settings.json', '.claude/settings.local.json'];
+const PLUGIN_ROOT = path.resolve(__dirname, '..');
+
+/**
+ * @param {string} abs real absolute path
+ * @returns {string|null} why the path is protected
+ */
+function protectedPath(abs, root) {
+  const rel = relInside(realpathNearest(root), abs);
+  if (rel !== null) {
+    const lower = rel.toLowerCase();
+    const hit = PROTECTED.find((p) => lower === p || lower.startsWith(p + '/'));
+    if (hit) return hit;
+  }
+  if (relInside(realpathNearest(PLUGIN_ROOT), abs) !== null) return 'the eng-team plugin';
+  const home = os.homedir();
+  for (const f of ['settings.json', 'settings.local.json'])
+    if (abs === realpathNearest(path.join(home, '.claude', f))) return `~/.claude/${f}`;
+  return null;
+}
+
+/** Writing a protected file from Bash (redirection, sed -i, cp, a script …). */
+function protectedBash(cmd) {
+  const write = /(?<![\d&])>(?!&)|\b(?:tee|cp|mv|rm|ln|install|truncate|dd|chmod|chown|touch|rsync|unlink)\b|\b(?:sed|perl)\b[^|;&\n]*\s-i/;
+  const run = /\b(?:python3?|node|ruby|perl|php|deno|bun)\b/;
+  const config =
+    /\.claude\/settings|\.eng-team\/(?:policy|approvals)|(?:\.claude|\.eng-team)(?=[/\s"']|$)[^\n]*\b(?:settings(?:\.local)?\.json|policy\.json|approvals)\b/i;
+  if (config.test(cmd) && (write.test(cmd) || run.test(cmd))) return 'changing eng-team policy, settings or approvals';
+  // Running the plugin's own scripts (node …/dispatch-log.js) is fine; changing them is not.
+  if (/\/plugins\/\S*eng-team|eng-team-plugin\/hooks/.test(cmd) && write.test(cmd)) return 'changing the eng-team plugin';
+  return null;
+}
 
 /**
  * Quote-aware tokenizer for the tail of a command, stopping at an unquoted
@@ -272,16 +464,8 @@ function outsideProject(tok, projectDir, cwd) {
   return !roots.some((r, i) => inside(r, i > 0));
 }
 
-/** rm -r / redirection / tee targeting outside the project. */
-function destructiveViolation(cmd, projectDir, cwd) {
-  for (const toks of invocations(cmd, 'rm')) {
-    const recursive = toks.some((t) => /^-[a-zA-Z]*[rR]/.test(t) || t === '--recursive');
-    if (!recursive) continue;
-    for (const t of operands(toks)) {
-      if (t === '/' || t === '/*') return 'recursive rm of /';
-      if (outsideProject(t, projectDir, cwd)) return `recursive rm outside the project (${t})`;
-    }
-  }
+/** Redirection / tee targeting outside the project (recursive rm is in destructiveCheck). */
+function outsideWriteViolation(cmd, projectDir, cwd) {
   const redir = /(?<![=>\-<])\d*>>?\s*(?!&)("[^"]*"|'[^']*'|[^\s;&|<>()]+)/g;
   let m;
   while ((m = redir.exec(cmd))) {
@@ -298,14 +482,26 @@ function destructiveViolation(cmd, projectDir, cwd) {
  * Scan a Bash command for subagent-forbidden operations.
  * @returns {string|null} rule description, or null
  */
-function bashViolation(cmd, projectDir, cwd) {
+function bashViolation(raw, projectDir, cwd) {
+  const cmd = unquoteWords(raw);
+  const x = destructiveCheck(cmd, projectDir, cwd);
+  if (x) return `rule 7 — destructive: ${x} needs a human`;
   for (const r of RULES) if (r.re.test(cmd)) return `rule 7 — ${r.name} is human-only`;
   const n = networkViolation(cmd);
   if (n) return `rule 7 — ${n} is human-only`;
-  const d = destructiveViolation(cmd, projectDir, cwd);
+  const d = outsideWriteViolation(cmd, projectDir, cwd);
   if (d) return `rule 7 — ${d} is human-only`;
   return null;
 }
+
+/** MCP tools that send, publish, change access or delete. */
+const MCP_DESTRUCTIVE =
+  /(?:^|[_-])(?:send|publish|unpublish|post|delete|remove|destroy|drop|purge|trash|archive|merge|deploy|push|transfer|pay|refund|grant|revoke|share|invite)(?:[_-]|$)/i;
+const mcpDestructive = (tool) => MCP_DESTRUCTIVE.test(tool.slice(tool.lastIndexOf('__') + 2));
+
+/** An eng-team project: initialised state or a policy file. */
+const isEngProject = (root) =>
+  fs.existsSync(path.join(root, '.eng-team', 'state.md')) || fs.existsSync(path.join(root, '.eng-team', 'policy.json'));
 
 /** Main-thread check: pushes, remote changes, PR create/merge and deploy CLIs. */
 function mainThreadAsk(cmd) {
@@ -324,23 +520,41 @@ function mainThreadAsk(cmd) {
 function decide(input, { projectDir } = {}) {
   if (!input || typeof input !== 'object') return null;
   const tool = input.tool_name;
-  if (!GUARDED_TOOLS.has(tool)) return null;
+  if (typeof tool !== 'string') return null;
+  const isMcp = tool.startsWith('mcp__');
+  if (!GUARDED_TOOLS.has(tool) && !isMcp) return null;
   const root = projectDir || input.cwd || process.cwd();
   const ti = input.tool_input || {};
   const agent = typeof input.agent_type === 'string' ? input.agent_type : '';
+  const target = tool === 'NotebookEdit' ? ti.notebook_path : ti.file_path;
 
   if (!agent) {
-    if (tool !== 'Bash' || typeof ti.command !== 'string') return null;
-    if (!fs.existsSync(path.join(root, '.eng-team', 'state.md'))) return null;
+    if (!isEngProject(root)) return null;
+    if (isMcp) return mcpDestructive(tool) ? { decision: 'ask', reason: MCP_ASK } : null;
+    if (WRITE_TOOLS.has(tool)) {
+      if (typeof target !== 'string' || !target) return null;
+      const abs = realpathNearest(path.resolve(input.cwd || root, target));
+      const p = protectedPath(abs, root);
+      // init may create the policy file once; changing it afterwards is the human's job.
+      if (!p || (p === '.eng-team/policy.json' && tool === 'Write' && !fs.existsSync(abs))) return null;
+      return denyMain(`changing ${p}`);
+    }
+    if (typeof ti.command !== 'string') return null;
+    const x = destructiveCheck(ti.command, path.resolve(root), input.cwd);
+    if (x) return denyMain(x);
     return mainThreadAsk(ti.command) ? { decision: 'ask', reason: MAIN_ASK } : null;
   }
   if (!agent.startsWith(PREFIX)) return null;
 
   const role = agent.slice(PREFIX.length);
+  if (isMcp) return mcpDestructive(tool) ? deny(`rule 7 — ${tool} sends, publishes or deletes outside the project and is human-only`) : null;
   if (!WRITERS.has(role))
     return deny(`rule 5 — ${role || 'this agent'} is read-only and may not use ${tool}`);
   if (WRITE_TOOLS.has(tool)) {
-    const target = tool === 'NotebookEdit' ? ti.notebook_path : ti.file_path;
+    if (typeof target === 'string' && target) {
+      const p = protectedPath(realpathNearest(path.resolve(input.cwd || root, target)), root);
+      if (p) return deny(`rule 7 — changing ${p} is human-only`);
+    }
     return checkWritePath(role, target, root, input.cwd);
   }
   if (typeof ti.command !== 'string') return null;
@@ -356,17 +570,23 @@ if (require.main === module) {
   process.stdin.setEncoding('utf8');
   process.stdin.on('data', (c) => (raw += c));
   process.stdin.on('end', () => {
+    const projectDir = process.env.CLAUDE_PROJECT_DIR;
     let input;
-    try {
-      input = JSON.parse(raw);
-    } catch {
-      return;
-    }
     let result = null;
     try {
-      result = decide(input, { projectDir: process.env.CLAUDE_PROJECT_DIR || input.cwd });
-    } catch {
-      return; // a guard bug must never wedge unrelated work
+      input = JSON.parse(raw);
+      result = decide(input, { projectDir: projectDir || input.cwd });
+    } catch (e) {
+      // Fail closed where the guard is the security floor; stay silent elsewhere.
+      const engAgent = /"agent_type"\s*:\s*"eng-team:/.test(raw);
+      let engProject = false;
+      try {
+        engProject = isEngProject(projectDir || (input && input.cwd) || process.cwd());
+      } catch {
+        engProject = true;
+      }
+      if (!engAgent && !engProject) return;
+      result = { decision: 'deny', reason: `eng-team guard: the guard failed (${String(e && e.message).slice(0, 120)}), so this call is blocked. Tell the user.` };
     }
     if (!result) return;
     process.stdout.write(
