@@ -16,6 +16,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { readPolicy, validate, loosenings, hasGrant, engHome } = require('./policy.js');
+const { enqueue } = require('./queue.js');
 
 const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
 const GUARDED_TOOLS = new Set(['Bash', ...WRITE_TOOLS]);
@@ -31,13 +32,28 @@ const MCP_ASK =
  * Main-thread deny for destructive actions: the human runs these themselves.
  * @param {string} what rule name
  */
-function denyMain(what) {
+function denyMain(what, queued) {
   return {
     decision: 'deny',
     reason:
       `eng-team guard: destructive — ${what} needs a human. Do not retry or work around this ` +
-      '(no scripts, aliases, other tools or rewording). Show the user the exact command and why it is needed, and let them run it themselves.',
+      '(no scripts, aliases, other tools or rewording). Show the user the exact command and why it is needed, and let them run it themselves.' +
+      (queued ? ` Queued as ${queued}: pause only the work that needs it, continue the rest, and tell the user to run it and then type \`/eng-team:eng-queue done ${queued}\`.` : ''),
   };
+}
+
+/**
+ * Record a denied destructive command in the approval queue. Protected-file
+ * changes are not queued: they have their own human path. Never throws.
+ * @returns {string|null} queue id
+ */
+function queueDenied(root, input, what) {
+  if (/^(?:changing|switching) /.test(what)) return null;
+  try {
+    return enqueue(root, { command: input.tool_input.command, cwd: input.cwd || root, reason: what, agent: input.agent_type });
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -629,7 +645,7 @@ function decide(input, { projectDir } = {}) {
     }
     if (typeof ti.command !== 'string') return null;
     const x = destructiveCheck(ti.command, path.resolve(root), input.cwd);
-    if (x) return denyMain(x);
+    if (x) return denyMain(x, isEngProject(root) ? queueDenied(path.resolve(root), input, x) : null);
     return mainThreadAsk(ti.command) ? { decision: 'ask', reason: MAIN_ASK } : null;
   }
   if (!agent.startsWith(PREFIX)) return null;
@@ -647,6 +663,11 @@ function decide(input, { projectDir } = {}) {
   }
   if (typeof ti.command !== 'string') return null;
   if (role === 'eng-tech-writer') return deny('rule 5 — tech-writer has no shell access');
+  const x = destructiveCheck(ti.command, path.resolve(root), input.cwd);
+  if (x) {
+    const q = isEngProject(root) ? queueDenied(path.resolve(root), input, x) : null;
+    return deny(`rule 7 — destructive: ${x} needs a human${q ? ` (queued as ${q}; your task waits for it)` : ''}`);
+  }
   const v = bashViolation(ti.command, path.resolve(root), input.cwd);
   return v ? deny(v) : null;
 }

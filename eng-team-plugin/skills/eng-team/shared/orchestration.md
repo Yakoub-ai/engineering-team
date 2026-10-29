@@ -147,7 +147,16 @@ The single procedure for every hard stop: set the current gate to `failed`, add 
 
 **Resume.** After the human decides, set the gate to `in-progress` and continue, or keep it `failed`. Destructive or outside-repository actions are performed by the human, then the agent is re-dispatched.
 
-Triggers: the four hard stops in rule 7 of `SKILL.md`; any agent line starting `HARD-STOP:` (the reason is the text after the colon); an `eng-team guard:` denial (Hand-off contract).
+Triggers: the four hard stops in rule 7 of `SKILL.md`; any agent line starting `HARD-STOP:` (the reason is the text after the colon); an `eng-team guard:` denial (Hand-off contract), except one that names a queue id, which follows Approval queue instead.
+
+## Approval queue
+
+A guard denial that says `Queued as Q-<n>` (or `queued as Q-<n>`) is not a hard stop for the whole run: the guard has written the exact command to `.eng-team/approvals/queue.jsonl`, which only hooks write.
+1. **Pause only what needs it.** Mark the task that hit it `blocked` with `blockedBy: Q-<n>` in the plan, block its dependents (build step 9), add the Log line `- YYYY-MM-DD queued Q-<n>: <command> (<task>)`, and continue every independent task. Never retry the command, rewrite it, or run it another way.
+2. **Tell the user once**, at the next message: the command in a code block, why it is needed, what it unblocks, and "run it yourself, then type `/eng-team:eng-queue done Q-<n>`" (or `reject`).
+3. **Stop** when every remaining task depends on a pending entry: post the list and end the turn.
+4. **Resume.** A `done` entry unblocks its tasks. Before resuming, check that the target is in the state the command should have left it (a read-only check: `git log`, `terraform plan`, a list command) and that the plan has not changed since the entry was created; if either fails, ask the user. A `rejected` entry: re-plan the task without that action or ask the user. An `expired` entry (older than `approval_ttl_hours`): treat it as not run and ask again.
+5. The receipt lists every queue entry of the run with its status (`templates/receipt.md`).
 
 ## Critical findings
 
