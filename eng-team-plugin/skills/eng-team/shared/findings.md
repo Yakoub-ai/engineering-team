@@ -28,6 +28,9 @@ Findings whose only basis is an `unreviewed` pack are capped at **High** — unl
 ## Recovered decisions
 An ADR with `Status: accepted (recovered)` records a past decision and its stated trade-off. Treat that trade-off as context. A finding that contradicts a recovered ADR cites it in `Refs` (for example `ADR-0003`) and proposes revisiting the ADR; it must not silently override it.
 
+## Findings ledger
+The lead keeps `.eng-team/findings.jsonl`, one JSON line per finding and one more per status change: `id`, `path:line` (every location), `severity`, `class` (the bug class, e.g. `idor`, `sql-injection`, `missing-test`), `status` (`open`, `upheld`, `rejected`, `fixed`, `accepted`, `backlog`), `round`, `source` (the role, or `found-by-verifier`) and, for `rejected`, the reason. Reviewers receive it with every gate and review dispatch: they do not re-report an entry, and a new instance of a known class is reported under that class so one fix covers every location. Only the lead writes it.
+
 ## Agent return markers
 Agents that write (builder, tester, tech-writer) end with `Status: DONE | BLOCKED | HARD-STOP`.
 Reviewers, architect and researcher end with `Scope reviewed:` / `Scope:` (full table: Hand-off contract in `shared/orchestration.md`).

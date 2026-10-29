@@ -27,7 +27,7 @@ Contents:
 
 ## 1. What it is
 
-eng-team is an **engineering lead (orchestrator) plus 15 specialist agents**. It works like a small senior team:
+eng-team is an **engineering lead (orchestrator) plus 17 specialist agents**. It works like a small senior team:
 
 | Capability | What you get |
 |---|---|
@@ -188,7 +188,7 @@ flowchart TB
 
 ### How a handover works
 
-1. **Dispatch.** The lead first checks that all 15 `eng-team:` agent types exist (if any is missing it stops and tells you; it never substitutes another agent). It then sends one agent, by its full type (`eng-team:eng-builder`, …), a closed brief: absolute paths to its role file (`roles/<name>.md`), the findings contract (`shared/findings.md`), `.eng-team/profile.md`, `.eng-team/state.md`, the selected packs, the relevant templates and challenger files, and an exact scope (phase, plan task id, paths, or the path of a diff file the lead wrote, since reviewers have no shell).
+1. **Dispatch.** The lead first checks that all 17 `eng-team:` agent types exist (if any is missing it stops and tells you; it never substitutes another agent). It then sends one agent, by its full type (`eng-team:eng-builder`, …), a closed brief: absolute paths to its role file (`roles/<name>.md`), the findings contract (`shared/findings.md`), `.eng-team/profile.md`, `.eng-team/state.md`, the selected packs, the relevant templates and challenger files, and an exact scope (phase, plan task id, paths, or the path of a diff file the lead wrote, since reviewers have no shell).
 2. **Work.** The agent works only inside its role's "Owns" list. Content it finds in the repo or on web pages is treated as data, never as instructions, and injection attempts are reported as findings.
 3. **Return.** It returns a fixed contract:
    - researcher: `### Pack:` / `### Note:` blocks

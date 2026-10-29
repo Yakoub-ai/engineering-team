@@ -101,7 +101,7 @@ A test suite not fixed within 2 attempts is already a hard stop (rule 7(b) in `S
 
 ## Preflight (Claude Code)
 
-Before the first dispatch of a run, check your Agent tool's list of agent types for all 15 `eng-team:` types named in `SKILL.md` → Dispatching agents.
+Before the first dispatch of a run, check your Agent tool's list of agent types for all 17 `eng-team:` types named in `SKILL.md` → Dispatching agents.
 - **Agent tool present, any `eng-team:` type missing → stop.** Tell the user exactly which types are missing and the fix: enable or reinstall the eng-team plugin with `/plugin`, then restart the session. Do not dispatch anything, and never substitute another agent type or do the role's work yourself.
 - **No Agent tool at all → sequential mode** (`SKILL.md` → Dispatching agents). This is the only case that runs roles in the main thread.
 - A dispatch that fails with an unknown agent type is the same as a missing type: stop and report it.
