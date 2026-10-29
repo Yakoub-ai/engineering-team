@@ -20,6 +20,7 @@ Builders run in parallel only where the plan allows it, and the longest chain of
 - **Interface first for deep chains.** When the chain would be more than 4 deep, add a first task that writes only the interfaces, types, contracts and fakes; the implementations then depend on that task and not on each other.
 - **Wire last.** Integration and entry-point wiring are separate tasks at the end; do not let them touch files that other tasks own.
 - **Register through a manifest.** When several features plug into one shared place (a scene, router, registry, DI container, menu), the first task creates a small manifest or registration point (one file listing modules, or a directory the host scans), and each feature task adds its own module and its own entry file or line there. The final wiring task is then an import list or a check, minutes long, not the slowest task in the plan. If two features must edit the same line, give the manifest one file per feature rather than ordering them.
+- **Pick the builder model.** Mark a task `model: opus — <reason>` only when Sonnet is unlikely to get it right (`shared/track.md` → Builder model); everything else runs on Sonnet. Opus builders took 2-4x longer per task in real runs, so an unneeded mark lengthens the critical path.
 - **State the shape.** The plan header gives `Critical path: <ids> (<n> deep), max width: <n>`. A critical path over 5 or a width of 1 on a plan with 6 or more tasks needs one line saying why it cannot be flatter.
 
 ## Checklist
@@ -34,7 +35,7 @@ Read-only; the orchestrator saves your blocks.
 - `### Option <n>`: summary, trade-off row, when it would be the wrong choice.
 - `### Recommendation`: chosen option and why, in a few lines.
 - `### ADR draft: <slug>`: context, decision, consequences, challenges raised and how they were answered.
-- `### Plan`: numbered tasks, each with files, depends_on, acceptance check and reviewer roles to spot-check.
+- `### Plan`: numbered tasks, each with files, depends_on, acceptance check, reviewer roles to spot-check and, only when needed, `model: opus — <reason>`.
 - `### Diagnosis` (only when the dispatch is a diagnosis handover, `shared/orchestration.md`): `Cause:` and `Evidence:` (`path:line` or sources), then `Recommendation: rewrite-task | change-approach | escalate` with one concrete next step.
 - Optional trailing `### Findings` block in the `shared/findings.md` format, for problems found in the repo or sources (for example prompt-injection text).
 
