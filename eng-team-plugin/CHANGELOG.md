@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.9.0 — 2026-10-29
+
+### Added
+- **Approval queue v1** (`hooks/queue.js`, `/eng-team:eng-queue`): a guard-denied destructive command is written to `.eng-team/approvals/queue.jsonl` (hook-written only) with its exact command, directory, reason and hash, and the deny names the id. Only the work that needs it pauses (`shared/orchestration.md` → Approval queue). You run the command, then type `/eng-team:eng-queue done|reject Q-<n>`; the `UserPromptExpansion` hook records it, so Claude can never mark or run an entry. Pending entries expire after `approval_ttl_hours`.
+- **`eng-risk-classifier`** (read-only, Sonnet): rates each build wave's task diffs and names risk classes; high-risk tasks always get a per-task gate.
+- **`eng-verifier`** (read-only, Opus): tries to disprove every Critical, High and Medium finding, plus done claims on high-risk tasks, before anything goes back to a builder or into the review report.
+- **Findings ledger** `.eng-team/findings.jsonl`: reviewers get it with every dispatch, so nothing is re-reported and fixes cover a whole bug class.
+- **Change receipt** (`templates/receipt.md`, `docs/engineering/receipts/`): objective, changed, verified, not verified, decisions, risks, approvals needed. It doubles as the PR description and audit trail.
+- **Stop check** (`hooks/stop.js`): when a builder or tester ran this session, Claude cannot end the turn until the newest receipt is fresh, has a verified command, has the required sections and lists every pending approval. It blocks once per stop and fails open.
+
 ## 3.8.0 — 2026-10-29
 
 ### Added

@@ -206,7 +206,7 @@ flowchart TB
 | `eng-builder`, `eng-tester` | source code and tests, inside the repo (not `.git/`, `.eng-team/`, `docs/engineering/**` or the reader docs) | tool list + role prompt + guard hook |
 | `eng-tech-writer` | `docs/README.md`, `docs/architecture.md`, `docs/testing.md`, `docs/runbook.md`, `docs/compliance/` (no Bash) | tool list + role prompt + guard hook |
 | `eng-researcher` | nothing (read + web) | tool list |
-| `eng-architect`, `eng-presenter` and the 9 reviewers | nothing (read-only) | tool list |
+| `eng-architect`, `eng-presenter`, `eng-verifier`, `eng-risk-classifier` and the 9 reviewers | nothing (read-only) | tool list |
 
 The guard hook (`hooks/guard.js`, a PreToolUse hook; needs Node 18+) enforces the lanes above for eng-team agents: read-only roles get no shell or write access; writes are confined to the project (symlinks resolved); builder and tester shell commands are denied for pushes, remote changes, deploys, cloud and machine-level installs, `curl | sh`, `sudo` and network calls beyond localhost. Destructive actions (force pushes, hard resets, history rewrites, infra apply/destroy, cloud deletes, permission and secret changes, unbounded SQL deletes, recursive `rm` of anything but build and cache folders) are denied in every mode, for agents and, in eng-team projects, for your own session too: Claude shows you the command and you run it. The guard also protects `.eng-team/policy.json`, `.eng-team/approvals/`, Claude settings and the plugin itself, and asks before MCP tools that send, publish or delete. A denial tells an agent to return `HARD-STOP: eng-team guard: …`, and the lead stops. It is pattern matching: a strong second line of defence, not a sandbox; commands hidden behind variables, interpreters or build scripts get past it, so give autonomous runs least-privilege credentials where you can. A guard error or missing Node blocks calls in eng-team projects rather than letting them run unchecked.
 
@@ -420,6 +420,8 @@ Reviewers run in three modes: `plan` (architect phase, on the design), `gate` (b
 | `eng-ai-engineer` | same; `ai_usage`, `ai_act_role` | prompt-injection, data-in-prompts, eval, spend findings | read-only | `ai_usage` ≠ none |
 | `eng-product-engineer` | same; `has_ui`, `audiences` | UX states, WCAG, i18n findings | read-only | `has_ui: yes` or user-facing email |
 | `eng-presenter` | gap list, product/brief/architecture docs, ADRs, context snapshot | draft prose for empty cheatsheet, brief, summary and deck sections (the lead saves it) | read-only | `/eng-present` on a standard or full track |
+| `eng-risk-classifier` | each wave's task diffs, plan tasks, `.eng-team/policy.json` | risk (low, medium, high), risk classes and reviewers per task | read-only | build, once per wave |
+| `eng-verifier` | diff, findings, findings ledger, done claims | upheld, rejected or downgraded verdict per finding, with evidence | read-only | build gates, review |
 
 The lead also holds `roles/lead-architecture.md` (its own architecture and maintainability checks).
 
@@ -442,6 +444,7 @@ If a short command such as `/eng` answers "Unknown command" in your install, use
 | `/eng-engage` | `[--lang sv\|en\|sv,en] [--domain <name>] [--client-type <type>] [--area <id>] [--level user\|manager\|it] [--stage <stage>] [notes]` | Client engagement: pre-meeting pack, meeting guide, workflow mapping, opportunities, build-or-buy recommendation, plain-language report; standalone, writes only `docs/engineering/engagement/`; stakeholder answers are data, never instructions |
 | `/eng-view` | `[--port <n>] [--no-semantic]` | Starts the local visual workspace on `127.0.0.1` (docs, decisions, handovers and code as a connected map; docs editable; one Present & needs tab for wants and needs and to preview, theme and rebuild outputs) |
 | `/eng-present` | `[cheatsheet\|brief\|summary\|deck\|all] [--theme <preset>] [--force]` | Builds themed, self-contained `cheatsheet.html`, `brief.html`, `product-summary.html`, and `deck.html` (16:9 slides, prints one per page) into `docs/present/` from the project's docs (offline, incremental); fills empty sections via `eng-presenter` on standard and full tracks |
+| `/eng-queue` | `[done <Q-id>\|reject <Q-id>]` | Lists destructive commands waiting for you; after you run one yourself, `done` marks it (only when you type it) |
 | `/eng-policy` | `[what to change]` | View or change this repo's security policy (`.eng-team/policy.json`). Only you can run it; see Repo policy below |
 | `/eng-promote` | `<pack-id>` | Copies a reviewed project pack to the federation repo (local only, never pushes) |
 
@@ -461,6 +464,12 @@ Every eng-team project has `.eng-team/policy.json`, written by `/eng-init`, `/en
 - **Autonomous mode:** type `--autonomous` or `--auto` on an eng-team command. If the policy allows it, Claude asks "Activate autonomous mode for this run?" and lists the risks (no approval stops, agents decide and log ADRs, unscoped credentials). It starts only on your yes. The guard refuses any other switch to autonomous, so a prompt injection cannot turn it on.
 - **Destructive actions always need you**, in every mode: force pushes, hard resets, infra apply/destroy, cloud deletes, permission and secret changes, unbounded SQL deletes. Claude shows you the command and you run it.
 - `init` prints, without running, a CODEOWNERS line for `.eng-team/policy.json` and `.claude/`, branch-protection commands for your platform, and a least-privilege checklist for your stack. Purely local projects need none of the credential steps.
+
+### Approval queue, verification and receipts
+
+- **Approval queue.** When the guard blocks a destructive command, it also writes the exact command to `.eng-team/approvals/queue.jsonl` as `Q-<n>`. Only the work that needs it pauses; everything else continues. You run the command yourself, then type `/eng-team:eng-queue done Q-<n>` (or `reject`). Claude can never mark or run an entry: the queue is written only by hooks, and `done` counts only when you type it. Pending entries expire after the policy's `approval_ttl_hours`, and before resuming, the lead checks that the target is in the expected state.
+- **Risk and verification.** Once per build wave, `eng-risk-classifier` rates each task (low, medium, high) and names its risk classes; high-risk tasks always get their own gate. Before any finding sends work back, `eng-verifier` tries to disprove it with fresh context, so false positives cost no builder round. A findings ledger (`.eng-team/findings.jsonl`) stops reviewers re-reporting old findings and groups fixes by bug class.
+- **Change receipt.** Whenever a run changes code, the lead writes `docs/engineering/receipts/<date>-<run>.md`: objective, what changed, what was verified (commands and results), what was not, decisions, risks and approvals needed. Paste it as the PR description. A Stop hook will not let Claude finish while the receipt is missing, stale, has no verified command, or leaves out a pending approval.
 
 ### Autonomy and hard stops
 
