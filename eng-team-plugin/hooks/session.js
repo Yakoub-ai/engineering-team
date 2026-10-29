@@ -7,6 +7,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { readPolicy } = require('./policy.js');
+const { markSessionStart } = require('./stop.js');
 
 /**
  * @param {string} root project directory
@@ -38,7 +39,9 @@ if (require.main === module) {
     let s = null;
     try {
       const input = JSON.parse(raw);
-      s = summary(process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd());
+      const root = process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd();
+      s = summary(root);
+      if (s) markSessionStart(root, input.session_id);
     } catch {
       return;
     }

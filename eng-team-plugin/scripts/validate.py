@@ -34,6 +34,7 @@ EXPECTED_AGENTS = [
     "eng-security-engineer", "eng-compliance-officer", "eng-data-engineer",
     "eng-platform-engineer", "eng-sre", "eng-qa-engineer", "eng-integration-engineer",
     "eng-ai-engineer", "eng-product-engineer", "eng-presenter",
+    "eng-verifier", "eng-risk-classifier",
 ]
 QUALIFIED_RE = re.compile(r"(?<!/)eng-team:(eng-[a-z][a-z-]*)")
 SLASH_QUALIFIED_RE = re.compile(r"/eng-team:(eng-[a-z][a-z-]*)")

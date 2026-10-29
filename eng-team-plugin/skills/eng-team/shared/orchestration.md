@@ -101,7 +101,7 @@ A test suite not fixed within 2 attempts is already a hard stop (rule 7(b) in `S
 
 ## Preflight (Claude Code)
 
-Before the first dispatch of a run, check your Agent tool's list of agent types for all 15 `eng-team:` types named in `SKILL.md` → Dispatching agents.
+Before the first dispatch of a run, check your Agent tool's list of agent types for all 17 `eng-team:` types named in `SKILL.md` → Dispatching agents.
 - **Agent tool present, any `eng-team:` type missing → stop.** Tell the user exactly which types are missing and the fix: enable or reinstall the eng-team plugin with `/plugin`, then restart the session. Do not dispatch anything, and never substitute another agent type or do the role's work yourself.
 - **No Agent tool at all → sequential mode** (`SKILL.md` → Dispatching agents). This is the only case that runs roles in the main thread.
 - A dispatch that fails with an unknown agent type is the same as a missing type: stop and report it.
@@ -147,7 +147,20 @@ The single procedure for every hard stop: set the current gate to `failed`, add 
 
 **Resume.** After the human decides, set the gate to `in-progress` and continue, or keep it `failed`. Destructive or outside-repository actions are performed by the human, then the agent is re-dispatched.
 
-Triggers: the four hard stops in rule 7 of `SKILL.md`; any agent line starting `HARD-STOP:` (the reason is the text after the colon); an `eng-team guard:` denial (Hand-off contract).
+Triggers: the four hard stops in rule 7 of `SKILL.md`; any agent line starting `HARD-STOP:` (the reason is the text after the colon); an `eng-team guard:` denial (Hand-off contract), except one that names a queue id, which follows Approval queue instead.
+
+## Change receipt
+
+Whenever a run changed code (any `eng-builder` or `eng-tester` dispatch), write `docs/engineering/receipts/<YYYY-MM-DD>-<run>.md` from `templates/receipt.md`, and refresh it before every stop: a gate approval, a hard stop, a question, or the end of the run. Fill Verified only with checks you ran and observed. It is the audit trail and the PR description; tell the user it exists when the run ends. A Stop hook refuses to end the turn while code changed this session and the newest receipt is older than the last builder or tester dispatch, has no `command` in Verified, misses Not verified or Approvals needed, or leaves out a pending queue id. When it blocks, write or fix the receipt; never work around it.
+
+## Approval queue
+
+A guard denial that says `Queued as Q-<n>` (or `queued as Q-<n>`) is not a hard stop for the whole run: the guard has written the exact command to `.eng-team/approvals/queue.jsonl`, which only hooks write.
+1. **Pause only what needs it.** Mark the task that hit it `blocked` with `blockedBy: Q-<n>` in the plan, block its dependents (build step 9), add the Log line `- YYYY-MM-DD queued Q-<n>: <command> (<task>)`, and continue every independent task. Never retry the command, rewrite it, or run it another way.
+2. **Tell the user once**, at the next message: the command in a code block, why it is needed, what it unblocks, and "run it yourself, then type `/eng-team:eng-queue done Q-<n>`" (or `reject`).
+3. **Stop** when every remaining task depends on a pending entry: post the list and end the turn.
+4. **Resume.** A `done` entry unblocks its tasks. Before resuming, check that the target is in the state the command should have left it (a read-only check: `git log`, `terraform plan`, a list command) and that the plan has not changed since the entry was created; if either fails, ask the user. A `rejected` entry: re-plan the task without that action or ask the user. An `expired` entry (older than `approval_ttl_hours`): treat it as not run and ask again.
+5. The receipt lists every queue entry of the run with its status (`templates/receipt.md`).
 
 ## Critical findings
 
