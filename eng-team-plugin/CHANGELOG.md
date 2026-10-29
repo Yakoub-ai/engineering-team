@@ -3,8 +3,8 @@
 ## 3.6.7 — 2026-10-29
 
 ### Changed
-- **Parallel cap is a profile setting**: `build.max_parallel` (default 3, up to 8) in `.eng-team/profile.md` instead of a fixed 3.
-- **Gate scope is a profile setting**: `build.gate: auto | per-task | per-wave`. `per-wave` sends one security spot-check per wave, with a per-task gate still for hard-gated classes. `auto` is per-wave on lean and standard and per-task on full. The gate is never skipped; nothing merges or unblocks dependents before its gate has run.
+- **Parallel cap is a profile setting**: `build.max_parallel` (default 5, up to 8) in `.eng-team/profile.md` instead of a fixed 3. Only tasks independent of each other run together; when more are ready, critical-path tasks go first.
+- **Gate scope is a profile setting**: `build.gate: auto | per-task | per-wave`. `per-wave` sends `build.gates_per_wave` security spot-checks per wave (default 2, each over part of the wave's diffs), with a per-task gate still for hard-gated classes. `auto` is per-wave on lean and standard and per-task on full. The gate is never skipped; nothing merges or unblocks dependents before its gate has run.
 - **Builders default to Sonnet**: the architect marks a task `model: opus — <reason>` only when Sonnet is unlikely to manage it, and a task that fails twice moves to Opus. Allowing Opus raises the ceiling, not the default.
 - **One resume per fix batch**: the lead resumes an agent only with new work, sending all findings and check output for a task together, never to acknowledge or ask for status. Builders work through to one terminal return.
 - **Fix tasks run in parallel**: fix tasks from one loop-back are planned together, and a fix depends on another only when files overlap or it needs the other's change.
