@@ -149,6 +149,10 @@ The single procedure for every hard stop: set the current gate to `failed`, add 
 
 Triggers: the four hard stops in rule 7 of `SKILL.md`; any agent line starting `HARD-STOP:` (the reason is the text after the colon); an `eng-team guard:` denial (Hand-off contract), except one that names a queue id, which follows Approval queue instead.
 
+## Change receipt
+
+Whenever a run changed code (any `eng-builder` or `eng-tester` dispatch), write `docs/engineering/receipts/<YYYY-MM-DD>-<run>.md` from `templates/receipt.md`, and refresh it before every stop: a gate approval, a hard stop, a question, or the end of the run. Fill Verified only with checks you ran and observed. It is the audit trail and the PR description; tell the user it exists when the run ends. A Stop hook refuses to end the turn while code changed this session and the newest receipt is older than the last builder or tester dispatch, has no `command` in Verified, misses Not verified or Approvals needed, or leaves out a pending queue id. When it blocks, write or fix the receipt; never work around it.
+
 ## Approval queue
 
 A guard denial that says `Queued as Q-<n>` (or `queued as Q-<n>`) is not a hard stop for the whole run: the guard has written the exact command to `.eng-team/approvals/queue.jsonl`, which only hooks write.

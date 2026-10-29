@@ -34,6 +34,7 @@ Implement the approved plan. Independent tasks run in parallel, each in its own 
 - Each task's acceptance check was run and observed passing by you, not only reported by the builder, again after it was merged.
 - No open Critical or High from the gate-mode reviews, and every merged task was covered by a gate (per task or per wave) before it merged.
 - The handover `docs/engineering/handovers/04-build.md` exists and STATUS.md is current.
+- A change receipt for the run exists (`shared/orchestration.md` → Change receipt).
 
 ## Autonomous mode
 
