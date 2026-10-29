@@ -6,8 +6,10 @@
  * `.eng-team/.cache/dispatch-log.jsonl`, written by the hook so it costs the
  * lead no tokens and the timestamps are real. Records metadata only (agent,
  * model, time, terminal status), never prompts or agent output. Observation
- * only: it never blocks, never creates `.eng-team/`, and silently does nothing
- * on any error. Zero dependencies, Node 18+.
+ * only, with one exception: in an eng-team project it refuses a dispatch whose
+ * prompt has no `Task: <id>` line (exit 2), so every run stays traceable. It
+ * never creates `.eng-team/` and silently does nothing on any other error.
+ * Zero dependencies, Node 18+.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -118,6 +120,23 @@ function summarize(text, since) {
 }
 
 /**
+ * Why a dispatch must be refused, or null. Only eng-team dispatches in an
+ * eng-team project (one with `.eng-team/state.md`) are checked.
+ * @param {object} input parsed hook stdin
+ * @param {string} [projectDir]
+ * @returns {string|null}
+ */
+function missingTask(input, projectDir) {
+  if (!input || input.hook_event_name !== 'PreToolUse' || !DISPATCH_TOOLS.has(input.tool_name)) return null;
+  const ti = input.tool_input || {};
+  if (typeof ti.subagent_type !== 'string' || !ti.subagent_type.startsWith(PREFIX)) return null;
+  if (typeof ti.prompt === 'string' && TASK_RE.test(ti.prompt)) return null;
+  const root = projectDir || input.cwd || process.cwd();
+  if (!fs.existsSync(path.join(root, '.eng-team', 'state.md'))) return null;
+  return 'eng-team dispatch: add a line `Task: <id>` to the prompt (the plan task id, or a phase name such as R11-review) and dispatch again. This is not a hard stop.';
+}
+
+/**
  * Append the entry for a payload when the project is an eng-team project.
  * @param {object} input parsed hook stdin
  * @param {{projectDir?: string, now?: Date}} [opts]
@@ -140,7 +159,7 @@ function record(input, { projectDir, now } = {}) {
   return true;
 }
 
-module.exports = { entryFor, record, summarize };
+module.exports = { entryFor, record, summarize, missingTask };
 
 if (require.main === module && process.argv[2] === '--summary') {
   // node dispatch-log.js --summary [projectDir] [--since ISO-time]: seconds per agent from this project's log
@@ -163,7 +182,14 @@ if (require.main === module && process.argv[2] === '--summary') {
   process.stdin.on('end', () => {
     try {
       const input = JSON.parse(raw);
-      record(input, { projectDir: process.env.CLAUDE_PROJECT_DIR || input.cwd });
+      const projectDir = process.env.CLAUDE_PROJECT_DIR || input.cwd;
+      const reason = missingTask(input, projectDir);
+      if (reason) {
+        process.stderr.write(reason + '\n');
+        process.exitCode = 2;
+        return;
+      }
+      record(input, { projectDir });
     } catch {
       // observation only: never wedge the session
     }

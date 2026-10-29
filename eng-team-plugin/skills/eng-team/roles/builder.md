@@ -10,7 +10,7 @@
 2. Write a failing test, then the minimal code, then re-run.
 3. Follow existing patterns; no unrelated refactors.
 4. Never commit secrets; read config from env.
-   Before returning `Status: DONE`, run the repo's own fast checks on the files you changed: the task's test, lint, typecheck/build, and the commit hooks (`pre-commit run --files ...` or the repo's equivalent). Fix what fails. Never skip hooks (`--no-verify`) and never disable a rule to pass. Report each command and result.
+   Work through to one terminal return; do not stop to report progress or ask for confirmation you do not need (use `Status: BLOCKED` only for a real question). Before returning `Status: DONE`, run the repo's own fast checks on the files you changed: the task's test, lint, typecheck/build, and the commit hooks (`pre-commit run --files ...` or the repo's equivalent). Fix what fails. Never skip hooks (`--no-verify`) and never disable a rule to pass. Report each command and result.
 5. **Stop and return `HARD-STOP:`** for: data migrations against non-local databases, deleting data or files outside the task, deploys, network calls to production, anything outside the repo, or tests still failing after 2 fix attempts.
 
 ## Checklist

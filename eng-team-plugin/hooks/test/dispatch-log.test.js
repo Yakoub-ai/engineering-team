@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { entryFor, record, summarize } = require('../dispatch-log.js');
+const { entryFor, record, summarize, missingTask } = require('../dispatch-log.js');
 
 const proj = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'englog-')));
 const bare = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'englog-bare-')));
@@ -65,6 +65,20 @@ test('script: silent on malformed input, writes on valid input', () => {
   assert.equal(bad.stdout + bad.stderr, '');
   assert.equal(run(JSON.stringify(dispatch('eng-team:eng-architect', 'opus'))).status, 0);
   assert.match(fs.readFileSync(logPath(proj), 'utf8'), /eng-architect/);
+});
+
+test('an eng-team dispatch without a Task line is refused, only in eng-team projects', () => {
+  const pre = (type, prompt, cwd) => ({ hook_event_name: 'PreToolUse', tool_name: 'Agent', cwd, tool_input: { subagent_type: type, prompt } });
+  assert.match(missingTask(pre('eng-team:eng-security-engineer', 'gate review', proj), proj), /^eng-team dispatch: .*Task: <id>/);
+  assert.equal(missingTask(pre('eng-team:eng-security-engineer', 'Task: R11-gate-W2\ngate review', proj), proj), null);
+  assert.equal(missingTask(pre('eng-team:eng-builder', 'no id', bare), bare), null);
+  assert.equal(missingTask(pre('general-purpose', 'no id', proj), proj), null);
+  assert.equal(missingTask({ ...pre('eng-team:eng-builder', 'no id', proj), hook_event_name: 'PostToolUse' }, proj), null);
+  const run = spawnSync('node', [path.join(__dirname, '..', 'dispatch-log.js')], {
+    input: JSON.stringify(pre('eng-team:eng-builder', 'no id', proj)), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: proj },
+  });
+  assert.equal(run.status, 2);
+  assert.match(run.stderr, /not a hard stop/);
 });
 
 test('task id is read from a Task: line, never the rest of the prompt', () => {

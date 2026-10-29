@@ -32,6 +32,10 @@ security_testing:
   cadence: auto                # optional — auto (from stage, see shared/orchestration.md) | per-release | monthly | quarterly
 autonomy: gated                # required — gated | autonomous
 track: auto                    # optional — auto | lean | standard | full (process depth and model tier; see shared/track.md)
+build:
+  max_parallel: 5              # optional — 1-8 independent builders at a time (phases/build.md → Waves)
+  gate: auto                   # optional — auto | per-task | per-wave (security spot-check scope; full track is always per-task)
+  gates_per_wave: 2            # optional — 1-5 security spot-checks per wave when gate is per-wave
 coaching: on                   # optional — on | brief
 audiences: [engineers]         # optional — engineers, business, ops, compliance, executives
 standards:                     # optional — git URL or local path of federation standards repo; empty = none
