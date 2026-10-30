@@ -19,7 +19,10 @@ const P = {
   architecture: 'docs/architecture.md',
   status: 'docs/engineering/STATUS.md',
   context: '.eng-team/context.md',
+  testing: 'docs/testing.md',
+  runbook: 'docs/runbook.md',
 };
+const POLICY = '.eng-team/policy.json';
 const DECISIONS_DIR = 'docs/engineering/decisions';
 
 /* ---------- reading sources ---------- */
@@ -137,12 +140,49 @@ const DECK = [
   { id: 'asks', title: 'Decisions needed', pieces: [['brief', 'Decisions needed']] },
 ];
 
+/** For a person joining a project built with eng-team: what it is, how to run it, how it is built, where it stands, the house rules. */
+const ONBOARDING = [
+  { id: 'what', title: 'What it is', audiences: ['newcomer'], pieces: [['product', 'Purpose'], ['product', 'Users and personas']] },
+  { id: 'run', title: 'Run it locally', audiences: ['engineering'], pieces: [['testing', 'How to run'], ['context', 'Entry points']] },
+  { id: 'how', title: 'How it is built', audiences: ['engineering'], pieces: [['architecture', 'Context (C4 level 1)'], ['architecture', 'Containers (C4 level 2)'], ['architecture', 'Key flows']] },
+  { id: 'stack', title: 'Stack, components and data', audiences: ['engineering'], pieces: [['context', 'Stack'], ['context', 'Components'], ['context', 'Data stores and data classes']] },
+  { id: 'decisions', title: 'Decisions already made', audiences: ['everyone'], decisions: true },
+  { id: 'status', title: 'Where we are', audiences: ['everyone'], pieces: [['status', 'Current focus and next action'], ['status', 'Gates']] },
+  { id: 'risks', title: 'Open risks and questions', audiences: ['everyone'], pieces: [['status', 'Open Critical and High findings'], ['status', 'Open questions'], ['product', 'Fears and known risks']] },
+  { id: 'rules', title: 'House rules', audiences: ['everyone'], policy: true },
+  { id: 'ops', title: 'Deploy, rollback and contacts', audiences: ['engineering'], pieces: [['runbook', 'Deploy'], ['runbook', 'Rollback'], ['runbook', 'Contacts']] },
+];
+
 export const OUTPUTS = {
   cheatsheet: { file: 'cheatsheet.html', kind: 'Cheatsheet', spec: CHEATSHEET },
   brief: { file: 'brief.html', kind: 'Brief', spec: BRIEF },
   summary: { file: 'product-summary.html', kind: 'Product summary', spec: SUMMARY },
   deck: { file: 'deck.html', kind: 'Product deck', spec: DECK, layout: 'deck' },
+  onboarding: { file: 'onboarding.html', kind: 'Onboarding', spec: ONBOARDING },
 };
+
+/** House rules from .eng-team/policy.json. Only known fields, only strings; anything else is ignored. */
+function policyMarkdown(reader) {
+  let p;
+  try {
+    p = JSON.parse(reader.read(POLICY) ?? 'null');
+  } catch {
+    return '';
+  }
+  if (!p || typeof p !== 'object') return '';
+  const code = (v) => `\`${String(v).replace(/[`\n\r]/g, ' ').slice(0, 200)}\``;
+  const strings = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(0, 50) : []);
+  const lines = [
+    `- Highest run mode: ${p.max_mode === 'autonomous' ? 'autonomous (only after a human confirms each run)' : 'gated (a human approves each phase)'}.`,
+    '- Destructive actions (force push, hard reset, infra apply or destroy, cloud deletes, permission and secret changes) are always run by a human, never by Claude.',
+  ];
+  const paths = strings(p.human_required_paths);
+  if (paths.length) lines.push(`- Changes here always wait for a human: ${paths.map(code).join(', ')}.`);
+  const extra = strings(p.destructive_extra);
+  if (extra.length) lines.push(`- Also blocked for agents: ${extra.map(code).join(', ')}.`);
+  lines.push('- Policy changes go through `/eng-team:eng-policy`; blocked commands wait in `/eng-team:eng-queue`.');
+  return lines.join('\n');
+}
 
 function decisionRows(reader) {
   const rows = [];
@@ -162,7 +202,13 @@ function buildSections(spec, reader, docs) {
   for (const s of spec) {
     let md = '';
     const sources = [];
-    if (s.decisions) {
+    if (s.policy) {
+      md = policyMarkdown(reader);
+      if (md) {
+        sources.push(POLICY);
+        used.add(POLICY);
+      }
+    } else if (s.decisions) {
       const rows = decisionRows(reader);
       if (rows.length) {
         md = ['| Decision | Status |', '|---|---|', ...rows.map((r) => `| [${r.title.replace(/[[\]|]/g, ' ')}](${r.rel}) | ${r.status.replace(/\|/g, '/')} |`)].join('\n');
@@ -182,7 +228,7 @@ function buildSections(spec, reader, docs) {
       md = parts.map((x) => (parts.length > 1 ? `### ${x.heading}\n\n${x.body}` : x.body)).join('\n\n');
     }
     if (md) sections.push({ id: s.id, title: s.title, audiences: s.audiences, md, source: sources.join('; ') });
-    else gaps.push({ title: s.title, source: s.decisions ? `${DECISIONS_DIR}/` : [...new Set(s.pieces.map(([k]) => P[k]))].join(', ') });
+    else gaps.push({ title: s.title, source: s.policy ? POLICY : s.decisions ? `${DECISIONS_DIR}/` : [...new Set(s.pieces.map(([k]) => P[k]))].join(', ') });
   }
   return { sections, gaps, used };
 }

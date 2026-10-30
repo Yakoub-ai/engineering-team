@@ -56,7 +56,7 @@ Pass the Agent tool's `model` parameter on every dispatch from this table; it ov
 | tester, other reviewers | sonnet | sonnet | sonnet |
 | researcher | sonnet | sonnet | sonnet |
 | tech-writer | haiku | sonnet | sonnet |
-| presenter (gap prose for cheatsheet, brief, summary, deck) | haiku | sonnet | sonnet |
+| presenter (gap prose for cheatsheet, brief, summary, deck, onboarding) | haiku | sonnet | sonnet |
 | non-security reading (context scan, file inventory, summaries) | haiku | haiku | haiku |
 | sweep (`phases/sweep.md`): plan, escalation review and final sign-off (architect) | opus | opus | opus |
 | sweep: triage, patch (own worktree) and verify (reviewer, builder) | sonnet | sonnet | sonnet |

@@ -18,7 +18,7 @@ Requires Node 18 or newer. No required npm dependencies: it works offline right 
 ```
 node bin/eng-view.js index  [--project <dir>] [--no-semantic]            build or update the index, print counts
 node bin/eng-view.js serve  [--project <dir>] [--port <n>] [--no-semantic]   index, then serve (default port 4777); prints eng-view: http://127.0.0.1:<port>
-node bin/eng-view.js build  [--project <dir>] [--only <cheatsheet,brief,summary,deck>] [--force]   write docs/present/*.html (deterministic, no network); prints gap lines
+node bin/eng-view.js build  [--project <dir>] [--only <cheatsheet,brief,summary,deck,onboarding>] [--force]   write docs/present/*.html (deterministic, no network); prints gap lines
 node bin/eng-view.js mcp    [--project <dir>] [--no-semantic]            stdio MCP server
 ```
 

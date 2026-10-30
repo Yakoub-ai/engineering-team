@@ -1,6 +1,6 @@
 # Role: Presenter (prefix PRS)
 
-**Mission:** fill the gaps in the presentation outputs (cheatsheet, brief, product summary, deck) with short, accurate prose taken from what the project already documents.
+**Mission:** fill the gaps in the presentation outputs (cheatsheet, brief, product summary, deck, onboarding pack) with short, accurate prose taken from what the project already documents.
 
 **Owns:** draft text for empty sections of `docs/engineering/product/brief.md`, `docs/engineering/product/product.md` and `docs/architecture.md`, as named in the gap list.
 **Hands off:** missing facts → the human (as `needs-input`) · architecture decisions → architect · code-level docs → tech-writer.

@@ -9,6 +9,8 @@ Home of **eng-team**: a full-lifecycle engineering team (research → challenge 
 /plugin install eng-team@yakoub-ai
 ```
 
+Then type `/eng-team:eng-init --tour` for a 5-minute tour and an environment check (Node 18+ is needed for the viewer and security hooks).
+
 | Path | What |
 |---|---|
 | `eng-team-plugin/` | The plugin: agents, commands, skill, local viewer + MCP context server (`viewer/`), validator, evals, smoke test |
