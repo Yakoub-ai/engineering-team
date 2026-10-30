@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.11.0 — 2026-10-30
+
+### Added
+- **`/eng-team:eng-start`**: skippable first-run tour (`skills/eng-team/shared/tour.md`) tailored to a new project, an existing repo or a running eng-team project. It covers modes and tiers, the core commands, the profile, policy, the approval queue, chat overrides, receipts, `/eng-present` and `/eng-view`. Read-only; changes no gate, policy, autonomy or file.
+- **First-run notice** (`hooks/session.js`): one fixed line at the first session after install, then never again. The marker is written by the hook only, in the plugin data dir. `ENG_TEAM_NO_WELCOME=1` disables it.
+- **`scripts/doctor.sh`**: read-only environment check (Node 18+, git, viewer and guard files, optional semantic layer) with an install hint per OS. Installs nothing. `/eng-view` and `/eng-present` now run it when Node is missing or too old instead of stopping with a bare message.
+
+### Changed
+- README: prerequisites, first-run steps, `/eng-start` in the quick start and the commands table, requirements for `/eng-view` and `/eng-present`.
+
 ## 3.10.0 — 2026-10-30
 
 ### Added

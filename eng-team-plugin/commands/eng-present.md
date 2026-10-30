@@ -7,7 +7,7 @@ First load the **eng-team** skill with the Skill tool (skill `eng-team:eng-team`
 
 Steps:
 
-1. **Check Node.** Run `node --version`; Node 18 or newer is required. If it is missing or older, say so and stop.
+1. **Check Node.** Run `node --version`; Node 18 or newer is required. If it is missing or older, run `sh ${CLAUDE_PLUGIN_ROOT}/scripts/doctor.sh`, show its install hint for this OS and stop (never install Node yourself without asking once; see the Environment and tooling policy).
 2. **Theme (only if `--theme <preset>` was given).** Presets: `clean`, `midnight`, `editorial`, `forest`, `mono`. Write `{"preset": "<name>"}` to `.eng-team/theme.json`. To use a brand shared across projects instead, the user puts a theme in `~/.eng-team/theme.json` and the project file says `{"use": "shared"}`.
 3. **Build.** Run `node ${CLAUDE_PLUGIN_ROOT}/viewer/bin/eng-view.js build --project "$PWD"` plus `--only <name>` for a single output and `--force` if given. It is deterministic and costs no tokens; it re-renders only outputs whose sources, theme or builder changed. Read its `gap` lines (`gap <output>: <section> <- <source file>`).
 4. **Fill gaps (only on a standard or full track, or when the user asks).** On the lean track, skip this step and just report the gaps. Otherwise dispatch one `eng-presenter` (full type `eng-team:eng-presenter`, `model` from `shared/track.md` → Models per dispatch, "Do not modify files") with the absolute paths of `roles/presenter.md`, the gap list and the source docs. Save each returned `### <path> › <section>` block into that section of that file, only if the section is currently empty (never overwrite human text), and show the user any `needs-input` questions. Then run the build again.

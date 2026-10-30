@@ -223,6 +223,16 @@ No agent approves its own work: code written by the builder is checked by the le
 
 or, from a local clone: `claude --plugin-dir /path/to/engineering-team/eng-team-plugin`.
 
+**Prerequisites**
+
+| Needed | For | Check |
+|---|---|---|
+| Node 18+ | `/eng-view`, `/eng-present`, the context MCP server and every security hook (without Node the guard blocks risky calls inside eng-team projects and does nothing elsewhere) | `node --version` |
+| git | handovers, receipts, sweeps in worktrees | `git --version` |
+| Python 3 | only `scripts/validate.sh` | optional |
+
+**First run.** The first session after install shows a one-line notice once. Type `/eng-team:eng-start` for a 5-minute tour (modes, commands, safety rules, overrides, queue, receipts, `/eng-present`, `/eng-view`); say "skip" at any step, or ignore the notice (`ENG_TEAM_NO_WELCOME=1` silences it). `/eng-team:eng-start check` runs `scripts/doctor.sh`, a read-only check of Node, git and the viewer files with an install hint for your OS. It installs nothing. Run it directly with `sh <plugin dir>/scripts/doctor.sh`.
+
 The repository is private:
 - Log in with `gh auth login` using an account with access to the Yakoub-ai organisation, then run `gh auth setup-git`.
 - Background plugin updates need `GITHUB_TOKEN` in your environment.
@@ -244,6 +254,7 @@ Differences from Claude Code: no context isolation, no slash commands, no parall
 ### Quick start (new or existing project)
 
 ```
+/eng-start       # optional 5-minute tour + environment check (read-only)
 /eng-init        # infers your profile, asks only what it can't infer
 /eng             # runs the lifecycle from wherever you are; safe to re-run
 ```
@@ -320,7 +331,7 @@ In-repo changes go through the normal build flow. Anything on your machine is as
 
 ### Visual workspace and agent context (`/eng-view`)
 
-`/eng-view` starts a local page (default `http://127.0.0.1:4777`) built from the project's engineering record and code. It needs Node 18 or newer and no other dependencies.
+`/eng-view` starts a local page (default `http://127.0.0.1:4777`) built from the project's engineering record and code. It needs Node 18 or newer and no other dependencies. If Node is missing or too old, the command stops and prints the install hint from `scripts/doctor.sh`. `/eng-present` (offline `cheatsheet.html`, `brief.html`, `product-summary.html`, `deck.html` in `docs/present/`) has the same requirement; both work in any project state without `/eng-init`.
 - **Home** is `docs/engineering/STATUS.md`. The sidebar groups Overview (STATUS, team plan, questions), Product, Specs, Plans, Decisions, Handovers (as a timeline), Security and reviews, other docs, Code and a Present group (wants and needs, plus each built output).
 - **Map**: a graph of everything. Explicit links (doc links, `path:line` references, ADR, finding, question, use-case and plan-task IDs, imports) are solid lines. "Related but unlinked" neighbours are dashed and show their similarity score.
 - **Edit docs in place**: markdown under `docs/` and `.eng-team/*.md` (except `state.md`) can be edited and saved to disk, so git shows the diff. A save is refused if the file changed on disk in the meantime. Code is view-only, with "open in editor" links. Code changes go through the team's gates.
@@ -434,6 +445,7 @@ If a short command such as `/eng` answers "Unknown command" in your install, use
 | Command | Arguments | What it does |
 |---|---|---|
 | `/eng` | `[--tier S\|M\|L] [--autonomous\|--auto\|--gated] [request]` | Full lifecycle from `current_phase` (runs init, and policy setup, first if needed) |
+| `/eng-start` | `[tour\|check]` | First-run tour (tailored to a new project, an existing repo or a running eng-team project) and environment check; skippable at any step; read-only, changes no gate, policy or file |
 | `/eng-init` | `[--autonomous\|--auto] [notes]` | Creates the profile and state; checks integrity if they exist |
 | `/eng-onboard` | `[--autonomous\|--auto] [goal or context]` | Existing project in any state: scans code, docs and history, infers stage and lifecycle position, asks for your context, adopts existing evidence and recommends where to start |
 | `/eng-discover` · `/eng-research` · `/eng-architect` · `/eng-build` · `/eng-test` · `/eng-document` | `[--force "<reason>"] [--skip "<reason>"] [--autonomous\|--auto\|--gated] [notes]` | Runs one phase |
