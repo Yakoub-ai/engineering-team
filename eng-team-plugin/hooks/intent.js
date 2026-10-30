@@ -5,7 +5,8 @@
  * record human intent the guard can trust:
  *   /eng-team:eng-policy …              → 30-minute window to edit .eng-team/policy.json
  *   /eng-team:eng… --autonomous|--auto  → this session may switch to autonomous mode
- *   /eng-team:eng-queue done|reject Q-n → the human ran (or refused) a queued command
+ *   /eng-team:eng-queue done|reject Q-n [Q-m …] → the human ran (or refused) queued commands
+ *   /eng-team:eng-queue (any arguments)         → entries whose `rm` is verifiably already done close themselves
  * UserPromptSubmit fires for every message the human types (never for file
  * contents, tool output or subagent reports), so it grants the narrow overrides:
  *   --skip …  or "skip the <gate|phase|task>"  → 10-minute window to mark a gate skipped
@@ -15,7 +16,7 @@
  * Grants are per session and live in ~/.eng-team/grants/ (guard-protected).
  */
 const { writeGrant } = require('./policy.js');
-const { mark } = require('./queue.js');
+const { mark, parseMark, reconcile } = require('./queue.js');
 
 /**
  * @param {object} input parsed hook stdin
@@ -43,9 +44,11 @@ function record(input, now = Date.now(), root = process.env.CLAUDE_PROJECT_DIR |
   if (/^(?:eng-team:)?eng-policy$/.test(name) && writeGrant(input.session_id, 'policy', now)) out.push('policy');
   if (/^(?:eng-team:)?eng(?:-[a-z-]+)?$/.test(name) && /(?:^|\s)--(?:auto|autonomous)(?=\s|$)/.test(args) && writeGrant(input.session_id, 'autonomous', now))
     out.push('autonomous');
-  const q = /^(?:eng-team:)?eng-queue$/.test(name) && /^\s*(done|reject(?:ed)?)\s+(Q-\d{1,6})\s*$/i.exec(args);
-  if (q && root && mark(root, q[2].toUpperCase(), q[1].toLowerCase().startsWith('reject') ? 'rejected' : 'done', now))
-    out.push(`queue:${q[2].toUpperCase()}`);
+  if (root && /^(?:eng-team:)?eng-queue$/.test(name)) {
+    for (const id of reconcile(root, now)) out.push(`auto:${id}`);
+    const q = parseMark(args);
+    if (q) for (const id of q.ids) if (mark(root, id, q.status, now)) out.push(`queue:${id}`);
+  }
   return out;
 }
 

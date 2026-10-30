@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.12.0 — 2026-10-30
+
+### Added
+- **Batch queue updates**: `/eng-team:eng-queue done Q-004 & Q-006` (also commas, spaces or `and`; up to 20 ids, one verb). Parsing is strict: a malformed line records nothing.
+- **Self-closing queue entries**: when you type any `/eng-queue`, the hook closes entries whose command is a plain `rm` of literal in-project paths that are already gone from disk (marked `by: hook-verified`). It checks the filesystem, not Claude; globs, variables, chaining and anything else stay pending. Nothing else can be auto-closed.
+
 ## 3.11.0 — 2026-10-30
 
 ### Added
