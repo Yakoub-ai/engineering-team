@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.10.0 — 2026-10-30
+
+### Added
+- **Chat overrides**: a `UserPromptSubmit` hook (`hooks/intent.js`) sees only what you type. `--skip "<reason>"`, `--force "<reason>"`, "skip the review phase" or a message naming the policy opens a short, per-session grant (10 min for skip/force, 30 min for policy). The guard now rejects a `state.md` edit that newly sets a gate to `skipped` or `forced` without that grant, so the rule is enforced rather than only written. Loosening a policy still shows the change and asks. Autonomous mode and queue approvals stay command-only.
+
 ## 3.9.0 — 2026-10-29
 
 ### Added

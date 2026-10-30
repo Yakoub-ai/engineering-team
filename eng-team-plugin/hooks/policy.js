@@ -23,7 +23,7 @@ const DEFAULTS = Object.freeze({
   credentials_scoped: false,
   approval_ttl_hours: 24,
 });
-const GRANT_TTL_MS = { policy: 30 * 60 * 1000, autonomous: 24 * 60 * 60 * 1000 };
+const GRANT_TTL_MS = { policy: 30 * 60 * 1000, autonomous: 24 * 60 * 60 * 1000, skip: 10 * 60 * 1000, force: 10 * 60 * 1000 };
 
 const isStrList = (v) => Array.isArray(v) && v.every((s) => typeof s === 'string' && s.trim() !== '' && s.length <= 200);
 

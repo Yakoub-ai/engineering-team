@@ -37,7 +37,7 @@ A missing or invalid file means gated with autonomous mode off; the SessionStart
 
 ## Changing the policy (`/eng-team:eng-policy`)
 
-The user typing `/eng-team:eng-policy` opens a 30-minute window in which you may edit the file. Show the current policy, make the change the user asked for, and show the diff. The guard validates the result. A change that tightens the policy goes through; one that loosens it (raising `max_mode`, removing a path or command, setting `credentials_scoped` to true, a longer TTL) makes Claude Code ask the user, and is denied when the session runs unattended (`bypassPermissions`, `dontAsk`). Outside the window, or for any subagent or shell command, edits are denied.
+The user typing `/eng-team:eng-policy` opens a 30-minute window in which you may edit the file. Show the current policy, make the change the user asked for, and show the diff. The guard validates the result. A change that tightens the policy goes through; one that loosens it (raising `max_mode`, removing a path or command, setting `credentials_scoped` to true, a longer TTL) makes Claude Code ask the user, and is denied when the session runs unattended (`bypassPermissions`, `dontAsk`). Outside the window, or for any subagent or shell command, edits are denied. A plain chat message that names the policy (for example "block make reset-db in the policy") also opens the window for tightening changes; loosening still asks. Autonomous mode, raising `max_mode` by shell, and approval-queue entries stay command-only.
 
 ## Activating autonomous mode
 
