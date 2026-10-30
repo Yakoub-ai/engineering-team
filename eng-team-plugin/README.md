@@ -231,7 +231,7 @@ or, from a local clone: `claude --plugin-dir /path/to/engineering-team/eng-team-
 | git | handovers, receipts, sweeps in worktrees | `git --version` |
 | Python 3 | only `scripts/validate.sh` | optional |
 
-**First run.** The first session after install shows a one-line notice once. Type `/eng-team:eng-start` for a 5-minute tour (modes, commands, safety rules, overrides, queue, receipts, `/eng-present`, `/eng-view`); say "skip" at any step, or ignore the notice (`ENG_TEAM_NO_WELCOME=1` silences it). `/eng-team:eng-start check` runs `scripts/doctor.sh`, a read-only check of Node, git and the viewer files with an install hint for your OS. It installs nothing. Run it directly with `sh <plugin dir>/scripts/doctor.sh`.
+**First run.** The first session after install shows a one-line notice once. Type `/eng-team:eng-init --tour` for a 5-minute tour (modes, commands, safety rules, overrides, queue, receipts, `/eng-present`, `/eng-view`) that writes nothing; say "skip" at any step, or ignore the notice (`ENG_TEAM_NO_WELCOME=1` silences it). A first gated `/eng-init` also offers the tour once. Every `/eng-init` starts with `scripts/doctor.sh`, a read-only check of Node, git and the viewer files with an install hint for your OS. It installs nothing. Run it directly with `sh <plugin dir>/scripts/doctor.sh`.
 
 The repository is private:
 - Log in with `gh auth login` using an account with access to the Yakoub-ai organisation, then run `gh auth setup-git`.
@@ -254,8 +254,7 @@ Differences from Claude Code: no context isolation, no slash commands, no parall
 ### Quick start (new or existing project)
 
 ```
-/eng-start       # optional 5-minute tour + environment check (read-only)
-/eng-init        # infers your profile, asks only what it can't infer
+/eng-init        # environment check, optional tour, then infers your profile and asks only what it can't infer
 /eng             # runs the lifecycle from wherever you are; safe to re-run
 ```
 
@@ -445,8 +444,7 @@ If a short command such as `/eng` answers "Unknown command" in your install, use
 | Command | Arguments | What it does |
 |---|---|---|
 | `/eng` | `[--tier S\|M\|L] [--autonomous\|--auto\|--gated] [request]` | Full lifecycle from `current_phase` (runs init, and policy setup, first if needed) |
-| `/eng-start` | `[tour\|check]` | First-run tour (tailored to a new project, an existing repo or a running eng-team project) and environment check; skippable at any step; read-only, changes no gate, policy or file |
-| `/eng-init` | `[--autonomous\|--auto] [notes]` | Creates the profile and state; checks integrity if they exist |
+| `/eng-init` | `[--tour] [--autonomous\|--auto] [notes]` | Creates the profile and state; checks integrity if they exist. Runs the environment check first; `--tour` gives the read-only first-run tour only |
 | `/eng-onboard` | `[--autonomous\|--auto] [goal or context]` | Existing project in any state: scans code, docs and history, infers stage and lifecycle position, asks for your context, adopts existing evidence and recommends where to start |
 | `/eng-discover` · `/eng-research` · `/eng-architect` · `/eng-build` · `/eng-test` · `/eng-document` | `[--force "<reason>"] [--skip "<reason>"] [--autonomous\|--auto\|--gated] [notes]` | Runs one phase |
 | `/eng-review` | `[plan\|review\|gate] [paths or diff range]` | Standalone review/audit; no setup; never changes lifecycle gates |

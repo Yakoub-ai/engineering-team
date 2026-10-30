@@ -12,7 +12,7 @@ test.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 test('welcome shows once, then never again', () => {
   const dir = path.join(tmp, 'data');
-  assert.match(welcome(dir), /eng-team:eng-start/);
+  assert.match(welcome(dir), /eng-init --tour/);
   assert.equal(welcome(dir), null);
 });
 
@@ -33,7 +33,7 @@ test('hook prints the welcome once as a systemMessage outside eng-team projects'
       encoding: 'utf8',
     });
   const first = JSON.parse(run().stdout);
-  assert.match(first.systemMessage, /eng-start/);
+  assert.match(first.systemMessage, /eng-init --tour/);
   assert.equal(run().stdout, '');
 });
 

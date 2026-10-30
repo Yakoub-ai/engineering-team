@@ -30,8 +30,8 @@ function summary(root) {
 }
 
 const WELCOME =
-  'eng-team is installed. New here? Type /eng-team:eng-start for a 5-minute tour (modes, commands, safety rules, ' +
-  '/eng-present and /eng-view), or ignore this: it is shown once. Commands failing? Run /eng-team:eng-start check.';
+  'eng-team is installed. New here? Type /eng-team:eng-init --tour for a 5-minute tour and environment check ' +
+  '(modes, commands, safety rules, /eng-present and /eng-view), or ignore this: it is shown once.';
 
 /**
  * Shows the first-run welcome once per install. The marker is written by this
