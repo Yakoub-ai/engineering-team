@@ -1,6 +1,6 @@
 # First-run tour
 
-Used by `/eng-team:eng-init` (offered on a first gated init, or on its own with `--tour`). Read-only: explain, never change files, gates, policy or autonomy. One card at a time, each at most 6 lines. After each card ask: continue, jump to a topic, or skip. Skip ends the tour at once.
+Used by `/eng-team:eng-init` (offered on a first gated init, or on its own with `--tour`). Read-only and private to the conversation: never write files, never add a state.md Log line, STATUS, handover or receipt entry, dispatch no agent, and change no gate, policy or autonomy. Nothing about the tour may end up in the project, so it never appears in `/eng-view`. One card at a time, each at most 6 lines. After each card ask: continue, jump to a topic, or skip. Skip ends the tour at once.
 
 ## Pick the track
 
@@ -18,7 +18,7 @@ Inspect, without writing: `.eng-team/state.md`, `.eng-team/policy.json`, whether
 5. **Safety rules you control.** `.eng-team/policy.json` holds `max_mode`, protected paths and extra blocked commands. Destructive actions (force push, hard reset, infra apply/destroy, cloud deletes, secret changes) are always yours to run. Change policy only through `/eng-team:eng-policy`.
 6. **Approvals and overrides.** A denied command lands in the queue: run it yourself, then type `/eng-team:eng-queue done Q-<n>`. To skip or force a gate, type `--skip "<reason>"` or `--force "<reason>"` yourself; Claude cannot grant these to itself. `--autonomous` always asks you to confirm.
 7. **Proof of work.** Every code-changing run ends with a change receipt in `docs/engineering/receipts/`; paste it as the PR description. A separate verifier tries to disprove each finding before it sends work back.
-8. **See and share it.** `/eng-view` opens a local workspace on 127.0.0.1 (search, map, in-place doc edits). `/eng-present` builds an offline cheatsheet, brief, product summary and 16:9 deck into `docs/present/`. Both need Node 18+; `/eng-team:eng-init --tour` re-checks what is missing.
+8. **See and share it.** `/eng-view` opens a local workspace on 127.0.0.1 (search, map, in-place doc edits). `/eng-present` builds an offline cheatsheet, brief, product summary, 16:9 deck and onboarding pack into `docs/present/`. A teammate joining a project runs `/eng-team:eng-onboard` for a walkthrough of that project. Both need Node 18+; `/eng-team:eng-init --tour` re-checks what is missing.
 
 ## Closing card
 

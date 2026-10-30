@@ -39,7 +39,7 @@ test('build writes escaped, script-free outputs, reports gaps, and is incrementa
   });
   try {
     const first = buildOutputs(dir);
-    assert.deepEqual(first.results.map((r) => r.status), ['built', 'built', 'built', 'built']);
+    assert.deepEqual(first.results.map((r) => r.status), ['built', 'built', 'built', 'built', 'built']);
     const html = fs.readFileSync(path.join(dir, 'docs/present/brief.html'), 'utf8');
     assert.match(html, /&lt;script&gt;alert\(1\)/);
     assert.doesNotMatch(html, /<script/i);
@@ -52,7 +52,7 @@ test('build writes escaped, script-free outputs, reports gaps, and is incrementa
     assert.ok(!cheat.gaps.some((g) => g.title === 'Decisions'));
     assert.match(fs.readFileSync(path.join(dir, 'docs/present/cheatsheet.html'), 'utf8'), /Use SQLite/);
 
-    assert.deepEqual(buildOutputs(dir).results.map((r) => r.status), ['unchanged', 'unchanged', 'unchanged', 'unchanged']);
+    assert.deepEqual(buildOutputs(dir).results.map((r) => r.status), ['unchanged', 'unchanged', 'unchanged', 'unchanged', 'unchanged']);
 
     fs.appendFileSync(path.join(dir, 'docs/engineering/product/brief.md'), '2. Pick a region.\n');
     const third = buildOutputs(dir).results;
@@ -157,6 +157,40 @@ test('deck paginates long sections into slides and summary builds; both stay scr
     assert.match(deck, /Content-Security-Policy/);
     assert.match(fs.readFileSync(path.join(dir, 'docs/present/product-summary.html'), 'utf8'), /Purpose/);
     assert.deepEqual(buildOutputs(dir, { only: ['deck', 'summary'] }).results.map((x) => x.status), ['unchanged', 'unchanged']);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('onboarding output: house rules come from the policy only, escaped; secret-looking docs stay out', () => {
+  const dir = project({
+    'docs/engineering/product/product.md': PRODUCT,
+    'docs/testing.md': '# Testing\n\n## How to run\n`make test`\n',
+    '.eng-team/policy.json': JSON.stringify({ version: 1, max_mode: 'gated', human_required_paths: ['infra/**', '<img src=x onerror=1>', 7], destructive_extra: ['make reset-db'], credentials_scoped: false, approval_ttl_hours: 24 }),
+    'docs/runbook.md': '# Runbook\n\n## Deploy\ntoken ghp_abcdefghijklmnopqrstuvwxyz0123456789\n',
+  });
+  try {
+    const r = buildOutputs(dir, { only: ['onboarding'] }).results[0];
+    assert.equal(r.file, 'docs/present/onboarding.html');
+    const html = fs.readFileSync(path.join(dir, r.file), 'utf8');
+    assert.match(html, /House rules/);
+    assert.match(html, /infra\/\*\*/);
+    assert.match(html, /make reset-db/);
+    assert.match(html, /make test/);
+    assert.doesNotMatch(html, /<img/i);
+    assert.doesNotMatch(html, /<script/i);
+    assert.doesNotMatch(html, /ghp_/);
+    assert.ok(r.gaps.some((g) => g.title === 'Deploy, rollback and contacts'));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('onboarding output: a missing or malformed policy is a gap, not an error', () => {
+  const dir = project({ '.eng-team/policy.json': '{not json' });
+  try {
+    const r = buildOutputs(dir, { only: ['onboarding'] }).results[0];
+    assert.ok(r.gaps.some((g) => g.title === 'House rules' && g.source === '.eng-team/policy.json'));
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

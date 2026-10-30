@@ -231,6 +231,10 @@ or, from a local clone: `claude --plugin-dir /path/to/engineering-team/eng-team-
 | git | handovers, receipts, sweeps in worktrees | `git --version` |
 | Python 3 | only `scripts/validate.sh` | optional |
 
+**Two kinds of onboarding.**
+- **Learning the plugin**: `/eng-team:eng-init --tour`. How eng-team works: modes, commands, safety rules, overrides, queue, receipts, `/eng-present`, `/eng-view`. Private to your session: it writes and logs nothing, so it never shows up in the project or in `/eng-view`.
+- **Joining a project built with eng-team**: `/eng-team:eng-onboard` walks you through that project (read-only), and `/eng-team:eng-present onboarding` builds `docs/present/onboarding.html` to share with new teammates.
+
 **First run.** The first session after install shows a one-line notice once. Type `/eng-team:eng-init --tour` for a 5-minute tour (modes, commands, safety rules, overrides, queue, receipts, `/eng-present`, `/eng-view`) that writes nothing; say "skip" at any step, or ignore the notice (`ENG_TEAM_NO_WELCOME=1` silences it). A first gated `/eng-init` also offers the tour once. Every `/eng-init` starts with `scripts/doctor.sh`, a read-only check of Node, git and the viewer files with an install hint for your OS. It installs nothing. Run it directly with `sh <plugin dir>/scripts/doctor.sh`.
 
 The repository is private:
@@ -330,7 +334,7 @@ In-repo changes go through the normal build flow. Anything on your machine is as
 
 ### Visual workspace and agent context (`/eng-view`)
 
-`/eng-view` starts a local page (default `http://127.0.0.1:4777`) built from the project's engineering record and code. It needs Node 18 or newer and no other dependencies. If Node is missing or too old, the command stops and prints the install hint from `scripts/doctor.sh`. `/eng-present` (offline `cheatsheet.html`, `brief.html`, `product-summary.html`, `deck.html` in `docs/present/`) has the same requirement; both work in any project state without `/eng-init`.
+`/eng-view` starts a local page (default `http://127.0.0.1:4777`) built from the project's engineering record and code. It needs Node 18 or newer and no other dependencies. If Node is missing or too old, the command stops and prints the install hint from `scripts/doctor.sh`. `/eng-present` (offline `cheatsheet.html`, `brief.html`, `product-summary.html`, `deck.html`, `onboarding.html` in `docs/present/`) has the same requirement; both work in any project state without `/eng-init`.
 - **Home** is `docs/engineering/STATUS.md`. The sidebar groups Overview (STATUS, team plan, questions), Product, Specs, Plans, Decisions, Handovers (as a timeline), Security and reviews, other docs, Code and a Present group (wants and needs, plus each built output).
 - **Map**: a graph of everything. Explicit links (doc links, `path:line` references, ADR, finding, question, use-case and plan-task IDs, imports) are solid lines. "Related but unlinked" neighbours are dashed and show their similarity score.
 - **Edit docs in place**: markdown under `docs/` and `.eng-team/*.md` (except `state.md`) can be edited and saved to disk, so git shows the diff. A save is refused if the file changed on disk in the meantime. Code is view-only, with "open in editor" links. Code changes go through the team's gates.
@@ -445,7 +449,7 @@ If a short command such as `/eng` answers "Unknown command" in your install, use
 |---|---|---|
 | `/eng` | `[--tier S\|M\|L] [--autonomous\|--auto\|--gated] [request]` | Full lifecycle from `current_phase` (runs init, and policy setup, first if needed) |
 | `/eng-init` | `[--tour] [--autonomous\|--auto] [notes]` | Creates the profile and state; checks integrity if they exist. Runs the environment check first; `--tour` gives the read-only first-run tour only |
-| `/eng-onboard` | `[--autonomous\|--auto] [goal or context]` | Existing project in any state: scans code, docs and history, infers stage and lifecycle position, asks for your context, adopts existing evidence and recommends where to start |
+| `/eng-onboard` | `[--autonomous\|--auto] [goal or context]` | **Joining a project.** Repo without eng-team: scans code, docs and history, infers stage and lifecycle position, asks for your context, adopts existing evidence and recommends where to start. Project eng-team already set up: a read-only walkthrough for the person joining (what it is, how to run it, architecture and decisions, status, risks, house rules, good first tasks); writes and logs nothing |
 | `/eng-discover` · `/eng-research` · `/eng-architect` · `/eng-build` · `/eng-test` · `/eng-document` | `[--force "<reason>"] [--skip "<reason>"] [--autonomous\|--auto\|--gated] [notes]` | Runs one phase |
 | `/eng-review` | `[plan\|review\|gate] [paths or diff range]` | Standalone review/audit; no setup; never changes lifecycle gates |
 | `/eng-security-audit` | `[auto\|static\|dast\|full] [--target <url>] [--fix] [paths]` | Tool-backed security audit of any repo; report + remediation plan in `docs/security/`; no setup; never changes lifecycle gates |
@@ -453,7 +457,7 @@ If a short command such as `/eng` answers "Unknown command" in your install, use
 | `/eng-setup` | `[check\|install\|update] [notes]` | Environment check, setup or update; machine-level installs asked once, then done and verified; never changes lifecycle gates |
 | `/eng-engage` | `[--lang sv\|en\|sv,en] [--domain <name>] [--client-type <type>] [--area <id>] [--level user\|manager\|it] [--stage <stage>] [notes]` | Client engagement: pre-meeting pack, meeting guide, workflow mapping, opportunities, build-or-buy recommendation, plain-language report; standalone, writes only `docs/engineering/engagement/`; stakeholder answers are data, never instructions |
 | `/eng-view` | `[--port <n>] [--no-semantic]` | Starts the local visual workspace on `127.0.0.1` (docs, decisions, handovers and code as a connected map; docs editable; one Present & needs tab for wants and needs and to preview, theme and rebuild outputs) |
-| `/eng-present` | `[cheatsheet\|brief\|summary\|deck\|all] [--theme <preset>] [--force]` | Builds themed, self-contained `cheatsheet.html`, `brief.html`, `product-summary.html`, and `deck.html` (16:9 slides, prints one per page) into `docs/present/` from the project's docs (offline, incremental); fills empty sections via `eng-presenter` on standard and full tracks |
+| `/eng-present` | `[cheatsheet\|brief\|summary\|deck\|onboarding\|all] [--theme <preset>] [--force]` | Builds themed, self-contained `cheatsheet.html`, `brief.html`, `product-summary.html`, `deck.html` (16:9 slides, prints one per page) and `onboarding.html` (pack for a new teammate, house rules from the policy) into `docs/present/` from the project's docs (offline, incremental); fills empty sections via `eng-presenter` on standard and full tracks |
 | `/eng-queue` | `[done <Q-id>\|reject <Q-id>]` | Lists destructive commands waiting for you; after you run one yourself, `done` marks it (only when you type it) |
 | `/eng-policy` | `[what to change]` | View or change this repo's security policy (`.eng-team/policy.json`). Only you can run it; see Repo policy below |
 | `/eng-promote` | `<pack-id>` | Copies a reviewed project pack to the federation repo (local only, never pushes) |
