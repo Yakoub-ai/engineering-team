@@ -6,7 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 process.env.ENG_TEAM_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'engq-home-'));
-const { entries, enqueue, mark } = require('../queue.js');
+const { entries, enqueue, mark, parseMark } = require('../queue.js');
 const { record } = require('../intent.js');
 const { decide } = require('../guard.js');
 
@@ -80,4 +80,42 @@ test('pending entries expire after approval_ttl_hours and can still be marked', 
   assert.equal(enqueue(proj, { command: 'pulumi destroy', reason: 'pulumi' }), 'Q-002');
   assert.equal(mark(proj, 'Q-001', 'done'), true);
   assert.equal(mark(proj, 'Q-002', 'approved'), false);
+});
+
+test('several ids close in one command; malformed input records nothing', () => {
+  reset();
+  for (const c of ['az group delete -n a', 'az group delete -n b', 'az group delete -n c']) enqueue(proj, { command: c, reason: 'cloud delete' });
+  assert.deepEqual(typed('done Q-001 & Q-002'), ['queue:Q-001', 'queue:Q-002']);
+  assert.deepEqual(parseMark('done Q-001, Q-002 and Q-003'), { status: 'done', ids: ['Q-001', 'Q-002', 'Q-003'] });
+  assert.deepEqual(parseMark('reject q-1 q-1 Q-2').ids, ['Q-1', 'Q-2']);
+  for (const bad of ['done Q-001 & ', 'done Q-001; rm -rf /', 'done Q-001 Q-002 extra', 'done all', 'done', 'approve Q-001', `done ${Array.from({ length: 21 }, (_, i) => `Q-${i + 1}`).join(' ')}`])
+    assert.equal(parseMark(bad), null, bad);
+  assert.deepEqual(typed('done Q-003 & nonsense'), []);
+  assert.equal(entries(proj)[2].status, 'pending');
+});
+
+test('an rm whose targets are already gone closes itself; anything else stays pending', () => {
+  reset();
+  const gone = path.join(proj, 'old-a');
+  const here = path.join(proj, 'still-here');
+  fs.mkdirSync(here);
+  const q = (command, cwd = proj) => enqueue(proj, { command, cwd, reason: 'recursive rm' });
+  q('rm -rf old-a old-b'); //     Q-001 both gone
+  q('rm -rf still-here'); //      Q-002 exists
+  q('rm -rf old-a still-here'); // Q-003 one exists
+  q('rm -rf old-*'); //           Q-004 glob
+  q('rm -rf ../outside'); //      Q-005 escapes the project
+  q('rm -rf old-a && rm -rf x'); // Q-006 chained
+  q('rm -rf $HOME/x'); //         Q-007 expansion
+  q('rm -rf old-a', path.join(proj, 'missing-dir')); // Q-008 cwd gone
+  q('rm -rf .'); //               Q-009 project root
+  assert.equal(fs.existsSync(gone), false);
+  assert.deepEqual(typed('list'), ['auto:Q-001']);
+  assert.deepEqual(entries(proj).map((e) => e.status), ['done', ...Array(8).fill('pending')]);
+  assert.equal(entries(proj)[0].by, 'hook-verified');
+  assert.deepEqual(typed('list'), []);
+  // Only a typed /eng-queue reconciles; a plain prompt never does.
+  q('rm -rf old-c');
+  record({ hook_event_name: 'UserPromptSubmit', prompt: 'done Q-010', session_id: 's' }, Date.now(), proj);
+  assert.equal(entries(proj)[9].status, 'pending');
 });

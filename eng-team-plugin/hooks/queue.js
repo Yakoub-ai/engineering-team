@@ -79,12 +79,67 @@ function enqueue(root, { command, cwd, reason, agent }, now = Date.now()) {
  * Human-typed status change. Only pending or expired entries change.
  * @returns {boolean}
  */
-function mark(root, id, status, now = Date.now()) {
+function mark(root, id, status, now = Date.now(), by = 'human') {
   if (!['done', 'rejected'].includes(status)) return false;
   const e = entries(root, now).find((x) => x.id === id);
   if (!e || !['pending', 'expired'].includes(e.status)) return false;
-  append(root, { id, status, [status === 'done' ? 'done_at' : 'rejected_at']: new Date(now).toISOString(), by: 'human' });
+  append(root, { id, status, [status === 'done' ? 'done_at' : 'rejected_at']: new Date(now).toISOString(), by });
   return true;
 }
 
-module.exports = { QUEUE_FILE, entries, enqueue, mark, hashOf };
+const MAX_BATCH = 20;
+
+/**
+ * Strict parse of `/eng-queue` arguments: one verb, then 1-20 ids separated
+ * by spaces, commas, `&` or `and`. Anything else parses to null and records nothing.
+ * @returns {{status: 'done'|'rejected', ids: string[]}|null}
+ */
+function parseMark(args) {
+  const m = /^\s*(done|reject(?:ed)?)\s+(Q-\d{1,6}(?:(?:\s*[,&]\s*|\s+and\s+|\s+)Q-\d{1,6}){0,19})\s*$/i.exec(String(args));
+  if (!m) return null;
+  const ids = [...new Set(m[2].toUpperCase().match(/Q-\d{1,6}/g))];
+  return ids.length <= MAX_BATCH ? { status: m[1].toLowerCase().startsWith('reject') ? 'rejected' : 'done', ids } : null;
+}
+
+/**
+ * True only when the queued command is a plain `rm` of literal paths inside
+ * the project and every one of them is already gone (a read-only check).
+ * Globs, variables, quoting, chaining and anything but ENOENT mean "not verified".
+ */
+function verifiedGone(root, e) {
+  const m = /^rm((?:\s+-[rRfv]+)*)((?:\s+[\w@%+=:,./-]+)+)$/.exec(String(e.command || '').trim());
+  if (!m) return false;
+  const paths = m[2].trim().split(/\s+/);
+  if (paths.some((t) => t.startsWith('-') || t === '.' || t === '..')) return false;
+  let base;
+  try {
+    base = fs.realpathSync(root);
+    if (!fs.statSync(e.cwd).isDirectory()) return false;
+  } catch {
+    return false;
+  }
+  return paths.every((t) => {
+    const abs = path.resolve(e.cwd, t);
+    if (abs === base || !abs.startsWith(base + path.sep)) return false;
+    try {
+      fs.lstatSync(abs);
+      return false;
+    } catch (err) {
+      return err.code === 'ENOENT';
+    }
+  });
+}
+
+/**
+ * Mark pending or expired entries done when their effect is already on disk.
+ * The hook decides from the filesystem, never Claude; only `rm` is understood.
+ * @returns {string[]} ids closed
+ */
+function reconcile(root, now = Date.now()) {
+  const out = [];
+  for (const e of entries(root, now))
+    if (['pending', 'expired'].includes(e.status) && verifiedGone(root, e) && mark(root, e.id, 'done', now, 'hook-verified')) out.push(e.id);
+  return out;
+}
+
+module.exports = { QUEUE_FILE, entries, enqueue, mark, parseMark, reconcile, hashOf };
