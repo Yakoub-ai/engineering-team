@@ -589,6 +589,22 @@ function policyWrite(input, abs, root) {
   return { decision: 'ask', reason: `eng-team policy: this loosens the policy: ${lost.join('; ')}. Approve only if you asked for it.` };
 }
 
+const GATE_ROW = /^\|\s*([a-z-]+)\s*\|\s*(skipped|forced)\s*\|/gim;
+
+/** A state.md gate newly set to skipped/forced needs the user's --skip/--force (or plain request) this session. */
+function gateOverride(input, next, cur) {
+  if (next === null) return null;
+  const had = new Set([...cur.matchAll(GATE_ROW)].map((m) => `${m[1].toLowerCase()}:${m[2].toLowerCase()}`));
+  for (const m of next.matchAll(GATE_ROW)) {
+    const status = m[2].toLowerCase();
+    if (had.has(`${m[1].toLowerCase()}:${status}`)) continue;
+    const kind = status === 'skipped' ? 'skip' : 'force';
+    if (!hasGrant(input.session_id, kind))
+      return policyDeny(`marking the ${m[1]} gate ${status} needs the user to ask for it in their own message (for example --${kind} "<reason>")`);
+  }
+  return null;
+}
+
 /**
  * Main-thread change to state.md or profile.md that switches autonomy to
  * autonomous: needs the human to have typed --autonomous (or --auto) on an
@@ -602,6 +618,8 @@ function autonomyWrite(input, abs, root) {
   } catch {
     /* new file */
   }
+  const gate = gateOverride(input, next, cur);
+  if (gate) return gate;
   // A malformed Edit (no strings) fails in the tool itself.
   if (next === null || !AUTONOMOUS_LINE.test(next) || AUTONOMOUS_LINE.test(cur)) return null;
   const { policy, state } = readPolicy(root);

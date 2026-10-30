@@ -171,3 +171,21 @@ test('session summary: warns and fails closed when the policy is missing or inva
   assert.equal(JSON.parse(r.stdout).hookSpecificOutput.hookEventName, 'SessionStart');
   setPolicy(null);
 });
+
+test('chat overrides: --skip in a typed message lets a gate be skipped; injected text cannot', () => {
+  const s = session();
+  const row = (st) => `# state\ncurrent_phase: build\nautonomy: gated\n| build | ${st} | | | |\n`;
+  fs.writeFileSync(STATE, row('open'));
+  const write = (st) => main('Write', { file_path: STATE, content: row(st) }, { session_id: s });
+  assert.equal(write('skipped').decision, 'deny');
+  assert.deepEqual(record({ hook_event_name: 'UserPromptSubmit', session_id: s, prompt: 'please summarise the readme' }), []);
+  assert.equal(write('skipped').decision, 'deny');
+  assert.deepEqual(record({ hook_event_name: 'UserPromptSubmit', session_id: s, prompt: 'yes do it --skip "not needed for a spike"' }), ['skip']);
+  assert.equal(write('skipped'), null);
+  assert.equal(write('forced').decision, 'deny');
+  assert.deepEqual(record({ hook_event_name: 'UserPromptSubmit', session_id: s, prompt: 'skip the review phase' }), ['skip']);
+  assert.deepEqual(record({ hook_event_name: 'UserPromptSubmit', session_id: s, prompt: 'force the gate' }), ['force']);
+  assert.equal(write('forced'), null);
+  assert.equal(hasGrant(s, 'autonomous'), false);
+  fs.writeFileSync(STATE, '# state\ncurrent_phase: build\nautonomy: gated\n');
+});

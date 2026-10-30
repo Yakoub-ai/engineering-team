@@ -19,7 +19,7 @@ After the integrity check, re-check the track conditions in `shared/track.md` an
 
 `/eng` resumes from `current_phase` and runs phases in order. `/eng-<phase>` and `/eng-promote` run only after the Preconditions in `SKILL.md` hold. `/eng-<phase>` runs one phase and refuses, naming the blocking gate, unless every earlier gate is `passed`, `skipped` or `forced`.
 - `--force "<reason>"` runs the phase anyway: set each earlier gate that is not `passed|skipped` to `forced` and log `- YYYY-MM-DD forced <phase>: <reason>`. `--force` without a reason string is refused. It is logged in either autonomy mode.
-- A gate becomes `skipped` only when a human runs a phase command with `--skip "<reason>"` in gated mode; log `- YYYY-MM-DD skipped <phase>: <reason>`. In autonomous mode `--skip` is refused.
+- A gate becomes `skipped` only when the human asks for it in their own chat message in gated mode: `--skip "<reason>"` on any message or phase command, or a plain request such as "skip the review phase". Do not offer to skip and then act on your own recommendation; wait for their answer. Set the row, quote their words as the reason, and log `- YYYY-MM-DD skipped <phase>: <reason>`. The guard rejects the edit unless a hook saw the human type it (10-minute window); if it rejects, tell the user to repeat the request with `--skip "<reason>"`. In autonomous mode `--skip` is refused. `--force` works the same way.
 - Exception: `/eng-review` invoked directly never refuses and never changes gates (see Preconditions in `SKILL.md`).
 
 ## Running a phase
