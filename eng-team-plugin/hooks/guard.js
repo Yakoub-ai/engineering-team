@@ -350,9 +350,57 @@ function protectedBash(cmd) {
     return 'changing eng-team approval grants';
   if (/\.eng-team\b[^\n]*\b(?:state|profile)\.md|\b(?:state|profile)\.md\b[^\n]*\.eng-team/.test(cmd) && /\bautonomous\b/.test(cmd) && (write.test(cmd) || run.test(cmd)))
     return 'switching to autonomous mode from the shell';
-  // Running the plugin's own scripts (node …/dispatch-log.js) is fine; changing them is not.
-  if (/\/plugins\/\S*eng-team|eng-team-plugin\/hooks/.test(cmd) && write.test(cmd)) return 'changing the eng-team plugin';
+  // Running or reading the plugin's files (node …/dispatch-log.js, ls …/templates) is fine; changing them is not.
+  if (PLUGIN_PATH.test(cmd) && write.test(cmd) && pluginWrite(cmd, write)) return 'changing the eng-team plugin';
   return null;
+}
+
+const PLUGIN_PATH = /\/plugins\/\S*eng-team|eng-team-plugin\/hooks/;
+// Ways a plugin path can reach a write in another subcommand; any of them means the whole command counts.
+const INDIRECT = /^\s*(?:cd|pushd|export|eval|source|\.)\s|^\s*\w+=|\$\(|`|\b(?:xargs|find|sh|bash|zsh|env)\b|\s-t\s|--target-directory/;
+
+/** Split a shell command on ; && || | & and newlines, outside quotes. */
+function subcommands(cmd) {
+  const out = [];
+  let cur = '';
+  let q = null;
+  for (const ch of cmd) {
+    if (q) {
+      if (ch === q) q = null;
+    } else if (ch === '"' || ch === "'") q = ch;
+    else if (ch === ';' || ch === '&' || ch === '|' || ch === '\n') {
+      if (cur.trim()) out.push(cur);
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur.trim()) out.push(cur);
+  return out;
+}
+
+/**
+ * True when a subcommand writes to a plugin path: a redirect into it, the
+ * destination of cp/install/rsync/ln, or any other writer naming it.
+ * Indirection or an unclosed quote falls back to the whole command.
+ */
+function pluginWrite(cmd, write) {
+  const parts = subcommands(cmd);
+  if ((cmd.match(/["']/g) || []).length % 2 || parts.some((s) => INDIRECT.test(s))) return true;
+  for (const s of parts) {
+    if (!PLUGIN_PATH.test(s)) continue;
+    const redirects = [...s.matchAll(/(?<![\d&])>>?(?!&)\s*(\S+)/g)];
+    if (redirects.some((m) => PLUGIN_PATH.test(m[1]))) return true;
+    const rest = s.replace(/(?<![\d&])>>?(?!&)\s*\S+/g, ' ');
+    const toks = tokenize(rest.trim());
+    if (/^(?:cp|install|rsync|ln)$/.test(path.basename(toks[0] || ''))) {
+      const ops = toks.slice(1).filter((t) => !t.startsWith('-'));
+      if (PLUGIN_PATH.test(ops[ops.length - 1] || '')) return true;
+      continue;
+    }
+    if (write.test(rest)) return true;
+  }
+  return false;
 }
 
 /**

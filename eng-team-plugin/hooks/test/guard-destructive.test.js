@@ -151,3 +151,34 @@ test('protected-file checks do not catch neighbours', () => {
     assert.equal(main(c), null, c);
   assert.equal(main('cp x ~/.claude/plugins/cache/m/eng-team/hooks/guard.js')?.decision, 'deny');
 });
+
+test('plugin paths: reading passes, writing in any subcommand is blocked', () => {
+  const P = '~/.claude/plugins/cache/m/eng-team/3.13.0/skills/eng-team';
+  for (const c of [
+    `sed -i 's/| architect | open/| architect | in-progress/' docs/engineering/STATUS.md && ls ${P}/templates/`,
+    `ls ${P}/templates/ ; sed -i 's/a/b/' docs/x.md`,
+    `cat ${P}/templates/state.md | tee docs/engineering/state-copy.md`,
+    `cp ${P}/templates/receipt.md docs/engineering/receipts/r.md`,
+    `grep -n x ${P}/SKILL.md > /tmp/out.txt; echo done > notes.md`,
+  ])
+    assert.equal(main(c), null, c);
+  for (const c of [
+    `sed -i 's/a/b/' ${P}/SKILL.md`,
+    `ls docs && sed -i 's/a;b/c/' ${P}/SKILL.md`,
+    `echo x > ${P}/SKILL.md`,
+    `echo x >> "${P}/SKILL.md"`,
+    `cat a | tee ${P}/SKILL.md`,
+    `cp docs/x.md ${P}/templates/state.md`,
+    `mv ${P}/SKILL.md /tmp/x`,
+    `rm ${P}/SKILL.md`,
+    `cd ${P} && sed -i 's/a/b/' SKILL.md`,
+    `P=${P}; echo x > $P/SKILL.md`,
+    `ls ${P} | xargs rm`,
+    `find ${P} -name '*.md' -delete`,
+    `sh -c "echo x > ${P}/SKILL.md"`,
+    `cp -t ${P}/templates docs/x.md`,
+    `echo $(ls ${P}) > ${P}/x`,
+    `ls ${P}/templates/ 'x && echo y > notes.md`,
+  ])
+    assert.equal(main(c)?.decision, 'deny', c);
+});
