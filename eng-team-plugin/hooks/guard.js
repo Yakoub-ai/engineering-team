@@ -17,6 +17,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { readPolicy, validate, loosenings, hasGrant, engHome } = require('./policy.js');
 const { enqueue } = require('./queue.js');
+const { losslessBranchDelete } = require('./gitref.js');
 
 const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
 const GUARDED_TOOLS = new Set(['Bash', ...WRITE_TOOLS]);
@@ -293,7 +294,9 @@ const unquoteWords = (cmd) => cmd.replace(/(["'])([\w./\\-]+)\1/g, '$2');
  */
 function destructiveCheck(raw, projectDir, cwd) {
   const cmd = unquoteWords(raw);
-  for (const r of DESTRUCTIVE) if (r.re.test(cmd)) return r.name;
+  // A branch whose commits are on another branch can be recovered from there.
+  const lossless = losslessBranchDelete(raw, cwd || projectDir);
+  for (const r of DESTRUCTIVE) if (r.re.test(cmd) && !(lossless && r.name === 'branch deletion')) return r.name;
   const flat = cmd.replace(/\s+/g, ' ');
   for (const extra of readPolicy(projectDir).policy.destructive_extra)
     if (flat.includes(extra.trim().replace(/\s+/g, ' '))) return `repo policy: ${extra.trim()}`;

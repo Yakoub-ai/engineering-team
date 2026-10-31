@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.13.0 — 2026-10-31
+
+### Changed
+- **Merged local branches can be deleted by Claude** (`hooks/gitref.js`): the guard allows a plain `git branch -d|-D <one literal name>` when git (read-only, no shell, repo hooks off) shows the branch tip is contained in another local or remote-tracking branch, and the branch is not current or default. Unmerged branches, several names, variables, quoting, chaining, `-C` and remote deletes are still destructive and queued.
+- **Queued branch deletes close themselves** at your next `/eng-team:eng-queue` once git reports the branch is gone (`by: hook-verified`).
+
 ## 3.12.0 — 2026-10-30
 
 ### Added

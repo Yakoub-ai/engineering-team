@@ -160,7 +160,8 @@ A guard denial that says `Queued as Q-<n>` (or `queued as Q-<n>`) is not a hard 
 2. **Tell the user once**, at the next message: the command in a code block, why it is needed, what it unblocks, and "run it yourself, then type `/eng-team:eng-queue done Q-<n>`" (or `reject`).
 3. **Stop** when every remaining task depends on a pending entry: post the list and end the turn.
 4. **Resume.** A `done` entry unblocks its tasks. Before resuming, check that the target is in the state the command should have left it (a read-only check: `git log`, `terraform plan`, a list command) and that the plan has not changed since the entry was created; if either fails, ask the user. A `rejected` entry: re-plan the task without that action or ask the user. An `expired` entry (older than `approval_ttl_hours`): treat it as not run and ask again.
-5. The receipt lists every queue entry of the run with its status (`templates/receipt.md`).
+5. **Merged local branches.** The guard lets a plain `git branch -d|-D <one name>` through when git shows every commit on it is also on another local or remote branch, and it is not the current or default branch. Use it to clean up worktree and task branches after their work is merged. A pending entry with such a command may be run once when the user asks; it closes itself at their next `/eng-team:eng-queue`. Unmerged branches stay queued.
+6. The receipt lists every queue entry of the run with its status (`templates/receipt.md`).
 
 ## Critical findings
 

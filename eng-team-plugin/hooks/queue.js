@@ -14,6 +14,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { readPolicy } = require('./policy.js');
+const { branchGone } = require('./gitref.js');
 
 const QUEUE_FILE = path.join('.eng-team', 'approvals', 'queue.jsonl');
 
@@ -132,13 +133,14 @@ function verifiedGone(root, e) {
 
 /**
  * Mark pending or expired entries done when their effect is already on disk.
- * The hook decides from the filesystem, never Claude; only `rm` is understood.
+ * The hook decides from the filesystem or git, never Claude; only `rm` and plain
+ * single-branch `git branch -d|-D` are understood.
  * @returns {string[]} ids closed
  */
 function reconcile(root, now = Date.now()) {
   const out = [];
   for (const e of entries(root, now))
-    if (['pending', 'expired'].includes(e.status) && verifiedGone(root, e) && mark(root, e.id, 'done', now, 'hook-verified')) out.push(e.id);
+    if (['pending', 'expired'].includes(e.status) && (verifiedGone(root, e) || branchGone(e.command, e.cwd)) && mark(root, e.id, 'done', now, 'hook-verified')) out.push(e.id);
   return out;
 }
 
