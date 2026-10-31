@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.13.1 — 2026-10-31
+
+### Fixed
+- **Plugin-write guard false positive**: a command that only read a plugin path (for example `sed -i … docs/engineering/STATUS.md && ls <plugin>/templates/`) was blocked as "changing the eng-team plugin". The guard now checks each subcommand's write targets: redirects into the plugin, the destination of `cp`/`install`/`rsync`/`ln`, and any other writer naming a plugin path. It falls back to blocking the whole command when the path could reach a write indirectly (`cd`, variables, `$(…)`, backticks, `xargs`, `find`, `sh -c`, `eval`, `-t`, unbalanced quotes).
+
 ## 3.13.0 — 2026-10-31
 
 ### Changed
