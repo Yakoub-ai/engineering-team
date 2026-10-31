@@ -8,13 +8,15 @@
  * .eng-team/approvals/); the human marks entries with
  * `/eng-team:eng-queue done|reject <id>`, recorded by the UserPromptExpansion
  * hook, which fires only on commands the human types. No entry ever lets
- * Claude run the command. Zero dependencies, Node 18+.
+ * Claude run the command. The orchestrator may run `node queue.js close` to
+ * close entries whose effect this hook can verify itself, except entries
+ * flagged needs_human_test. Zero dependencies, Node 18+.
  */
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { readPolicy } = require('./policy.js');
-const { branchGone } = require('./gitref.js');
+const { git, branchGone } = require('./gitref.js');
 
 const QUEUE_FILE = path.join('.eng-team', 'approvals', 'queue.jsonl');
 
@@ -57,6 +59,17 @@ function append(root, entry) {
   fs.appendFileSync(f, JSON.stringify(entry) + '\n');
 }
 
+const HUMAN_TEST = /\b(?:prod|production|prd|live|deploy\w*|release|migrat\w*|rollback)\b/i;
+
+/** Entries only a human may close: prod, deploy, migrations, or the policy's human_required_paths. */
+function needsHumanTest(root, command) {
+  if (HUMAN_TEST.test(command)) return true;
+  return readPolicy(root).policy.human_required_paths.some((g) => {
+    const lit = g.split('*')[0].replace(/\/+$/, '');
+    return lit.length > 1 && command.includes(lit);
+  });
+}
+
 /**
  * Queue a denied destructive command, or return the pending entry that
  * already holds the same command and directory.
@@ -71,7 +84,7 @@ function enqueue(root, { command, cwd, reason, agent }, now = Date.now()) {
   const id = `Q-${String(n).padStart(3, '0')}`;
   append(root, {
     id, status: 'pending', created: new Date(now).toISOString(), command, cwd: cwd || root,
-    reason, requested_by: agent || 'main', hash,
+    reason, requested_by: agent || 'main', hash, needs_human_test: needsHumanTest(root, command),
   });
   return id;
 }
@@ -131,17 +144,44 @@ function verifiedGone(root, e) {
   });
 }
 
+/** A cleanup of agent worktrees/branches is done when none are left (git answers, not Claude). */
+function worktreesGone(e) {
+  if (!/worktree-agent-|\.claude\/worktrees/.test(String(e.command || ''))) return false;
+  const wl = git(e.cwd, ['worktree', 'list', '--porcelain']);
+  const br = git(e.cwd, ['for-each-ref', '--format=%(refname)', 'refs/heads/worktree-agent-*']);
+  if (wl.code !== 0 || br.code !== 0) return false;
+  return !/^worktree .*\/\.claude\/worktrees\//m.test(wl.out) && br.out === '';
+}
+
 /**
- * Mark pending or expired entries done when their effect is already on disk.
- * The hook decides from the filesystem or git, never Claude; only `rm` and plain
- * single-branch `git branch -d|-D` are understood.
+ * Mark pending or expired entries done when their effect is already there.
+ * The hook decides from the filesystem or git, never Claude; only `rm`, plain
+ * single-branch `git branch -d|-D` and agent-worktree cleanup are understood.
+ * `by: 'agent-verified'` (the orchestrator's `close`) skips needs_human_test entries.
  * @returns {string[]} ids closed
  */
-function reconcile(root, now = Date.now()) {
+function reconcile(root, now = Date.now(), by = 'hook-verified') {
   const out = [];
-  for (const e of entries(root, now))
-    if (['pending', 'expired'].includes(e.status) && (verifiedGone(root, e) || branchGone(e.command, e.cwd)) && mark(root, e.id, 'done', now, 'hook-verified')) out.push(e.id);
+  for (const e of entries(root, now)) {
+    if (!['pending', 'expired'].includes(e.status)) continue;
+    if (by === 'agent-verified' && (e.needs_human_test || e.needs_human_test === undefined && needsHumanTest(root, e.command || ''))) continue;
+    if ((verifiedGone(root, e) || branchGone(e.command, e.cwd) || worktreesGone(e)) && mark(root, e.id, 'done', now, by)) out.push(e.id);
+  }
   return out;
 }
 
-module.exports = { QUEUE_FILE, entries, enqueue, mark, parseMark, reconcile, hashOf };
+module.exports = { QUEUE_FILE, entries, enqueue, mark, parseMark, reconcile, hashOf, needsHumanTest };
+
+// `node queue.js close [project dir]`: the orchestrator closes what the hook can verify.
+if (require.main === module) {
+  const [verb, dir] = process.argv.slice(2);
+  if (verb !== 'close') {
+    console.error('usage: node queue.js close [project dir]');
+    process.exit(2);
+  }
+  const root = path.resolve(dir || process.env.CLAUDE_PROJECT_DIR || process.cwd());
+  const closed = reconcile(root, Date.now(), 'agent-verified');
+  const open = entries(root).filter((e) => e.status === 'pending');
+  console.log(closed.length ? `Closed (verified): ${closed.join(', ')}` : 'Nothing could be verified as done.');
+  for (const e of open) console.log(`Still open: ${e.id}${e.needs_human_test ? ' (needs human test)' : ''} — ${e.command}`);
+}

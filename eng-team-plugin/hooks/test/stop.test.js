@@ -67,6 +67,9 @@ test('pending approvals must be listed in the receipt', () => {
 });
 
 test('stop.js prints a block decision and stays silent outside eng-team projects', () => {
+  // The receipt from the previous test can share this millisecond; age it so the dispatch is strictly newer.
+  const old = new Date(Date.now() - 60_000);
+  fs.utimesSync(path.join(receipts, '2026-10-29-build.md'), old, old);
   log('eng-tester', 0);
   const run = (cwd) =>
     spawnSync(process.execPath, [path.join(__dirname, '..', 'stop.js')], { input: JSON.stringify({ session_id: 'sess', cwd }), env: { ...process.env, CLAUDE_PROJECT_DIR: cwd }, encoding: 'utf8' });
