@@ -49,7 +49,7 @@ Any agent that hits a hard stop, or whose tool call is denied with `eng-team gua
 - Source: tool:<name> <rule-id> | manual [+ dast] (security audit only; see phases/security-audit.md)
 ```
 
-Role prefixes: SEC, CMP, DAT, PLT, SRE, QA, INT, AI, PRD, LEAD, RES, ARC, BLD, TST, DOC.
+Role prefixes: SEC, CMP, DAT, PLT, SRE, QA, HYG, INT, AI, PRD, LEAD, RES, ARC, BLD, TST, DOC. `HYG` findings are never above Medium (`roles/code-hygiene.md`).
 
 ## Report template (lead)
 

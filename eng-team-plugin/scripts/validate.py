@@ -32,7 +32,7 @@ WRITERS = {"eng-builder", "eng-tester", "eng-tech-writer"}
 EXPECTED_AGENTS = [
     "eng-researcher", "eng-architect", "eng-builder", "eng-tester", "eng-tech-writer",
     "eng-security-engineer", "eng-compliance-officer", "eng-data-engineer",
-    "eng-platform-engineer", "eng-sre", "eng-qa-engineer", "eng-integration-engineer",
+    "eng-platform-engineer", "eng-sre", "eng-qa-engineer", "eng-code-hygiene", "eng-integration-engineer",
     "eng-ai-engineer", "eng-product-engineer", "eng-presenter",
     "eng-verifier", "eng-risk-classifier",
 ]

@@ -5,7 +5,7 @@ Run by the lead itself (not dispatched). Focus: can someone other than the origi
 ## Checklist
 - Architecture fits the profile: no microservices for a 2-person internal tool; no single-process design for a contractual uptime promise.
 - Clear module boundaries; no god files (flag files > ~800 lines or functions > ~80 lines that mix concerns — common in AI-appended code).
-- Dead code, abandoned attempts, commented-out blocks and unused dependencies removed.
+- Dead code, duplication, abandoned attempts and unused dependencies: covered by `eng-code-hygiene` findings; check the class-level picture (is cleanup debt growing between reviews?) rather than re-listing items.
 - Code review required on every change (branch protection); branching strategy defined (trunk-based or short-lived branches).
 - Dependencies and framework within supported/security-patched versions; an upgrade cadence exists (Renovate/Dependabot).
 - Key decisions recorded as ADRs with reasons (short is fine).

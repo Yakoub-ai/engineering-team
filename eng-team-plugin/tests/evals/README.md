@@ -1,6 +1,6 @@
 # eng-team eval suite
 
-Seventeen end-to-end cases for `claude plugin eval` (CLI 2.1.301). Each case is a directory with `prompt.md` (frontmatter plus the user prompt), `graders/*.md` (llm, regex, tool_used, tool_order, file_exists) and, where it needs a project on disk, `case.yaml` plus `scaffold.sh`. The manifest opts in via `experimental.evals` in `.claude-plugin/plugin.json`.
+Eighteen end-to-end cases for `claude plugin eval` (CLI 2.1.301). Each case is a directory with `prompt.md` (frontmatter plus the user prompt), `graders/*.md` (llm, regex, tool_used, tool_order, file_exists) and, where it needs a project on disk, `case.yaml` plus `scaffold.sh`. The manifest opts in via `experimental.evals` in `.claude-plugin/plugin.json`.
 
 | Case | Checks |
 |---|---|
@@ -21,6 +21,7 @@ Seventeen end-to-end cases for `claude plugin eval` (CLI 2.1.301). Each case is 
 | o-new-domain-hr | (run once 2026-10-20: 1.00, about $0.89) a domain with no shipped module (HR onboarding): the flow formulates a project module `hr-onboarding` (status unreviewed, bilingual questions, a Guardrails section that reflects employee data), then writes a plain-text English pack with the safe-handling note |
 | p-experience-review | (not yet run) the experience review of a CLI and dashboard design covers UX, DX and AX with concrete changes, stays advisory and short |
 | q-sweep-plan | (run 2026-10-23: all graders pass after one grader fix) `/eng-sweep audit` on the legacy app in gated mode writes `.eng-team/sweeps/eval-1/sweep.md` with caps (`max_parallel`, `max_attempts: 2`), the `hard-gated` class and no Haiku, fixes nothing, and stops for approval |
+| r-hygiene-review | (run 2026-11-01: 1.00, about $0.53, after one grader fix) a standalone review of a small library reports the duplicate money formatter, the unused `legacyDiscount` and the unused `left-pad` dependency as `HYG` findings at most Medium, does not call the name-loaded handler, the `bin` entry or the public export unused, and changes no source |
 
 These run without `Bash` (no sandbox backend is needed): `--allow-tools Write Edit`.
 

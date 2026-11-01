@@ -11,7 +11,7 @@ It is the default for big sweeps only: an audit remediation plan, or a refactor,
 - `.eng-team/profile.md`, `.eng-team/state.md` (the project must be initialised), the context snapshot.
 - The request (audit report and `docs/security/` remediation plan, or the refactor description) and optional paths.
 - `shared/track.md` → Models per dispatch, `shared/findings.md`, `shared/orchestration.md` → Hand-off contract.
-- Roles used: `eng-architect` (Opus), the triage and verify reviewers (`eng-security-engineer` for security items, `eng-qa-engineer` otherwise), `eng-builder`.
+- Roles used: `eng-architect` (Opus), the triage and verify reviewers (`eng-security-engineer` for security items, `eng-code-hygiene` for dead-code and duplication items, `eng-qa-engineer` otherwise), `eng-builder`.
 
 ## Steps
 
@@ -19,7 +19,7 @@ All sweep files live in `.eng-team/sweeps/<id>/` (`<id>` = `YYYY-MM-DD-<slug>`),
 
 1. **Plan (Opus, before anything runs).** Dispatch `eng-architect` with `model: opus`, read-only, with the request and the repo scope. It returns `### Sweep plan` and nothing else:
    - `kind` (`audit-fix` or `refactor`), `base` (current commit), `Goal` (≤3 lines).
-   - **Scan**: the deterministic commands, each read-only (grep patterns, linters, SAST and dependency audit already installed, `git diff --name-only <base>`), and what each yields. For `audit-fix` the audit report is the scan.
+   - **Scan**: the deterministic commands, each read-only (grep patterns, linters, SAST and dependency audit already installed, `git diff --name-only <base>`), and what each yields. For `audit-fix` the audit report is the scan. A dead-code or duplication refactor scans with the hygiene scanners (`shared/orchestration.md` → Code hygiene, never with fix flags) or starts from Backlog `HYG` items, and its items stay unconfirmed until triage applies the proof rules in `roles/code-hygiene.md`.
    - **Classes**: how an item is classified by path or rule. `sensitive` = auth, crypto, input handling, secrets. `hard-gated` = secrets, auth, migrations, dependencies (lockfiles and manifests). Everything else is `routine`.
    - **Verify**: the exact test, lint and re-scan commands run per item.
    - **Caps**: `max_items` (default 40), `max_parallel` (default 4, hard maximum 6), `max_attempts: 2` (fixed), `max_dispatches` (default `4 × max_items + 10`).

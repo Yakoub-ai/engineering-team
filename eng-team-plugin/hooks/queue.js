@@ -9,8 +9,10 @@
  * `/eng-team:eng-queue done|reject <id>`, recorded by the UserPromptExpansion
  * hook, which fires only on commands the human types. No entry ever lets
  * Claude run the command. The orchestrator may run `node queue.js close` to
- * close entries whose effect this hook can verify itself, except entries
- * flagged needs_human_test. Zero dependencies, Node 18+.
+ * close entries whose effect this hook can verify itself, and
+ * `node queue.js close <Q-n> --evidence "<what shows it is done>"` to close one
+ * it has checked itself (recorded as `by: agent-evidence`). Neither closes an
+ * entry flagged needs_human_test. Zero dependencies, Node 18+.
  */
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -93,12 +95,30 @@ function enqueue(root, { command, cwd, reason, agent }, now = Date.now()) {
  * Human-typed status change. Only pending or expired entries change.
  * @returns {boolean}
  */
-function mark(root, id, status, now = Date.now(), by = 'human') {
+function mark(root, id, status, now = Date.now(), by = 'human', extra = {}) {
   if (!['done', 'rejected'].includes(status)) return false;
   const e = entries(root, now).find((x) => x.id === id);
   if (!e || !['pending', 'expired'].includes(e.status)) return false;
-  append(root, { id, status, [status === 'done' ? 'done_at' : 'rejected_at']: new Date(now).toISOString(), by });
+  append(root, { id, status, [status === 'done' ? 'done_at' : 'rejected_at']: new Date(now).toISOString(), by, ...extra });
   return true;
+}
+
+const humanOnly = (root, e) => e.needs_human_test || (e.needs_human_test === undefined && needsHumanTest(root, e.command || ''));
+
+/**
+ * The orchestrator closes one entry it has checked itself, with the evidence
+ * recorded. Never an entry that needs a human test (prod, deploy, migrations,
+ * human_required_paths): only the user closes those.
+ * @returns {{ok: boolean, why?: string}}
+ */
+function closeWithEvidence(root, id, evidence, now = Date.now()) {
+  const ev = String(evidence || '').replace(/\s+/g, ' ').trim();
+  if (ev.length < 10 || ev.length > 300) return { ok: false, why: 'evidence must be 10-300 characters saying what shows it is done' };
+  const e = entries(root, now).find((x) => x.id === id);
+  if (!e) return { ok: false, why: `no entry ${id}` };
+  if (!['pending', 'expired'].includes(e.status)) return { ok: false, why: `${id} is already ${e.status}` };
+  if (humanOnly(root, e)) return { ok: false, why: `${id} needs a human test; only the user closes it` };
+  return mark(root, id, 'done', now, 'agent-evidence', { evidence: ev }) ? { ok: true } : { ok: false, why: 'could not record it' };
 }
 
 const MAX_BATCH = 20;
@@ -164,21 +184,35 @@ function reconcile(root, now = Date.now(), by = 'hook-verified') {
   const out = [];
   for (const e of entries(root, now)) {
     if (!['pending', 'expired'].includes(e.status)) continue;
-    if (by === 'agent-verified' && (e.needs_human_test || e.needs_human_test === undefined && needsHumanTest(root, e.command || ''))) continue;
+    if (by === 'agent-verified' && humanOnly(root, e)) continue;
     if ((verifiedGone(root, e) || branchGone(e.command, e.cwd) || worktreesGone(e)) && mark(root, e.id, 'done', now, by)) out.push(e.id);
   }
   return out;
 }
 
-module.exports = { QUEUE_FILE, entries, enqueue, mark, parseMark, reconcile, hashOf, needsHumanTest };
+module.exports = { QUEUE_FILE, entries, enqueue, mark, parseMark, reconcile, closeWithEvidence, hashOf, needsHumanTest };
 
 // `node queue.js close [project dir]`: the orchestrator closes what the hook can verify.
+// `node queue.js close <Q-n> --evidence "<text>"`: it closes one entry it checked itself.
 if (require.main === module) {
-  const [verb, dir] = process.argv.slice(2);
-  if (verb !== 'close') {
-    console.error('usage: node queue.js close [project dir]');
+  const args = process.argv.slice(2);
+  const usage = 'usage: node queue.js close [project dir] | node queue.js close <Q-n> --evidence "<what shows it is done>"';
+  if (args[0] !== 'close') {
+    console.error(usage);
     process.exit(2);
   }
+  if (/^Q-\d{1,6}$/.test(args[1] || '')) {
+    const i = args.indexOf('--evidence');
+    if (i < 0 || args.length !== 4 || i !== 2) {
+      console.error(usage);
+      process.exit(2);
+    }
+    const root = path.resolve(process.env.CLAUDE_PROJECT_DIR || process.cwd());
+    const r = closeWithEvidence(root, args[1], args[3]);
+    console.log(r.ok ? `Closed ${args[1]} (agent-evidence).` : `Not closed: ${r.why}`);
+    process.exit(r.ok ? 0 : 1);
+  }
+  const dir = args[1];
   const root = path.resolve(dir || process.env.CLAUDE_PROJECT_DIR || process.cwd());
   const closed = reconcile(root, Date.now(), 'agent-verified');
   const open = entries(root).filter((e) => e.status === 'pending');

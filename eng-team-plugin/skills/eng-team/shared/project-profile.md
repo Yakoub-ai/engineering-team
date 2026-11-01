@@ -9,6 +9,7 @@ Field definitions live in `templates/profile.md`; the project's filled copy is `
 | security-engineer | Always |
 | compliance-officer | Always (EU baseline). Deep mode if `data_classes` ≠ none, `financial_entity`, `nis2_entity`, `ai_act_role` ≠ none, or `cra_role` is a named role (not none or unknown) |
 | qa-engineer | Always |
+| code-hygiene | Always (every build gate and review) |
 | data-engineer | Any persistent store, data pipeline, or `payments` ≠ none |
 | platform-engineer | Anything deployed beyond a local machine |
 | sre | `stage` ≥ pilot, or `criticality` ≥ important |

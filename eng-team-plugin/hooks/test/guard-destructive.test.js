@@ -69,7 +69,9 @@ test('main thread: destructive commands are denied in eng-team projects', () => 
   for (const c of DESTRUCTIVE) {
     const r = main(c);
     assert.equal(r?.decision, 'deny', c);
-    assert.match(r.reason, /^eng-team guard: destructive — .+ needs a human\. Do not retry or work around this/, c);
+    if (/^recursive rm of project files/.test(r.reason.slice('eng-team guard: '.length)))
+      assert.match(r.reason, /cannot be undone, so Claude may not run it\. .*recoverable trash .*scripts\/trash\.js <path>/, c);
+    else assert.match(r.reason, /^eng-team guard: destructive — .+ needs a human\. Do not retry or work around this/, c);
   }
 });
 

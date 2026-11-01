@@ -9,6 +9,7 @@ const { execFileSync, spawnSync } = require('node:child_process');
 process.env.ENG_TEAM_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'engcl-home-'));
 const { branchSafe } = require('../gitref.js');
 const { cleanup } = require('../../scripts/cleanup-worktrees.js');
+const { runs } = require('../../scripts/trash.js');
 const { enqueue, entries, reconcile, needsHumanTest } = require('../queue.js');
 const { decide } = require('../guard.js');
 
@@ -52,9 +53,12 @@ test('a cherry-picked branch counts as kept; a branch with unique work does not'
   assert.equal(branchSafe(proj, 'worktree-agent-own'), false);
 });
 
-test('cleanup removes only safe, quiet agent worktrees and their branches', () => {
+test('cleanup removes finished, quiet agent worktrees, keeping leftovers in the trash', () => {
   const dirty = addAgent('dirty');
   fs.writeFileSync(path.join(dirty, 'notes.txt'), 'unsaved');
+  fs.writeFileSync(path.join(dirty, 'base.txt'), 'edited');
+  fs.mkdirSync(path.join(dirty, 'pkg', 'node_modules'), { recursive: true });
+  fs.writeFileSync(path.join(dirty, 'pkg', 'node_modules', 'big.js'), 'x');
   const deps = addAgent('deps');
   fs.symlinkSync(path.join(proj, 'base.txt'), path.join(deps, 'node_modules'));
   const busy = addAgent('busy');
@@ -63,18 +67,24 @@ test('cleanup removes only safe, quiet agent worktrees and their branches', () =
   void busy;
 
   const dry = cleanup(proj, { dryRun: true });
-  assert.deepEqual(dry.removed.sort(), [wt('deps'), wt('pick')].sort());
+  assert.deepEqual(dry.removed.sort(), [wt('deps'), wt('dirty'), wt('pick')].sort());
   assert.ok(fs.existsSync(wt('pick')));
+  assert.equal(runs(proj).length, 0);
 
   const r = cleanup(proj);
-  assert.deepEqual(r.removed.sort(), [wt('deps'), wt('pick')].sort());
+  assert.deepEqual(r.removed.sort(), [wt('deps'), wt('dirty'), wt('pick')].sort());
   const why = Object.fromEntries(r.kept.map((k) => [path.basename(k.path), k.why]));
   assert.match(why['agent-own'], /commits not on another branch/);
-  assert.match(why['agent-dirty'], /untracked: notes.txt/);
+  assert.equal(why['agent-dirty'], undefined);
+  const t = runs(proj);
+  assert.equal(t.length, 1);
+  assert.deepEqual(t[0].manifest.items.sort(), ['.claude/worktrees/agent-dirty/base.txt', '.claude/worktrees/agent-dirty/notes.txt']);
+  assert.equal(fs.readFileSync(path.join(t[0].dir, 'files', '.claude/worktrees/agent-dirty/notes.txt'), 'utf8'), 'unsaved');
+  assert.equal(fs.readFileSync(path.join(t[0].dir, 'files', '.claude/worktrees/agent-dirty/base.txt'), 'utf8'), 'edited');
   assert.match(why['agent-busy'], /last 30 minutes/);
   assert.equal(fs.existsSync(wt('pick')), false);
   const branches = git(proj, 'branch', '--list', 'worktree-agent-*');
-  assert.doesNotMatch(branches, /pick|deps/);
+  assert.doesNotMatch(branches, /pick|deps|dirty/);
   assert.match(branches, /own/);
 });
 
@@ -89,8 +99,8 @@ test('the orchestrator closes verified entries, never ones that need a human tes
   const q2 = enqueue(proj, { command: 'rm -rf build && npm run deploy:prod', cwd: proj, reason: 'x' });
   assert.equal(needsHumanTest(proj, loop), false);
   assert.equal(entries(proj).find((e) => e.id === q2).needs_human_test, true);
-  assert.deepEqual(reconcile(proj, Date.now(), 'agent-verified'), []); // own, dirty, busy remain
-  for (const id of ['own', 'dirty', 'busy']) {
+  assert.deepEqual(reconcile(proj, Date.now(), 'agent-verified'), []); // own and busy remain
+  for (const id of ['own', 'busy']) {
     git(proj, 'worktree', 'remove', '--force', wt(id));
     git(proj, 'branch', '-D', `worktree-agent-${id}`);
   }

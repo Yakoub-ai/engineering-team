@@ -38,7 +38,8 @@ test('validate: accepts the defaults and rejects bad shapes', () => {
   assert.deepEqual(validate({ version: 1, max_mode: 'gated' }), []);
   for (const bad of [null, [], 'x', { version: 2, max_mode: 'gated' }, { version: 1, max_mode: 'yolo' }, { version: 1, max_mode: 'gated', extra: 1 },
     { version: 1, max_mode: 'gated', destructive_extra: [''] }, { version: 1, max_mode: 'gated', credentials_scoped: 'yes' },
-    { version: 1, max_mode: 'gated', approval_ttl_hours: 0 }, { version: 1, max_mode: 'gated', approval_ttl_hours: 500 }])
+    { version: 1, max_mode: 'gated', approval_ttl_hours: 0 }, { version: 1, max_mode: 'gated', approval_ttl_hours: 500 },
+    { version: 1, max_mode: 'gated', hygiene_keep: 'src/**' }, { version: 1, max_mode: 'gated', hygiene_keep: [''] }])
     assert.ok(validate(bad).length > 0, JSON.stringify(bad));
 });
 
@@ -59,6 +60,16 @@ test('loosenings: only changes that give something up', () => {
   assert.deepEqual(loosenings(base, { ...base, destructive_extra: ['make nuke', 'x'], approval_ttl_hours: 4 }), []);
   const l = loosenings(base, { ...base, max_mode: 'autonomous', human_required_paths: [], destructive_extra: [], credentials_scoped: true, approval_ttl_hours: 48 });
   assert.equal(l.length, 5);
+});
+
+test('hygiene_keep: valid list; adding asks, removing tightens', () => {
+  assert.deepEqual(validate({ version: 1, max_mode: 'gated', hygiene_keep: ['src/public/**', 'bin/*'] }), []);
+  assert.deepEqual(readPolicy(proj).policy.hygiene_keep ?? [], []);
+  const base = { ...DEFAULTS, hygiene_keep: ['bin/*'] };
+  assert.deepEqual(loosenings(base, { ...base, hygiene_keep: [] }), []);
+  const l = loosenings(base, { ...base, hygiene_keep: ['bin/*', 'src/**'] });
+  assert.equal(l.length, 1);
+  assert.match(l[0], /hygiene_keep adds "src\/\*\*"/);
 });
 
 test('grants: per session, per kind, expire', () => {

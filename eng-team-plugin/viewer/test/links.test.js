@@ -35,14 +35,23 @@ test('extractImports handles js and python relative imports only', () => {
 });
 
 test('extractMentions is linear on pathological input', () => {
-  const t0 = Date.now();
-  extractMentions('a/'.repeat(25000) + '!');
-  extractMentions('`' + 'a.'.repeat(25000));
-  extractMentions('['.repeat(20000));
-  extractMentions('[](x'.repeat(12500));
-  extractMentions('[a](x'.repeat(10000));
-  extractImports('import' + ' '.repeat(50000) + 'x', 'js');
-  extractImports('from ' + '.'.repeat(50000), 'py');
-  extractImports('\n'.repeat(50000) + 'x', 'py');
-  assert.ok(Date.now() - t0 < 200, `took ${Date.now() - t0}ms`);
+  // Compare 1x and 4x input instead of a wall-clock budget, so a slow runner
+  // cannot fail it: linear work grows about 4x, quadratic backtracking 16x.
+  const run = (n) => {
+    const t0 = process.hrtime.bigint();
+    extractMentions('a/'.repeat(25000 * n) + '!');
+    extractMentions('`' + 'a.'.repeat(25000 * n));
+    extractMentions('['.repeat(20000 * n));
+    extractMentions('[](x'.repeat(12500 * n));
+    extractMentions('[a](x'.repeat(10000 * n));
+    extractImports('import' + ' '.repeat(50000 * n) + 'x', 'js');
+    extractImports('from ' + '.'.repeat(50000 * n), 'py');
+    extractImports('\n'.repeat(50000 * n) + 'x', 'py');
+    return Number(process.hrtime.bigint() - t0) / 1e6;
+  };
+  run(1); // warm up the regex engine and JIT
+  const small = Math.min(run(1), run(1));
+  const large = Math.min(run(4), run(4));
+  assert.ok(large < small * 8 + 20, `1x took ${small.toFixed(1)}ms, 4x took ${large.toFixed(1)}ms (super-linear)`);
+  assert.ok(large < 5000, `4x took ${large.toFixed(0)}ms`);
 });

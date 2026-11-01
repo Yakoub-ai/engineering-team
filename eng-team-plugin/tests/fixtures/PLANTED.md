@@ -8,3 +8,7 @@
 - PLANTED-7 i-legacy-app/.github/workflows/ci.yml:7: `actions/checkout@main` unpinned, no `permissions:` → Medium (pin to SHA).
 - PLANTED-8 i-legacy-app/Dockerfile:1: `FROM node:latest`, runs as root, `npm install` without lockfile; package.json `"express": "*"`; no lockfile, no `.env.example` → environment/supply-chain findings.
 - PLANTED-9 i-legacy-app: README + fly.toml (`orderdesk-prod`) + tag v1.4.0 → production stage signals for onboarding.
+- PLANTED-H1 r-hygiene-app/src/orders.js:3-9 `toCurrency` re-implements `formatMoney` (src/money.js:1-5) → HYG duplicate, at most Medium (Low as pre-existing code in a standalone review).
+- PLANTED-H2 r-hygiene-app/src/orders.js:11-14 `legacyDiscount` is referenced nowhere → HYG dead.
+- PLANTED-H3 r-hygiene-app/package.json `left-pad` dependency is never required → HYG unused-dependency (hard-gated class to remove).
+- PLANTED-H4 traps, must not be reported as unused: src/handlers/refund.js (loaded by name in src/registry.js:6), bin/cli.js (package.json `bin`), `parseOrderId` (public API in src/index.js and README).
