@@ -14,7 +14,7 @@ Mode: <gated | autonomous> (policy max_mode: <gated | autonomous>)
 <!-- guidance: required. One bullet per check you ran and observed yourself: `command` → result (pass count, exit code). Never a check an agent only reported. -->
 
 ## Not verified
-<!-- guidance: required. What was not checked and why (no staging, no credentials, DAST not run). "none" only if truly nothing. -->
+<!-- guidance: required. What was not checked and why (no staging, no credentials, DAST not run). For each, numbered steps the user can follow to check it: start command, URL or input, expected result, which log to watch. "none" only if truly nothing. -->
 
 ## Decisions
 <!-- guidance: ADR links and agent decisions (Decided by: agent) made in this run, or "none". -->
