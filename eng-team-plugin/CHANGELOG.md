@@ -7,9 +7,13 @@
 - **Proof rules against false positives**: an "unused" claim needs a whole-repo search (symbol, string form, file name, configs, manifests); public API, entry points, framework conventions, name-loaded code, generated and vendored code are never reported as unused.
 - **Hygiene scanners** run by the lead, read-only, only when already installed (knip, ts-prune, depcheck, vulture, deadcode, staticcheck U1000, cargo machete, jscpd); never installed on the fly, never with fix flags.
 - **`hygiene_keep`** in `.eng-team/policy.json`: globs the reviewer must never call unused. Adding an entry counts as loosening the policy and asks you.
+- **Recoverable trash** (`scripts/trash.js`): when you ask for a cleanup, the lead moves old files to `~/.eng-team/trash/` instead of deleting them; runs are kept 14 days, `--restore <run>` and `--list` included. It refuses anything outside the project, `.git`, `.eng-team/`, `.claude/worktrees/`, protected settings and nested repositories, and moves nothing if any path is refused. The guard's denial of `rm -r` on project files now points to it.
+- **Closing finished queue entries with evidence**: `node hooks/queue.js close Q-<n> --evidence "…"` records `by: agent-evidence`. Never for `needs_human_test` entries.
 - Eval case `r-hygiene-review` with planted duplicate, dead code, unused dependency and three false-positive traps (1.00 on its first clean run).
 
 ### Changed
+- **Worktree cleanup removes finished worktrees with leftovers**: uncommitted or untracked files (not regenerable folders) are copied to the trash first, instead of keeping the worktree.
+- Subagents can no longer run the trash, worktree cleanup or queue-closing scripts; they are lead-only.
 - `HYG` findings are capped at Medium; only code added in the current run can send work back, pre-existing debt goes to the Backlog. A hygiene-only finding still open at loop count 3 goes to the Backlog instead of stopping the run.
 - The builder reuses existing helpers and writes only what the task needs.
 - Lean and standard tracks include `code-hygiene` in gates and review (it does not count toward the standard track's 4-reviewer limit).

@@ -33,13 +33,22 @@ const MCP_ASK =
  * Main-thread deny for destructive actions: the human runs these themselves.
  * @param {string} what rule name
  */
+const TRASH_JS = path.join(__dirname, '..', 'scripts', 'trash.js');
+
 function denyMain(what, queued) {
+  const q = queued ? ` Queued as ${queued}: pause only the work that needs it, continue the rest, and tell the user to run it and then type \`/eng-team:eng-queue done ${queued}\`.` : '';
+  if (/^recursive rm of project files/.test(what))
+    return {
+      decision: 'deny',
+      reason:
+        `eng-team guard: ${what} cannot be undone, so Claude may not run it. To clean up files the user asked to remove, move them to the recoverable trash instead (kept 14 days, restorable): node ${TRASH_JS} <path>... ` +
+        'Only if the user wants them gone for good, show them the exact command and let them run it.' + q,
+    };
   return {
     decision: 'deny',
     reason:
       `eng-team guard: destructive — ${what} needs a human. Do not retry or work around this ` +
-      '(no scripts, aliases, other tools or rewording). Show the user the exact command and why it is needed, and let them run it themselves.' +
-      (queued ? ` Queued as ${queued}: pause only the work that needs it, continue the rest, and tell the user to run it and then type \`/eng-team:eng-queue done ${queued}\`.` : ''),
+      '(no scripts, aliases, other tools or rewording). Show the user the exact command and why it is needed, and let them run it themselves.' + q,
   };
 }
 
@@ -257,6 +266,9 @@ function sqlViolation(cmd, cwd) {
   }
   return null;
 }
+
+/** Lead-only maintenance scripts: recoverable trash, worktree cleanup, closing queue entries. */
+const LEAD_ONLY = /\b(?:trash|cleanup-worktrees)\.js\b|\bqueue\.js\b[^|;&\n]*\bclose\b/;
 
 /** Build and cache directories that a recursive rm may clear without a human. */
 const REGEN = new Set([
@@ -732,6 +744,7 @@ function decide(input, { projectDir } = {}) {
   }
   if (typeof ti.command !== 'string') return null;
   if (role === 'eng-tech-writer') return deny('rule 5 — tech-writer has no shell access');
+  if (LEAD_ONLY.test(ti.command)) return deny('rule 7 — trash, worktree cleanup and queue closing are for the lead only');
   const x = destructiveCheck(ti.command, path.resolve(root), input.cwd);
   if (x) {
     const q = isEngProject(root) ? queueDenied(path.resolve(root), input, x) : null;
