@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.14.0 — 2026-10-31
+
+### Added
+- **`scripts/cleanup-worktrees.js`**: removes agent worktrees under `.claude/worktrees/` on `worktree-agent-*` branches, then their branches, only when there are no changes beyond regenerable paths, no activity in 30 minutes, and every commit is kept elsewhere. Unlocks and prunes as needed; `--dry-run` previews; kept worktrees are listed with the reason. Claude runs it in every mode instead of writing removal loops.
+- **Orchestrator closes verified queue entries** (`node hooks/queue.js close`): the hook re-checks each pending entry it understands (`rm`, single-branch delete, agent-worktree cleanup) and marks it `done` with `by: agent-verified`.
+- **Run it live** (test phase): after the suite is green, the orchestrator starts the app locally (never prod), exercises each critical flow with `curl`, Playwright or the CLI, reads server, console and log output, and stops what it started. Whatever it cannot check becomes numbered human test steps (start command, URL, expected result, log to watch) in the receipt and handover.
+- **`needs_human_test`** flag on queue entries that touch prod, deploys, releases, migrations, rollbacks or `human_required_paths`; only the user's `/eng-team:eng-queue done` closes them.
+
+### Changed
+- Branch deletes count cherry-picked work as kept: a commit whose patch is on the default or current branch no longer blocks `git branch -D`. A unique merge commit still does.
+
+### Fixed
+- Flaky Stop-hook test when the receipt and the dispatch shared a millisecond.
+
 ## 3.13.1 — 2026-10-31
 
 ### Fixed
