@@ -69,6 +69,14 @@ The team sets environments up, automates them and keeps them current; it does no
 - **On the user's machine** (installs, upgrades, `docker pull`, global package managers): an outside-repository side effect (rule 7(d) in `SKILL.md`). Ask **once per run** with one consolidated, copy-pasteable command and what it changes; on approval run it yourself, verify each tool's version, and record it in the Log (`- YYYY-MM-DD env: <what was installed or updated>`). Never use `sudo`, `curl | sh` or unofficial sources without showing the exact command and getting a separate yes. On refusal, continue with what exists and say what that limits.
 - **Updates**: dependency and toolchain updates are proposed as plan tasks (patch/minor grouped, majors one per task with release notes read), verified by the test suite and a re-scan; never auto-merge, never push.
 
+## Code hygiene
+
+`eng-code-hygiene` (read-only, `roles/code-hygiene.md`) runs on every build gate and in every review, in both autonomy modes and on every track; it is never skipped. It keeps the code small: no duplicates of existing helpers, nothing unused, no speculative layers, no rewrites beyond the task.
+- **Scanners (you run them, it reads the output).** Before the dispatch, run the hygiene scanners the repo already has, read-only, on the scope (the changed files in a gate, the repo in review), with a timeout, raw output to `${TMPDIR:-/tmp}/eng-team-<YYYY-MM-DD>/hygiene-<id>/` (outside the repo). Pass that path. Use only tools already installed in the repo (`node_modules/.bin`, the project venv) or on `PATH`: JS/TS `knip`, `ts-prune`, `depcheck`; Python `vulture`; Go `deadcode`, `staticcheck -checks U1000`; Rust `cargo machete`; any language `jscpd`. Never install one for this, never use `npx` without `--no-install`, and never pass a fix or write flag (`knip --fix`, `--write`, `--fix`). Missing tools are not an error: the reviewer falls back to search and says so; record which ran in the handover. To add scanners to the repo, propose a plan task (Environment and tooling).
+- **Severity cap.** Its findings are never above Medium. Medium is only for code the current task or run added (a duplicate, dead on arrival, a new unused dependency, out-of-scope rewrites); pre-existing dead code and duplication is Low and goes to the Backlog.
+- **Fixes.** Upheld Medium findings loop back like any other Medium (`eng-verifier` first, then `eng-builder` with the smallest fix the finding names). Removing a dependency is a dependency change and follows the hard-gated rules. A hygiene-only finding still open at loop count 3 does not stop the run: it moves to the Backlog with the reason, and the gate summary lists it, in both modes. Large cleanups of existing code run as a refactor sweep (`phases/sweep.md`) when the human asks.
+- **Gated mode:** the gate summary lists hygiene findings fixed, backlogged and dropped by the verifier. **Autonomous mode:** the same rules apply without asking; the handover and change receipt list them.
+
 ## Loop-back
 
 When a gate fails back to an earlier phase (test → build, review → build):
@@ -84,7 +92,7 @@ After the test and review phases (and a lifecycle `--fix` audit), findings and f
 - **Eligible:** every High and Medium finding, and every failing flow or bug found by the tests. Low and Info are listed in the report, not fixed, unless the same file is already being changed.
 - **Never automatic (wait for the human, per Critical findings or Deviations):** a Critical; any finding in a hard-gated class (secrets, auth, migrations, dependency or lockfile changes, anything outside the repository); a finding with `owner: human`; a fix whose only option changes the approved design (that needs an ADR).
 - **How:** run Loop-back with one fix task per eligible finding, each with `files`, `depends_on` and the acceptance check "the finding or failure no longer reproduces". Post a note of at most 5 lines listing the fix tasks before they start; do not wait for an answer. They run through the build flow (task graph, independent gate review, serial merge), then the failing phase re-runs from its start so the fix is proven by the same tests and re-scan, not by the builder's word.
-- **Limits:** one round per phase on top of the existing counters (`test→build`, `review→build`); at count 3 the finding is escalated to the human. More than 8 eligible items run as a sweep (`phases/sweep.md`). A fix that fails twice follows the Diagnosis handover, then is escalated; it is never retried silently.
+- **Limits:** one round per phase on top of the existing counters (`test→build`, `review→build`); at count 3 the finding is escalated to the human, except a hygiene-only finding, which moves to the Backlog (Code hygiene above). More than 8 eligible items run as a sweep (`phases/sweep.md`). A fix that fails twice follows the Diagnosis handover, then is escalated; it is never retried silently.
 - **Report:** the handover lists what was auto-fixed (finding id, task id, commit) and what was not and why.
 
 ## Loop counters
@@ -101,7 +109,7 @@ A test suite not fixed within 2 attempts is already a hard stop (rule 7(b) in `S
 
 ## Preflight (Claude Code)
 
-Before the first dispatch of a run, check your Agent tool's list of agent types for all 17 `eng-team:` types named in `SKILL.md` → Dispatching agents.
+Before the first dispatch of a run, check your Agent tool's list of agent types for all 18 `eng-team:` types named in `SKILL.md` → Dispatching agents.
 - **Agent tool present, any `eng-team:` type missing → stop.** Tell the user exactly which types are missing and the fix: enable or reinstall the eng-team plugin with `/plugin`, then restart the session. Do not dispatch anything, and never substitute another agent type or do the role's work yourself.
 - **No Agent tool at all → sequential mode** (`SKILL.md` → Dispatching agents). This is the only case that runs roles in the main thread.
 - A dispatch that fails with an unknown agent type is the same as a missing type: stop and report it.

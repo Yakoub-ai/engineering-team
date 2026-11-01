@@ -24,7 +24,7 @@ const { mark, parseMark, reconcile } = require('./queue.js');
  */
 const SKIP = /(?:^|\s)--skip(?=\s|$)|\bskip\b[^.\n]{0,30}\b(?:gate|phase|task|step)\b/i;
 const FORCE = /(?:^|\s)--force(?=\s|$)|\bforce\b[^.\n]{0,30}\b(?:gate|phase|task|step)\b/i;
-const POLICY = /\b(?:policy|max_mode|destructive_extra|human_required_paths|approval_ttl_hours)\b/i;
+const POLICY = /\b(?:policy|max_mode|destructive_extra|human_required_paths|approval_ttl_hours|hygiene_keep)\b/i;
 
 /** Natural-language and flag overrides in a message the human typed. @returns {string[]} */
 function recordPrompt(input, now) {

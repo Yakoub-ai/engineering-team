@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.15.0 — 2026-11-01
+
+### Added
+- **`eng-code-hygiene`** (read-only, Sonnet, prefix `HYG`): reviews for code that duplicates an existing helper, dead or unused code and dependencies, speculative layers (one-implementation interfaces, delegate-only wrappers, options nobody sets), out-of-scope rewrites and leftovers. Runs on every build gate (per task or per wave group, every track) and in every review, in gated and autonomous mode. Report-only: fixes go through `eng-verifier` and `eng-builder`.
+- **Proof rules against false positives**: an "unused" claim needs a whole-repo search (symbol, string form, file name, configs, manifests); public API, entry points, framework conventions, name-loaded code, generated and vendored code are never reported as unused.
+- **Hygiene scanners** run by the lead, read-only, only when already installed (knip, ts-prune, depcheck, vulture, deadcode, staticcheck U1000, cargo machete, jscpd); never installed on the fly, never with fix flags.
+- **`hygiene_keep`** in `.eng-team/policy.json`: globs the reviewer must never call unused. Adding an entry counts as loosening the policy and asks you.
+- Eval case `r-hygiene-review` with planted duplicate, dead code, unused dependency and three false-positive traps (1.00 on its first clean run).
+
+### Changed
+- `HYG` findings are capped at Medium; only code added in the current run can send work back, pre-existing debt goes to the Backlog. A hygiene-only finding still open at loop count 3 goes to the Backlog instead of stopping the run.
+- The builder reuses existing helpers and writes only what the task needs.
+- Lean and standard tracks include `code-hygiene` in gates and review (it does not count toward the standard track's 4-reviewer limit).
+
 ## 3.14.0 — 2026-10-31
 
 ### Added

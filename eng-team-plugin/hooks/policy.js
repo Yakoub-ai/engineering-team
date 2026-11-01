@@ -22,6 +22,7 @@ const DEFAULTS = Object.freeze({
   destructive_extra: [],
   credentials_scoped: false,
   approval_ttl_hours: 24,
+  hygiene_keep: [],
 });
 const GRANT_TTL_MS = { policy: 30 * 60 * 1000, autonomous: 24 * 60 * 60 * 1000, skip: 10 * 60 * 1000, force: 10 * 60 * 1000 };
 
@@ -37,7 +38,7 @@ function validate(p) {
   for (const k of Object.keys(p)) if (!(k in DEFAULTS)) errs.push(`unknown key "${k}"`);
   if (p.version !== 1) errs.push('version must be 1');
   if (!MODES.includes(p.max_mode)) errs.push(`max_mode must be one of ${MODES.join(', ')}`);
-  for (const k of ['human_required_paths', 'destructive_extra'])
+  for (const k of ['human_required_paths', 'destructive_extra', 'hygiene_keep'])
     if (k in p && !isStrList(p[k])) errs.push(`${k} must be a list of non-empty strings`);
   if ('credentials_scoped' in p && typeof p.credentials_scoped !== 'boolean') errs.push('credentials_scoped must be true or false');
   if ('approval_ttl_hours' in p && !(Number.isInteger(p.approval_ttl_hours) && p.approval_ttl_hours >= 1 && p.approval_ttl_hours <= 168))
@@ -82,6 +83,8 @@ function loosenings(before, after) {
     const gone = a[k].filter((x) => !b[k].includes(x));
     if (gone.length) out.push(`${k} removes ${gone.map((x) => JSON.stringify(x)).join(', ')}`);
   }
+  const kept = b.hygiene_keep.filter((x) => !a.hygiene_keep.includes(x));
+  if (kept.length) out.push(`hygiene_keep adds ${kept.map((x) => JSON.stringify(x)).join(', ')} (hidden from the code-hygiene review)`);
   if (!a.credentials_scoped && b.credentials_scoped) out.push('credentials_scoped false → true');
   if (b.approval_ttl_hours > a.approval_ttl_hours) out.push(`approval_ttl_hours ${a.approval_ttl_hours} → ${b.approval_ttl_hours}`);
   return out;

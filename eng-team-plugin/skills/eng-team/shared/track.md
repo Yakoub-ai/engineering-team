@@ -20,7 +20,7 @@ Otherwise `standard`. The human may set any tier explicitly. State the chosen ti
 
 ## Standard track, per phase
 
-Runs the phase files as written, except: research uses curated packs plus at most one researcher dispatch per unmatched stack; reviewers in plan, gate and review modes are limited to `security-engineer`, `qa-engineer` and the roles whose lane the diff or profile touches (at most 4); audit is static unless the profile has an internet-facing endpoint; document skips the runbook unless deployed beyond a local machine. Handover ≤ 15 lines.
+Runs the phase files as written, except: research uses curated packs plus at most one researcher dispatch per unmatched stack; reviewers in plan, gate and review modes are limited to `security-engineer`, `qa-engineer` and the roles whose lane the diff or profile touches (at most 4), plus `code-hygiene` in gate and review modes, which does not count toward the 4; audit is static unless the profile has an internet-facing endpoint; document skips the runbook unless deployed beyond a local machine. Handover ≤ 15 lines.
 
 ## Lean track, per phase
 
@@ -32,10 +32,10 @@ Where this list conflicts with a phase file's steps or exit criteria, the lean r
 | discover | Skip brainstorming unless the request has no product. `product.md` ≤ 20 lines (purpose, 1-3 use cases, one numeric success metric, non-goals). Brief ≤ 20 lines. Interview only for contradictions or missing owner. |
 | research | Curated packs only; no researcher dispatch for unmatched stacks — list them as `Info` gaps instead. `best-practices.md` ≤ 30 lines, one section per pack in use. |
 | architect | One recommended option with one line per rejected alternative (satisfies "options considered"). At most one ADR, for the single most significant decision, with one devil's-advocate challenge. Plan ≤ 5 tasks; environment and security-tooling tasks may be one combined task. Security testing strategy ≤ 3 lines. Plan-mode review: `security-engineer` only, plus `product-engineer` for the experience review only when the product is mostly a UI, CLI or agent interface. |
-| build | Gate-mode spot-check by `security-engineer` only, scoped by `profile.build.gate` (`auto` = one per wave). |
+| build | Gate-mode spot-check by `security-engineer` and `code-hygiene` only, scoped by `profile.build.gate` (`auto` = one per wave). |
 | test | Static audit layer only (`phases/security-audit.md` step 4, `reviewed-manually` where no tool exists); no DAST. Audit report ≤ 40 lines. |
 | document | `docs/README.md`, `docs/architecture.md` (≤ 40 lines) and `docs/testing.md` only; runbook only if deployed beyond a local machine. |
-| review | `security-engineer` and `qa-engineer` only, `review` mode; report ≤ 40 lines with the Not covered section. |
+| review | `security-engineer`, `qa-engineer` and `code-hygiene` only, `review` mode; report ≤ 40 lines with the Not covered section. |
 | every gate | Handover ≤ 10 lines; STATUS ≤ 25 lines; Next up note ≤ 2 lines. Write each file once per gate — no re-reads to verify what you just wrote. |
 
 ## Efficiency rules (all tracks)
@@ -53,7 +53,7 @@ Pass the Agent tool's `model` parameter on every dispatch from this table; it ov
 | architect (design, ADRs, plan) | sonnet | opus | opus |
 | security-engineer, compliance-officer (review, audit) | sonnet | sonnet | opus for the audit and review phases, sonnet in per-task gate spot-checks |
 | builder | sonnet; opus for plan tasks marked `model: opus` | same | same |
-| tester, other reviewers | sonnet | sonnet | sonnet |
+| tester, code-hygiene, other reviewers | sonnet | sonnet | sonnet |
 | researcher | sonnet | sonnet | sonnet |
 | tech-writer | haiku | sonnet | sonnet |
 | presenter (gap prose for cheatsheet, brief, summary, deck, onboarding) | haiku | sonnet | sonnet |
