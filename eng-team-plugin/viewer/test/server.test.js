@@ -105,6 +105,14 @@ test('PUT allows .eng-team/*.md other than state.md', () => withServer(async ({ 
   assert.equal(fs.readFileSync(path.join(dir, '.eng-team/notes.md'), 'utf8'), 'new');
 }));
 
+test('PUT may not switch .eng-team/profile.md to autonomous mode', () => withServer(async ({ put, dir }) => {
+  const file = path.join(dir, '.eng-team/profile.md');
+  fs.writeFileSync(file, 'autonomy: gated\nstage: prototype\n');
+  assert.equal((await put('.eng-team/profile.md', 'autonomy: autonomous\nstage: prototype\n')).status, 403);
+  assert.match(fs.readFileSync(file, 'utf8'), /autonomy: gated/);
+  assert.equal((await put('.eng-team/profile.md', 'autonomy: gated\nstage: pilot\n')).status, 200);
+}));
+
 test('PUT validates the body', () => withServer(async ({ call }) => {
   const h = { 'X-Eng-View': '1' };
   assert.equal((await call('PUT', '/api/doc?path=docs/guide.md', { body: 'not json', headers: h })).status, 400);

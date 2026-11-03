@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.16.0 — 2026-11-03
+
+### Security
+- **Guard lanes hold inside agent worktrees.** A builder in `.claude/worktrees/<id>/` could write that worktree's copies of `.eng-team/**`, `docs/engineering/**`, reader docs, `.eng-team/policy.json` and `.claude/settings.json`, which a merge would bring back. Lane and protected-path checks now read every path relative to the project root and to each nested worktree or checkout.
+- **No code planted in `.git`.** Subagent shell commands may not write into `.git/` (hooks, config, refs) or set git config that runs programs or reaches outside the project (`core.hooksPath`, `core.fsmonitor`, `core.sshCommand`, `core.pager`, `alias.*`, `filter.*`, textconv, `include*`, `credential.*`, `--global`, `--system`). These would have run in the lead's own git calls.
+- **Rule 5 holds for the shell.** Subagent `sed -i`, redirects, copies and interpreter one-liners into `.eng-team/`, `docs/engineering/` or the reader docs are denied, as the file tools already were. Subagents may not call the `/eng-view` write API.
+- **`/eng-view` cannot switch autonomy.** Saving `.eng-team/profile.md` with `autonomy: autonomous` from the viewer is refused (403); autonomous mode still starts only from an eng-team command with `--autonomous`.
+
+### Changed
+- **Tester diff is scope-checked and gated.** After `eng-tester` returns, the lead checks that it changed only test paths (anything else is a deviation) and runs `eng-security-engineer` and `eng-code-hygiene` in gate mode on its diff, with the verifier and fix rules of the build gate. The tester never changes production code, manifests, lockfiles or build scripts.
+- **Return lines enforced by a hook.** The SubagentStop hook sends an eng-team agent back once when its last message has no terminal line (`Status:` + `Scope:` for writers, `Scope:` / `Scope reviewed:` for the rest), instead of the lead spending a re-dispatch.
+- **Contract tables complete.** The Hand-off return table now counts 10 reviewers and has rows for `eng-verifier`, `eng-risk-classifier` and `eng-presenter`; the Models table has rows for the verifier (Opus, never lower) and the risk classifier, and the Sonnet floor no longer contradicts the Haiku rows. The validator fails when an agent is missing from either table.
+- README: handover diagram shows hygiene, verifier and risk classifier; Separation of powers and the guard paragraph describe what the guard enforces.
+
 ## 3.15.0 — 2026-11-01
 
 ### Added

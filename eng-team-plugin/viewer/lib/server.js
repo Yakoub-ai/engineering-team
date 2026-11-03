@@ -258,6 +258,8 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
       if (!abs) throw new HttpError(isLinkedPath(rel) ? 403 : 404, 'not writable');
       if (!isIndexedFile(root, index, rel)) throw new HttpError(404, 'not found');
       if (baseMtime !== undefined && mtimeOf(abs) !== baseMtime) throw new HttpError(409, 'changed on disk');
+      if (rel === '.eng-team/profile.md' && switchesToAutonomous(abs, markdown))
+        throw new HttpError(403, 'autonomous mode starts only from an eng-team command with --autonomous');
       fs.writeFileSync(abs, markdown);
       await reindexFile(root, index, rel, { embedder });
       indexedAt = Date.now();
@@ -350,6 +352,19 @@ function parseMarkdownBody(raw) {
   if (!body || typeof body.markdown !== 'string') throw new HttpError(400, 'markdown must be a string');
   if (body.baseMtime !== undefined && typeof body.baseMtime !== 'number') throw new HttpError(400, 'baseMtime must be a number');
   return { markdown: body.markdown, baseMtime: body.baseMtime };
+}
+
+const AUTONOMOUS_LINE = /^[\s|>*-]*`?autonomy`?\s*[:|]\s*`?autonomous\b/im;
+
+/** The guard hook only lets autonomy become `autonomous` after the user typed --autonomous; the viewer must not be a way around it. */
+function switchesToAutonomous(abs, next) {
+  let cur = '';
+  try {
+    cur = fs.readFileSync(abs, 'utf8');
+  } catch {
+    /* new file */
+  }
+  return AUTONOMOUS_LINE.test(next) && !AUTONOMOUS_LINE.test(cur);
 }
 
 /** DNS-rebinding guard: Host must be 127.0.0.1:<port> or localhost:<port>. */

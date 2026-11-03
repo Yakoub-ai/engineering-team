@@ -71,7 +71,7 @@ The team sets environments up, automates them and keeps them current; it does no
 
 ## Code hygiene
 
-`eng-code-hygiene` (read-only, `roles/code-hygiene.md`) runs on every build gate and in every review, in both autonomy modes and on every track; it is never skipped. It keeps the code small: no duplicates of existing helpers, nothing unused, no speculative layers, no rewrites beyond the task.
+`eng-code-hygiene` (read-only, `roles/code-hygiene.md`) runs on every build gate, the test-phase gate on the tester's diff and in every review, in both autonomy modes and on every track; it is never skipped. It keeps the code small: no duplicates of existing helpers, nothing unused, no speculative layers, no rewrites beyond the task.
 - **Scanners (you run them, it reads the output).** Before the dispatch, run the hygiene scanners the repo already has, read-only, on the scope (the changed files in a gate, the repo in review), with a timeout, raw output to `${TMPDIR:-/tmp}/eng-team-<YYYY-MM-DD>/hygiene-<id>/` (outside the repo). Pass that path. Use only tools already installed in the repo (`node_modules/.bin`, the project venv) or on `PATH`: JS/TS `knip`, `ts-prune`, `depcheck`; Python `vulture`; Go `deadcode`, `staticcheck -checks U1000`; Rust `cargo machete`; any language `jscpd`. Never install one for this, never use `npx` without `--no-install`, and never pass a fix or write flag (`knip --fix`, `--write`, `--fix`). Missing tools are not an error: the reviewer falls back to search and says so; record which ran in the handover. To add scanners to the repo, propose a plan task (Environment and tooling).
 - **Severity cap.** Its findings are never above Medium. Medium is only for code the current task or run added (a duplicate, dead on arrival, a new unused dependency, out-of-scope rewrites); pre-existing dead code and duplication is Low and goes to the Backlog.
 - **Fixes.** Upheld Medium findings loop back like any other Medium (`eng-verifier` first, then `eng-builder` with the smallest fix the finding names). Removing a dependency is a dependency change and follows the hard-gated rules. A hygiene-only finding still open at loop count 3 does not stop the run: it moves to the Backlog with the reason, and the gate summary lists it, in both modes. Large cleanups of existing code run as a refactor sweep (`phases/sweep.md`) when the human asks.
@@ -125,11 +125,16 @@ Applies to every dispatch, in every phase.
 
 | Agent | Required content | Terminal line(s) |
 |---|---|---|
-| reviewers (9) | findings in the `shared/findings.md` format, or an explicit "No findings"; optional `Hand-off:` lines | `Scope reviewed: <paths/patterns>` |
+| reviewers (10, incl. `eng-code-hygiene`) | findings in the `shared/findings.md` format, or an explicit "No findings"; optional `Hand-off:` lines (hygiene adds `Scanners: …`) | `Scope reviewed: <paths/patterns>` |
+| `eng-verifier` | the `### Verdicts` table | `Scope reviewed: <finding ids and claims checked>` |
+| `eng-risk-classifier` | the `### Risk` table | `Scope reviewed: <task ids>` |
 | `eng-builder`, `eng-tester` | the Output section of the role file | `Status: DONE \| BLOCKED \| HARD-STOP`, then `Scope: <task id or coverage>` |
 | `eng-tech-writer` | the Output section of the role file | `Status: DONE \| BLOCKED`, then `Scope: <docs covered>` |
 | `eng-researcher` | the `### Pack:` / `### Note:` / `### Practices:` / `### Questionnaire:` / `### Diagnosis` blocks the dispatch asked for, optional `### Findings` | `Scope: <what you covered>` |
 | `eng-architect` | the `### Option` / `### Recommendation` / `### ADR draft` / `### Plan` / `### Diagnosis` blocks the dispatch asked for, optional `### Findings` | `Scope: <what you covered>` |
+| `eng-presenter` | one `### <source path> › <section heading>` block per gap (or `needs-input:`), optional `### Findings` | `Scope: <gaps handled>` |
+
+The plugin's SubagentStop hook sends an eng-team agent back once when its last message has no terminal line, so a missing line usually never reaches you; the validation below still applies.
 
 **Hand-offs.** Collect every `Hand-off:` line from a parallel round. If the named role was dispatched, check that it covers the cited path; if it was not dispatched, or its scope excludes the path, dispatch it once for just that path. Never forward one agent's raw output to another: pass the path or the finding id.
 

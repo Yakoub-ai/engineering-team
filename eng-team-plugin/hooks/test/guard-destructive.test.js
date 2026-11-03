@@ -90,7 +90,9 @@ test('main thread: everyday commands pass', () => {
 });
 
 test('subagents: everyday commands pass', () => {
-  for (const c of SAFE) if (!/^(?:cat|jq)\b/.test(c)) assert.equal(builder(c), null, c);
+  // .eng-team/** is the lead's lane; subagents may not write it from the shell either (guard-lanes.test.js)
+  for (const c of SAFE) if (!/^(?:cat|jq)\b/.test(c) && !/\.eng-team\//.test(c)) assert.equal(builder(c), null, c);
+  assert.equal(builder('rm -rf .eng-team/.cache/x')?.decision, 'deny');
 });
 
 test('outside eng-team projects the main thread is untouched', () => {

@@ -159,3 +159,30 @@ test('return marks final only on the terminal line', () => {
   assert.equal(entryFor(stop('plan\nScope: whole repo')).final, true);
   assert.equal(entryFor(stop('x\nScope reviewed: src/')).final, true);
 });
+
+test('SubagentStop sends an eng-team agent back once when its terminal line is missing', () => {
+  const { missingTerminal } = require('../dispatch-log.js');
+  const proj = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'engdl-term-')));
+  fs.mkdirSync(path.join(proj, '.eng-team'));
+  fs.writeFileSync(path.join(proj, '.eng-team', 'state.md'), '# state\n');
+  try {
+    const stop = (agent, msg, extra = {}) =>
+      missingTerminal({ hook_event_name: 'SubagentStop', agent_type: `eng-team:${agent}`, last_assistant_message: msg, cwd: proj, ...extra }, proj);
+    assert.match(stop('eng-builder', 'did the work'), /Status: DONE/);
+    assert.match(stop('eng-builder', 'Status: DONE'), /Scope:/, 'writers need Status and Scope');
+    assert.equal(stop('eng-builder', 'x\nStatus: DONE\nScope: T3'), null);
+    assert.equal(stop('eng-tester', 'x\nHARD-STOP: eng-team guard: no'), null);
+    assert.match(stop('eng-tech-writer', 'Status: HARD-STOP\nScope: docs'), /DONE \| BLOCKED/);
+    assert.match(stop('eng-verifier', '### Verdicts\n| a |'), /Scope reviewed/);
+    assert.equal(stop('eng-verifier', '### Verdicts\nScope reviewed: SEC-1'), null);
+    assert.equal(stop('eng-architect', '### Plan\nScope: plan'), null);
+    assert.equal(stop('eng-builder', 'did the work', { stop_hook_active: true }), null, 'only once');
+    assert.equal(stop('eng-builder', undefined), null, 'no message: fail open');
+    assert.equal(missingTerminal({ hook_event_name: 'SubagentStop', agent_type: 'general-purpose', last_assistant_message: 'x' }, proj), null);
+    const plain = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'engdl-plain-')));
+    assert.equal(missingTerminal({ hook_event_name: 'SubagentStop', agent_type: 'eng-team:eng-builder', last_assistant_message: 'x' }, plain), null);
+    fs.rmSync(plain, { recursive: true, force: true });
+  } finally {
+    fs.rmSync(proj, { recursive: true, force: true });
+  }
+});
