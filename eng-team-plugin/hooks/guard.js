@@ -115,6 +115,33 @@ function relInside(root, p) {
 }
 
 /**
+ * Every way a project path can be read as a lane path: relative to the project
+ * root, and relative to each git worktree or checkout nested inside it (an agent
+ * worktree under `.claude/worktrees/<id>/` holds its own copy of `.eng-team/`,
+ * `docs/engineering/` and settings, which a merge brings back). Deny rules apply
+ * when any of these hits; the root-relative path is first.
+ * @param {string} rel posix path relative to the (real) project root
+ * @param {string} realRoot realpath of the project root
+ * @returns {string[]}
+ */
+function laneRels(rel, realRoot) {
+  const out = [rel];
+  const segs = rel.split('/');
+  const wt = /^\.claude\/worktrees\/[^/]+\/(.+)$/i.exec(rel);
+  if (wt) out.push(wt[1]);
+  for (let i = 1; i < segs.length; i++) {
+    let nested = false;
+    try {
+      nested = fs.existsSync(path.join(realRoot, ...segs.slice(0, i), '.git'));
+    } catch {
+      /* unreadable: not a checkout */
+    }
+    if (nested) out.push(segs.slice(i).join('/'));
+  }
+  return [...new Set(out)];
+}
+
+/**
  * Policy for Write/Edit/MultiEdit/NotebookEdit by a writer subagent.
  * @returns {{decision:'deny',reason:string}|null}
  */
@@ -124,18 +151,17 @@ function checkWritePath(role, filePath, projectDir, cwd) {
   const abs = realpathNearest(path.resolve(cwd || projectDir, filePath));
   const rel = relInside(root, abs);
   if (rel === null) return deny(`rule 7 — ${role} may not write outside the project (${filePath})`);
-  const lower = rel.toLowerCase();
-  const segs = lower.split('/');
-  if (segs.includes('.git')) return deny(`rule 7 — .git is off limits to subagents (${filePath})`);
-  if (segs[0] === '.eng-team') return deny(`rule 5 — .eng-team/** is lead-owned (${filePath})`);
-  if (lower === 'docs/engineering' || lower.startsWith('docs/engineering/'))
+  const lanes = laneRels(rel, root).map((r) => r.toLowerCase());
+  if (lanes[0].split('/').includes('.git')) return deny(`rule 7 — .git is off limits to subagents (${filePath})`);
+  if (lanes.some((l) => l.split('/')[0] === '.eng-team')) return deny(`rule 5 — .eng-team/** is lead-owned (${filePath})`);
+  if (lanes.some((l) => l === 'docs/engineering' || l.startsWith('docs/engineering/')))
     return deny(`rule 5 — docs/engineering/** is lead-owned (${filePath})`);
-  const isReaderDoc = DOC_FILES.has(lower) || lower.startsWith('docs/compliance/');
-  if (role === 'eng-tech-writer' && !isReaderDoc)
+  const readerDoc = (l) => DOC_FILES.has(l) || l.startsWith('docs/compliance/');
+  if (role === 'eng-tech-writer' && !readerDoc(lanes[0]))
     return deny(
       `rule 5 — tech-writer may only write docs/README.md, docs/architecture.md, docs/testing.md, docs/runbook.md and docs/compliance/** (${filePath})`
     );
-  if (role !== 'eng-tech-writer' && isReaderDoc)
+  if (role !== 'eng-tech-writer' && lanes.some(readerDoc))
     return deny(`rule 5 — ${role} may not write tech-writer docs (${filePath})`);
   return null;
 }
@@ -337,11 +363,13 @@ const PLUGIN_ROOT = path.resolve(__dirname, '..');
  * @returns {string|null} why the path is protected
  */
 function protectedPath(abs, root) {
-  const rel = relInside(realpathNearest(root), abs);
+  const realRoot = realpathNearest(root);
+  const rel = relInside(realRoot, abs);
   if (rel !== null) {
-    const lower = rel.toLowerCase();
-    const hit = PROTECTED.find((p) => lower === p || lower.startsWith(p + '/'));
-    if (hit) return hit;
+    for (const lower of laneRels(rel, realRoot).map((r) => r.toLowerCase())) {
+      const hit = PROTECTED.find((p) => lower === p || lower.startsWith(p + '/'));
+      if (hit) return hit;
+    }
   }
   if (relInside(realpathNearest(PLUGIN_ROOT), abs) !== null) return 'the eng-team plugin';
   if (relInside(realpathNearest(engHome()), abs) !== null) return '~/.eng-team (approval grants)';
@@ -582,6 +610,41 @@ function bashViolation(raw, projectDir, cwd) {
   return null;
 }
 
+/** Shell verbs that write a file, and interpreters that could. Shared by the subagent lane checks. */
+const WRITE_VERB = /(?<![\d&])>(?!&)|\b(?:tee|cp|mv|rm|ln|install|truncate|dd|chmod|chown|touch|rsync|unlink|mkdir|rmdir)\b|\b(?:sed|perl)\b[^|;&\n]*\s-i/;
+const RUN_VERB = /\b(?:python3?|node|ruby|perl|php|deno|bun)\b/;
+
+/** A path segment `.git/` (the repo's own config, hooks and refs; worktrees share them). */
+const GIT_DIR_PATH = /(?:^|[\s"'=/(,:[{])\.git\/(?!\/)/;
+/** git config keys that make git run a program, or that reach outside the project. */
+const GIT_EXEC_CONFIG = new RegExp(
+  `${GIT}\\s+config\\b${SEG}(?:\\s--(?:global|system)\\b|\\b(?:core\\.(?:hookspath|fsmonitor|sshcommand|pager|editor|askpass|gitproxy|attributesfile|excludesfile)|alias\\.|filter\\.|diff\\.\\S*textconv|diff\\.external|merge\\.\\S*driver|include(?:if)?\\b|credential\\.|sequence\\.editor|gpg\\.\\S*program|uploadpack\\.|receivepack\\.|protocol\\.\\S*allow|submodule\\.))`,
+  'i'
+);
+/** Lead-owned and tech-writer paths, as they appear in a shell command (any worktree copy too). */
+const LEAD_LANE_PATH = /(?:^|[\s"'=/(,:[{])\.eng-team(?:\/|(?=[\s"';&|)]|$))|(?:^|[\s"'=/(,:[{])docs\/engineering\b/i;
+const READER_DOC_PATH = /(?:^|[\s"'=/(,:[{])docs\/(?:compliance\b|(?:readme|architecture|testing|runbook)\.md\b)/i;
+
+/**
+ * Shell checks that only apply to eng-team subagents: code planted in .git that
+ * would run in the lead's own git calls, writes into the lead's and the
+ * tech-writer's lanes (rule 5 also holds for Bash, not only Write/Edit), and
+ * edits through the local viewer's write API.
+ * @param {string} cmd
+ * @param {string} role
+ * @returns {{decision:'deny',reason:string}|null}
+ */
+function subagentBash(cmd, role) {
+  const writes = WRITE_VERB.test(cmd) || RUN_VERB.test(cmd);
+  if (GIT_DIR_PATH.test(cmd) && writes) return deny('rule 7 — .git (hooks, config, refs) is off limits to subagents');
+  if (GIT_EXEC_CONFIG.test(cmd)) return deny('rule 7 — git config that runs programs or reaches outside the project is human-only');
+  if (LEAD_LANE_PATH.test(cmd) && writes)
+    return deny('rule 5 — .eng-team/** and docs/engineering/** are lead-owned; read them with Read, never write them from the shell');
+  if (READER_DOC_PATH.test(cmd) && writes) return deny(`rule 5 — ${role} may not write tech-writer docs`);
+  if (/x-eng-view/i.test(cmd)) return deny('rule 5 — the eng-view write API is for the human, not for subagents');
+  return null;
+}
+
 /** MCP tools that send, publish, change access or delete. */
 const MCP_DESTRUCTIVE =
   /(?:^|[_-])(?:send|publish|unpublish|post|delete|remove|destroy|drop|purge|trash|archive|merge|deploy|push|transfer|pay|refund|grant|revoke|share|invite)(?:[_-]|$)/i;
@@ -745,6 +808,8 @@ function decide(input, { projectDir } = {}) {
   if (typeof ti.command !== 'string') return null;
   if (role === 'eng-tech-writer') return deny('rule 5 — tech-writer has no shell access');
   if (LEAD_ONLY.test(ti.command)) return deny('rule 7 — trash, worktree cleanup and queue closing are for the lead only');
+  const lane = subagentBash(unquoteWords(ti.command), role);
+  if (lane) return lane;
   const x = destructiveCheck(ti.command, path.resolve(root), input.cwd);
   if (x) {
     const q = isEngProject(root) ? queueDenied(path.resolve(root), input, x) : null;

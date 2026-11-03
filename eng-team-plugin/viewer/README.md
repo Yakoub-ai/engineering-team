@@ -7,7 +7,7 @@ Requires Node 18 or newer. No required npm dependencies: it works offline right 
 ## Privacy and safety
 
 - The server binds to `127.0.0.1` only and rejects any `Host` other than `127.0.0.1:<port>` or `localhost:<port>`.
-- Writes need the header `X-Eng-View: 1` and are allowed only to `.md` files under `docs/` and `.eng-team/*.md` (never `.eng-team/state.md`). Code is view-only. Path traversal and symlinks are refused.
+- Writes need the header `X-Eng-View: 1` and are allowed only to `.md` files under `docs/` and `.eng-team/*.md` (never `.eng-team/state.md`, and never a switch of `.eng-team/profile.md` to `autonomy: autonomous`, which only an eng-team command with `--autonomous` may do). Code is view-only. Path traversal and symlinks are refused.
 - Presentation outputs are generated only into `docs/present/` (refusing symlinked folders), contain no scripts, and are shown in the Present tab inside a sandboxed iframe.
 - Never indexed or served: `.git/`, `node_modules/`, `.eng-team/.cache/`, `dist/`, `build/`, binary files, files over 512 KB, `.env*`, `*.pem`, `*.key`, `id_rsa*`, and anything matched by the root `.gitignore`.
 - Files whose content looks like a credential are excluded too, and re-checked on every read: PEM private keys, GCP service-account JSON, AWS, GitHub, Slack, Stripe, Google, Anthropic and OpenAI keys, and literal `password`/`secret`/`token` assignments (the last rule skips `.md` files). They are not indexed, searched, embedded or served by the page or `get_doc`. The log names the file and rule, never the value.

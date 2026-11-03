@@ -46,7 +46,7 @@ Where this list conflicts with a phase file's steps or exit criteria, the lean r
 
 ## Models per dispatch
 
-Pass the Agent tool's `model` parameter on every dispatch from this table; it overrides the agent file's default. Never go below the **floor**: Sonnet for every role, and never Haiku for anything that reads code for security, auth, input handling or secrets, nor for security or compliance review. Do not downgrade because the session model is cheaper.
+Pass the Agent tool's `model` parameter on every dispatch from this table; it overrides the agent file's default. Never go below the **floor**: Sonnet for every role the table does not list with Haiku, and never Haiku for anything that reads code for security, auth, input handling or secrets, nor for security, compliance, hygiene or verification work. Do not downgrade because the session model is cheaper.
 
 | Role / work | lean (S) | standard (M) | full (L) |
 |---|---|---|---|
@@ -54,6 +54,8 @@ Pass the Agent tool's `model` parameter on every dispatch from this table; it ov
 | security-engineer, compliance-officer (review, audit) | sonnet | sonnet | opus for the audit and review phases, sonnet in per-task gate spot-checks |
 | builder | sonnet; opus for plan tasks marked `model: opus` | same | same |
 | tester, code-hygiene, other reviewers | sonnet | sonnet | sonnet |
+| verifier (never below its agent default) | opus | opus | opus |
+| risk-classifier | sonnet | sonnet | sonnet |
 | researcher | sonnet | sonnet | sonnet |
 | tech-writer | haiku | sonnet | sonnet |
 | presenter (gap prose for cheatsheet, brief, summary, deck, onboarding) | haiku | sonnet | sonnet |

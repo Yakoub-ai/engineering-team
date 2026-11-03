@@ -175,7 +175,11 @@ flowchart TB
   TST -->|flow→test table, results| L
   L -->|sha + audiences + artifacts| DOC[eng-tech-writer<br/>writes docs/ only]
   DOC -->|docs changed, Status| L
-  L -->|mode: plan · gate · review| REV[9 reviewers, read-only<br/>security · compliance · data · platform<br/>SRE · QA · integration · AI · product]
+  L -->|mode: plan · gate · review| REV[10 reviewers, read-only<br/>security · compliance · data · platform<br/>SRE · QA · code hygiene · integration · AI · product]
+  REV -->|Critical · High · Medium| VER[eng-verifier<br/>tries to disprove findings]
+  VER -->|upheld · rejected · downgraded| L
+  L -->|task diffs, once per wave| RC[eng-risk-classifier<br/>low · medium · high]
+  RC -->|risk, extra reviewers| L
   REV -->|findings with path:line evidence| L
   L -->|runs scanners · starts app for DAST · installs after approval| SC[Security + environment tooling<br/>SAST · secrets · SCA · IaC · SBOM · ZAP]
   SC -->|raw output in temp dir, never the repo| REV
@@ -194,7 +198,9 @@ flowchart TB
    - researcher: `### Pack:` / `### Note:` blocks
    - architect: `### Option` / `### Recommendation` / `### ADR draft:` / `### Plan`
    - builder, tester, tech-writer: `Status: DONE | BLOCKED | HARD-STOP`
-   - reviewers: findings in the standard format
+   - reviewers: findings in the standard format, ending `Scope reviewed:`
+   - verifier: a `### Verdicts` table; risk classifier: a `### Risk` table
+   A SubagentStop hook sends an agent back once if it stops without its terminal line.
 4. **Verify and save.** The lead first validates the return shape: a missing or malformed terminal line gets one re-dispatch with the error quoted, then escalates to you. A `HARD-STOP:` line or a guard denial goes to the Hard-stop procedure. The lead then checks the work itself (re-runs acceptance checks and test suites, re-opens cited evidence for Critical/High findings). It then saves read-only agents' output and updates `state.md`: gates, decisions, packs in use, loop counters, log.
 5. **Next.** The next agent receives the saved artifacts, not the previous agent's conversation. A new session, a teammate or claude.ai can resume from `state.md` at any point.
 
@@ -203,12 +209,12 @@ flowchart TB
 | Who | May write | Enforced by |
 |---|---|---|
 | Lead | `.eng-team/*`, `docs/engineering/**`, saved agent output | orchestrator rules; asks before pushes and deploys (guard hook) |
-| `eng-builder`, `eng-tester` | source code and tests, inside the repo (not `.git/`, `.eng-team/`, `docs/engineering/**` or the reader docs) | tool list + role prompt + guard hook |
+| `eng-builder`, `eng-tester` | source code and tests, inside the repo (not `.git/`, `.eng-team/`, `docs/engineering/**` or the reader docs, including their copies in agent worktrees, by file tools or the shell). The tester writes tests only; the lead checks its diff and gates it | tool list + role prompt + guard hook (shell writes by pattern) + lead's scope check |
 | `eng-tech-writer` | `docs/README.md`, `docs/architecture.md`, `docs/testing.md`, `docs/runbook.md`, `docs/compliance/` (no Bash) | tool list + role prompt + guard hook |
 | `eng-researcher` | nothing (read + web) | tool list |
 | `eng-architect`, `eng-presenter`, `eng-verifier`, `eng-risk-classifier` and the 10 reviewers | nothing (read-only) | tool list |
 
-The guard hook (`hooks/guard.js`, a PreToolUse hook; needs Node 18+) enforces the lanes above for eng-team agents: read-only roles get no shell or write access; writes are confined to the project (symlinks resolved); builder and tester shell commands are denied for pushes, remote changes, deploys, cloud and machine-level installs, `curl | sh`, `sudo` and network calls beyond localhost. Destructive actions (force pushes, hard resets, history rewrites, infra apply/destroy, cloud deletes, permission and secret changes, unbounded SQL deletes, recursive `rm` of anything but build and cache folders) are denied in every mode, for agents and, in eng-team projects, for your own session too: Claude shows you the command and you run it. The guard also protects `.eng-team/policy.json`, `.eng-team/approvals/`, Claude settings and the plugin itself, and asks before MCP tools that send, publish or delete. A denial tells an agent to return `HARD-STOP: eng-team guard: …`, and the lead stops. It is pattern matching: a strong second line of defence, not a sandbox; commands hidden behind variables, interpreters or build scripts get past it, so give autonomous runs least-privilege credentials where you can. A guard error or missing Node blocks calls in eng-team projects rather than letting them run unchecked.
+The guard hook (`hooks/guard.js`, a PreToolUse hook; needs Node 18+) enforces the lanes above for eng-team agents: read-only roles get no shell or write access; writes are confined to the project (symlinks resolved), and the lanes hold inside agent worktrees and for shell commands too (no `sed -i`, redirects or scripts into `.eng-team/`, `docs/engineering/` or reader docs); subagents may not write `.git/` (hooks, config) or set git config that runs programs (`core.hooksPath`, `core.fsmonitor`, `alias.*`, filters), and may not call the `/eng-view` write API; builder and tester shell commands are denied for pushes, remote changes, deploys, cloud and machine-level installs, `curl | sh`, `sudo` and network calls beyond localhost. Destructive actions (force pushes, hard resets, history rewrites, infra apply/destroy, cloud deletes, permission and secret changes, unbounded SQL deletes, recursive `rm` of anything but build and cache folders) are denied in every mode, for agents and, in eng-team projects, for your own session too: Claude shows you the command and you run it. The guard also protects `.eng-team/policy.json`, `.eng-team/approvals/`, Claude settings and the plugin itself, and asks before MCP tools that send, publish or delete. A denial tells an agent to return `HARD-STOP: eng-team guard: …`, and the lead stops. It is pattern matching: a strong second line of defence, not a sandbox; commands hidden behind variables, interpreters or build scripts get past it, so give autonomous runs least-privilege credentials where you can. A guard error or missing Node blocks calls in eng-team projects rather than letting them run unchecked.
 
 No agent approves its own work: code written by the builder is checked by the lead and by read-only reviewers. On claude.ai, which has no subagents, the same roles run one after another in one conversation with the same file contracts. The lead tells you once that the run is not context-isolated.
 

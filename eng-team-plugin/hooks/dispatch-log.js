@@ -7,8 +7,10 @@
  * lead no tokens and the timestamps are real. Records metadata only (agent,
  * model, time, terminal status), never prompts or agent output. Observation
  * only, with one exception: in an eng-team project it refuses a dispatch whose
- * prompt has no `Task: <id>` line (exit 2), so every run stays traceable. It
- * never creates `.eng-team/` and silently does nothing on any other error.
+ * prompt has no `Task: <id>` line (exit 2), so every run stays traceable, and
+ * on SubagentStop it sends an eng-team agent back once when its last message
+ * lacks the terminal line of the Hand-off contract. It never creates
+ * `.eng-team/` and silently does nothing on any other error.
  * Zero dependencies, Node 18+.
  */
 const fs = require('node:fs');
@@ -136,6 +138,36 @@ function missingTask(input, projectDir) {
   return 'eng-team dispatch: add a line `Task: <id>` to the prompt (the plan task id, or a phase name such as R11-review) and dispatch again. This is not a hard stop.';
 }
 
+const WRITER_ROLES = new Set(['eng-builder', 'eng-tester', 'eng-tech-writer']);
+
+/**
+ * Why an eng-team agent may not stop yet, or null. Only when its last message
+ * misses the terminal line the Hand-off contract requires (writers: `Status:`
+ * and `Scope:`; everyone else: `Scope:` or `Scope reviewed:`). A `HARD-STOP:`
+ * line always ends the work. Asks once per stop (`stop_hook_active`), and only
+ * in an eng-team project, so a confused agent can never loop.
+ * @param {object} input parsed hook stdin
+ * @param {string} [projectDir]
+ * @returns {string|null}
+ */
+function missingTerminal(input, projectDir) {
+  if (!input || input.hook_event_name !== 'SubagentStop' || input.stop_hook_active) return null;
+  const agent = input.agent_type;
+  if (typeof agent !== 'string' || !agent.startsWith(PREFIX)) return null;
+  const msg = input.last_assistant_message;
+  if (typeof msg !== 'string' || !msg.trim() || /^HARD-STOP:/m.test(msg)) return null;
+  const root = projectDir || input.cwd || process.cwd();
+  if (!fs.existsSync(path.join(root, '.eng-team', 'state.md'))) return null;
+  const role = agent.slice(PREFIX.length);
+  if (WRITER_ROLES.has(role)) {
+    const statuses = role === 'eng-tech-writer' ? 'DONE|BLOCKED' : 'DONE|BLOCKED|HARD-STOP';
+    if (new RegExp(`^Status:[ \\t]*(?:${statuses})\\b`, 'm').test(msg) && /^Scope:/m.test(msg)) return null;
+    return `eng-team return: end your reply with the terminal lines from your agent file: \`Status: ${statuses.split('|').join(' | ')}\` then \`Scope: <task id or coverage>\` (or \`HARD-STOP: <reason>\`). Add them now; do not redo the work.`;
+  }
+  if (/^Scope(?: reviewed)?:/m.test(msg)) return null;
+  return 'eng-team return: end your reply with the terminal line from your agent file (`Scope reviewed: …` for reviewers and checkers, `Scope: …` for architect, researcher and presenter), or `HARD-STOP: <reason>`. Add it now; do not redo the work.';
+}
+
 /**
  * Append the entry for a payload when the project is an eng-team project.
  * @param {object} input parsed hook stdin
@@ -159,7 +191,7 @@ function record(input, { projectDir, now } = {}) {
   return true;
 }
 
-module.exports = { entryFor, record, summarize, missingTask };
+module.exports = { entryFor, record, summarize, missingTask, missingTerminal };
 
 if (require.main === module && process.argv[2] === '--summary') {
   // node dispatch-log.js --summary [projectDir] [--since ISO-time]: seconds per agent from this project's log
@@ -190,6 +222,8 @@ if (require.main === module && process.argv[2] === '--summary') {
         return;
       }
       record(input, { projectDir });
+      const back = missingTerminal(input, projectDir);
+      if (back) process.stdout.write(JSON.stringify({ decision: 'block', reason: back }) + '\n');
     } catch {
       // observation only: never wedge the session
     }

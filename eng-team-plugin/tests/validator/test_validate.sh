@@ -128,6 +128,32 @@ sources:
 ## Guardrails
 - Example. Source: Example.
 EOF
+  mkdir -p "$d/skills/eng-team/shared"
+  cat > "$d/skills/eng-team/shared/orchestration.md" <<'EOF'
+**Return shape**
+| reviewers (10) | findings | `Scope reviewed:` |
+| `eng-builder`, `eng-tester` | output | `Status:` |
+| `eng-tech-writer` | output | `Status:` |
+| `eng-researcher` | blocks | `Scope:` |
+| `eng-architect` | blocks | `Scope:` |
+| `eng-presenter` | blocks | `Scope:` |
+| `eng-verifier` | verdicts | `Scope reviewed:` |
+| `eng-risk-classifier` | risk | `Scope reviewed:` |
+
+**Hand-offs.** x
+EOF
+  cat > "$d/skills/eng-team/shared/track.md" <<'EOF'
+## Models per dispatch
+| architect | opus |
+| security-engineer, compliance-officer | sonnet |
+| builder | sonnet |
+| tester, code-hygiene, other reviewers | sonnet |
+| researcher | sonnet |
+| tech-writer | sonnet |
+| presenter | sonnet |
+| verifier | opus |
+| risk-classifier | sonnet |
+EOF
 }
 
 expect_pass() {
@@ -171,6 +197,9 @@ expect_fail handoffs     "echo 'else use a general-purpose agent' >> skills/eng-
 expect_fail handoffs     "sed -i.bak 's/HARD-STOP/STOP/' agents/eng-sre.md"
 expect_fail handoffs     "sed -i.bak 's/eng-team guard/guard/' agents/eng-qa-engineer.md"
 expect_fail handoffs     "sed -i.bak 's/^tools: Read, Grep, Glob\$/tools: Read, Grep, Glob, Bash/' agents/eng-sre.md"
+expect_fail handoffs     "sed -i.bak '/eng-verifier/d' skills/eng-team/shared/orchestration.md"
+expect_fail handoffs     "sed -i.bak 's/reviewers (10)/reviewers (9)/' skills/eng-team/shared/orchestration.md"
+expect_fail handoffs     "sed -i.bak '/^| verifier/d' skills/eng-team/shared/track.md"
 expect_exit "handoffs passes on good plugin" 0 ":" --only handoffs
 expect_fail questionnaires "sed -i.bak '/^- why_en: Volume\./d' skills/eng-team/questionnaires/areas/x.md"
 expect_fail questionnaires "sed -i.bak '/^- en: Yes/d; s/^- options_en: Yes; No/- options_en: Yes/' skills/eng-team/questionnaires/core.md"

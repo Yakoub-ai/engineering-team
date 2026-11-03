@@ -36,6 +36,10 @@ EXPECTED_AGENTS = [
     "eng-ai-engineer", "eng-product-engineer", "eng-presenter",
     "eng-verifier", "eng-risk-classifier",
 ]
+NON_REVIEWERS = ["eng-researcher", "eng-architect", "eng-builder", "eng-tester", "eng-tech-writer",
+                 "eng-presenter", "eng-verifier", "eng-risk-classifier"]
+MODEL_ROWS = ["architect", "security-engineer", "compliance-officer", "builder", "tester", "code-hygiene",
+              "researcher", "tech-writer", "presenter", "verifier", "risk-classifier"]
 QUALIFIED_RE = re.compile(r"(?<!/)eng-team:(eng-[a-z][a-z-]*)")
 SLASH_QUALIFIED_RE = re.compile(r"/eng-team:(eng-[a-z][a-z-]*)")
 BACKTICK_AGENT_RE = re.compile(r"`(eng-[a-z][a-z-]*)`")
@@ -301,6 +305,26 @@ def main(argv):
         for a in EXPECTED_AGENTS:
             if f"eng-team:{a}" not in sm:
                 err("handoffs", skill_md, f"SKILL.md must list subagent_type eng-team:{a}")
+    # every agent has a return shape and a model row, so the lead never guesses either
+    orch = skill / "shared" / "orchestration.md"
+    if orch.exists():
+        ot = orch.read_text()
+        sec = ot[ot.find("**Return shape**"):]
+        sec = sec[: sec.find("**Hand-offs.**")] if "**Hand-offs.**" in sec else sec
+        for a in NON_REVIEWERS:
+            if f"`{a}`" not in sec and not (a in ("eng-builder", "eng-tester") and "`eng-builder`, `eng-tester`" in sec):
+                err("handoffs", orch, f"Return shape table has no row for `{a}`")
+        m = re.search(r"\| reviewers \((\d+)", sec)
+        n_rev = len(EXPECTED_AGENTS) - len(NON_REVIEWERS)
+        if not m or int(m.group(1)) != n_rev:
+            err("handoffs", orch, f"Return shape table must say 'reviewers ({n_rev}' (one row for all read-only reviewers)")
+    track = skill / "shared" / "track.md"
+    if track.exists():
+        tt = track.read_text()
+        sec = tt[tt.find("## Models per dispatch"):]
+        for a in MODEL_ROWS:
+            if not re.search(rf"^\|[^\n]*\b{re.escape(a)}\b", sec, re.M):
+                err("handoffs", track, f"Models per dispatch table has no row naming {a}")
     for p in md_files(skill):
         if "general-purpose" in p.read_text():
             err("handoffs", p, "no general-purpose agent substitution allowed")
