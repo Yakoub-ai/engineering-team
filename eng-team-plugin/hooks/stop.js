@@ -11,6 +11,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { entries } = require('./queue.js');
+const { openStops } = require('./stops.js');
 
 const RECEIPTS = path.join('docs', 'engineering', 'receipts');
 const REQUIRED = ['Verified', 'Not verified', 'Approvals needed'];
@@ -92,6 +93,8 @@ function check(input, root) {
   if (!/`[^`\n]+`/.test(section(r.text, 'Verified'))) return `eng-team: the receipt's Verified section names no command you ran (\`command\` → result). ${how}`;
   const unlisted = entries(root).filter((e) => e.status === 'pending' && !r.text.includes(e.id)).map((e) => e.id);
   if (unlisted.length) return `eng-team: pending approvals ${unlisted.join(', ')} are not in the receipt's Approvals needed. ${how}`;
+  const stopped = openStops(root).filter((e) => !new RegExp(`\\b${e.id}\\b`).test(r.text)).map((e) => e.id);
+  if (stopped.length) return `eng-team: open guard stops ${stopped.join(', ')} are not in the receipt's Approvals needed. ${how}`;
   return null;
 }
 

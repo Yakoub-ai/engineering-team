@@ -1,9 +1,12 @@
 # Changelog
 
-## 3.16.1 — 2026-11-03
+## 3.17.0 — 2026-11-03
 
 ### Fixed
 - **Guard false positives.** Read-only `git config` lookups (`--get`, `--list`, a single key, `git config get`) no longer count as remote or program-running config changes; writes, `--unset`, `--add`, `--file` and `-c` are still denied. A `>` or `tee` inside quotes, a `#` comment or a heredoc body is no longer read as a write outside the project, but only when every command word is one that never runs text as code (`cat`, `echo`, `printf`, `git`, ...) and there is no command or process substitution; anything else (`bash -c`, `bash <<EOF`, `$(...)`, `$'...'`) is scanned as before.
+
+### Added
+- **Guard stops pause the run until you answer, enforced by hooks.** Every subagent guard denial that is not queued is recorded as `S-<n>` in `.eng-team/approvals/stops.jsonl` (hook-written, guard-protected) and its id appears in the denial. While a stop is open, the dispatch hook refuses `eng-builder`, `eng-tester` and `eng-tech-writer` dispatches under any task id; read-only reviewers still run and running agents finish. Your next typed message answers every open stop. The Stop hook requires open stops in the receipt's Approvals needed.
 
 ### Changed
 - **Guard stops are never self-resumed.** The orchestrator may not judge a guard denial a false alarm and carry on (re-dispatching without the command or telling the agent to skip it), in any autonomy mode. The hard-stop message quotes the exact denied command; only that task and its dependents wait, and only the human's answer resumes.

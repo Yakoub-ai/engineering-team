@@ -18,6 +18,7 @@ const path = require('node:path');
 const { readPolicy, validate, loosenings, hasGrant, engHome } = require('./policy.js');
 const { enqueue } = require('./queue.js');
 const { losslessBranchDelete } = require('./gitref.js');
+const { recordStop } = require('./stops.js');
 
 const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
 const GUARDED_TOOLS = new Set(['Bash', ...WRITE_TOOLS]);
@@ -914,7 +915,21 @@ function decide(input, { projectDir } = {}) {
     return mainThreadAsk(ti.command) ? { decision: 'ask', reason: MAIN_ASK } : null;
   }
   if (!agent.startsWith(PREFIX)) return null;
+  const r = decideAgent(input, root, agent, tool, ti, target, isMcp);
+  if (r && r.decision === 'deny' && !/queued as Q-/.test(r.reason) && isEngProject(root)) {
+    try {
+      const what = typeof ti.command === 'string' ? ti.command : `${tool} ${target || ''}`.trim();
+      const id = recordStop(path.resolve(root), { agent: agent.slice(PREFIX.length), agentId: input.agent_id, tool, what, reason: r.reason });
+      r.reason = r.reason.split('eng-team guard: ').join(`eng-team guard: [${id}] `);
+    } catch {
+      /* the denial stands either way */
+    }
+  }
+  return r;
+}
 
+/** The subagent half of decide(). */
+function decideAgent(input, root, agent, tool, ti, target, isMcp) {
   const role = agent.slice(PREFIX.length);
   if (isMcp) return mcpDestructive(tool) ? deny(`rule 7 — ${tool} sends, publishes or deletes outside the project and is human-only`) : null;
   if (!WRITERS.has(role))

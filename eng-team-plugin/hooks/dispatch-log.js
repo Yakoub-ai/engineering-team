@@ -6,8 +6,9 @@
  * `.eng-team/.cache/dispatch-log.jsonl`, written by the hook so it costs the
  * lead no tokens and the timestamps are real. Records metadata only (agent,
  * model, time, terminal status), never prompts or agent output. Observation
- * only, with one exception: in an eng-team project it refuses a dispatch whose
- * prompt has no `Task: <id>` line (exit 2), so every run stays traceable, and
+ * only, with two exceptions: in an eng-team project it refuses a dispatch whose
+ * prompt has no `Task: <id>` line (exit 2), so every run stays traceable, and a
+ * builder, tester or tech-writer dispatch while a guard stop is open (stops.js);
  * on SubagentStop it sends an eng-team agent back once when its last message
  * lacks the terminal line of the Hand-off contract. It never creates
  * `.eng-team/` and silently does nothing on any other error.
@@ -15,6 +16,7 @@
  */
 const fs = require('node:fs');
 const path = require('node:path');
+const { pausedFor } = require('./stops.js');
 
 const PREFIX = 'eng-team:';
 const MAX_BYTES = 1024 * 1024;
@@ -122,7 +124,7 @@ function summarize(text, since) {
 }
 
 /**
- * Why a dispatch must be refused, or null. Only eng-team dispatches in an
+ * Why a dispatch must be refused (no Task line, or an open guard stop), or null. Only eng-team dispatches in an
  * eng-team project (one with `.eng-team/state.md`) are checked.
  * @param {object} input parsed hook stdin
  * @param {string} [projectDir]
@@ -132,9 +134,9 @@ function missingTask(input, projectDir) {
   if (!input || input.hook_event_name !== 'PreToolUse' || !DISPATCH_TOOLS.has(input.tool_name)) return null;
   const ti = input.tool_input || {};
   if (typeof ti.subagent_type !== 'string' || !ti.subagent_type.startsWith(PREFIX)) return null;
-  if (typeof ti.prompt === 'string' && TASK_RE.test(ti.prompt)) return null;
   const root = projectDir || input.cwd || process.cwd();
   if (!fs.existsSync(path.join(root, '.eng-team', 'state.md'))) return null;
+  if (typeof ti.prompt === 'string' && TASK_RE.test(ti.prompt)) return pausedFor(ti.subagent_type.slice(PREFIX.length), root);
   return 'eng-team dispatch: add a line `Task: <id>` to the prompt (the plan task id, or a phase name such as R11-review) and dispatch again. This is not a hard stop.';
 }
 

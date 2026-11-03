@@ -12,11 +12,13 @@
  *   --skip …  or "skip the <gate|phase|task>"  → 10-minute window to mark a gate skipped
  *   --force … or "force the <gate|phase>"      → 10-minute window to mark a gate forced
  *   a message naming the policy                → 30-minute window to edit .eng-team/policy.json
+ *   any message                                → answers every open guard stop (stops.js)
  * (loosening a policy still asks; autonomous mode and queue approvals stay command-only).
  * Grants are per session and live in ~/.eng-team/grants/ (guard-protected).
  */
 const { writeGrant } = require('./policy.js');
 const { mark, parseMark, reconcile } = require('./queue.js');
+const { answerAll } = require('./stops.js');
 
 /**
  * @param {object} input parsed hook stdin
@@ -36,7 +38,11 @@ function recordPrompt(input, now) {
 }
 
 function record(input, now = Date.now(), root = process.env.CLAUDE_PROJECT_DIR || (input && input.cwd)) {
-  if (input && input.hook_event_name === 'UserPromptSubmit') return recordPrompt(input, now);
+  if (input && input.hook_event_name === 'UserPromptSubmit') {
+    const out = recordPrompt(input, now);
+    if (root) for (const id of answerAll(root, now)) out.push(`stop:${id}`);
+    return out;
+  }
   if (!input || input.hook_event_name !== 'UserPromptExpansion' || input.expansion_type !== 'slash_command') return [];
   const name = String(input.command_name || '');
   const args = String(input.command_args || '');
