@@ -142,7 +142,7 @@ The plugin's SubagentStop hook sends an eng-team agent back once when its last m
 
 **Validate every return** before using it. A missing or malformed terminal line, a missing required block, or a `Status:` value outside the list is a malformed return: re-dispatch once with the exact error quoted, counting it in the Loop counters row for that dispatch. A second malformed return, or counter 3, escalates to the human. Never repair a return by guessing.
 
-**Stop signals.** A line starting `HARD-STOP:` (reason = text after the colon) or any `eng-team guard:` denial reported by an agent or shown by the Agent tool → Hard-stop procedure, with the guard's text as the reason. Do not retry the denied call, do not re-dispatch to work around it, and do not perform the denied action yourself unless it is in your own lane and the human agrees.
+**Stop signals.** A line starting `HARD-STOP:` (reason = text after the colon) or any `eng-team guard:` denial reported by an agent or shown by the Agent tool → Hard-stop procedure, with the guard's text as the reason. Do not retry the denied call, do not re-dispatch to work around it, and do not perform the denied action yourself unless it is in your own lane and the human agrees. You never decide that a denial is a false alarm and carry on: not by re-dispatching the agent without the blocked command, not by telling it to skip that step, and not in autonomous mode. If it looks like a false positive, say so in the hard-stop message with the exact denied command, and wait.
 
 ## Deviations
 
@@ -156,9 +156,9 @@ The message starts with the literal label `DEVIATION (<phase>): <what changed fr
 
 ## Hard-stop procedure
 
-The single procedure for every hard stop: set the current gate to `failed`, add the Log line `- YYYY-MM-DD hard-stop <phase>: <reason>`, and ask the human how to proceed. The message to the human starts with the literal label `HARD STOP (<phase>): <reason>`, says what was not done, and lists the decision the human must make. It applies in every autonomy mode.
+The single procedure for every hard stop: set the current gate to `failed`, add the Log line `- YYYY-MM-DD hard-stop <phase>: <reason>`, and ask the human how to proceed. The message to the human starts with the literal label `HARD STOP (<phase>): <reason>`, says what was not done, and lists the decision the human must make. It applies in every autonomy mode. For a guard denial, quote the exact denied command and the guard's reason. Only that task and the tasks that depend on it wait; independent tasks already running finish, but nothing merges until the human decides.
 
-**Resume.** After the human decides, set the gate to `in-progress` and continue, or keep it `failed`. Destructive or outside-repository actions are performed by the human, then the agent is re-dispatched.
+**Resume.** Only the human's answer resumes a hard stop; a Log line is not a decision. After the human decides, set the gate to `in-progress` and continue, or keep it `failed`. Destructive or outside-repository actions are performed by the human, then the agent is re-dispatched.
 
 Triggers: the four hard stops in rule 7 of `SKILL.md`; any agent line starting `HARD-STOP:` (the reason is the text after the colon); an `eng-team guard:` denial (Hand-off contract), except one that names a queue id, which follows Approval queue instead.
 

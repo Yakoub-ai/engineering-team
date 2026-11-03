@@ -181,7 +181,7 @@ const NPM = `${B}(?:npm|pnpm|yarn|bun)`;
 const RULES = [
   { name: 'git push', re: new RegExp(`${GIT}\\s+push(?![\\w-])`), main: true },
   { name: 'git remote changes', re: new RegExp(`${GIT}\\s+remote\\s+(?:add|set-url|remove|rm|rename|set-head)(?![\\w-])`), main: true },
-  { name: 'git config of remote/url settings', re: new RegExp(`${GIT}\\s+config\\b${SEG}\\b(?:remote|url)\\.`), main: true },
+  { name: 'git config of remote/url settings', re: new RegExp(`${GIT}\\s+config\\b${SEG}\\b(?:remote|url)\\.`), main: true, gitConfig: true },
   { name: 'GitHub CLI (gh/hub)', re: new RegExp(`${B}(?:gh|hub)\\s+\\S`) },
   { name: 'remote script piped to an interpreter', re: /\b(?:curl|wget)\b[^\n]*\|\s*(?:sudo\s+)?(?:\S*\/)?(?:sh|bash|zsh|dash|python3?|node|perl|ruby)(?![\w-])/ },
   { name: 'remote script piped to an interpreter', re: /(?:sh|bash|zsh|dash)\s+<\(\s*(?:curl|wget)\b/ },
@@ -580,6 +580,127 @@ function outsideProject(tok, projectDir, cwd) {
   return !roots.some((r, i) => inside(r, i > 0));
 }
 
+// ---------------------------------------------------------------- precision: reads and literal text
+
+/** git config flags that only read. Anything else (--add, --unset, --file, --edit, -c ...) is not a read. */
+const GIT_CONFIG_READ_FLAGS = new Set([
+  '--get', '--get-all', '--get-regexp', '--get-urlmatch', '-l', '--list', '--show-origin', '--show-scope',
+  '--name-only', '-z', '--null', '--includes', '--no-includes', '--global', '--system', '--local', '--worktree',
+  '--bool', '--int', '--bool-or-int', '--path', '--expiry-date', '--type', '--default', '--all', '--regexp',
+]);
+const GIT_CONFIG_READ_ANY = new Set(['--get', '--get-all', '--get-regexp', '--get-urlmatch', '-l', '--list']);
+const GIT_CONFIG_AT = new RegExp(`${GIT}\\s+config\\b`, 'g');
+
+/**
+ * True when every `git config` in the command only reads a value. Reads change
+ * nothing, and the guard does not police reads (a builder may already `cat`
+ * any file). A value-taking flag, `-c`, an expansion or two plain operands
+ * without a --get-style flag all count as writes, so unknown forms stay denied.
+ * @param {string} cmd
+ */
+function gitConfigReadsOnly(cmd) {
+  const hits = [...cmd.matchAll(GIT_CONFIG_AT)];
+  if (!hits.length) return false;
+  return hits.every((m) => {
+    if (/\s-c\s*\S|--config-env/.test(m[0])) return false;
+    const toks = tokenize(cmd.slice(m.index + m[0].length));
+    let sub = null;
+    if (toks[0] === 'get' || toks[0] === 'list') sub = toks.shift();
+    const ops = [];
+    let readFlag = Boolean(sub);
+    for (let i = 0; i < toks.length; i++) {
+      const t = toks[i];
+      if (/[$`(]/.test(t)) return false;
+      if (!t.startsWith('-')) { ops.push(t); continue; }
+      const flag = t.split('=')[0];
+      if (!GIT_CONFIG_READ_FLAGS.has(flag)) return false;
+      if (GIT_CONFIG_READ_ANY.has(flag)) readFlag = true;
+      if ((flag === '--type' || flag === '--default') && !t.includes('=')) i++;
+    }
+    return readFlag ? ops.length <= 2 : ops.length <= 1;
+  });
+}
+
+/** Pattern rule hit, minus read-only git config lookups. */
+const ruleHits = (r, cmd) => r.re.test(cmd) && !(r.gitConfig && gitConfigReadsOnly(cmd));
+
+/** Commands that never run their arguments or stdin as code. */
+const LITERAL_SAFE = new Set([
+  'cat', 'echo', 'printf', 'git', 'cd', 'mkdir', 'ls', 'pwd', 'true', 'false', 'test', '[', 'grep', 'rg',
+  'head', 'tail', 'wc', 'sort', 'uniq', 'diff', 'touch', 'cp', 'mv',
+]);
+
+/**
+ * The command as the shell sees its structure: text inside quotes, comments
+ * and heredoc bodies cannot redirect, so `>` and word breaks there are
+ * blanked. Only when every command word is one that never runs text as code
+ * and there is no command or process substitution; otherwise the raw command
+ * is returned and scanned as before (fail closed).
+ * @param {string} raw
+ * @returns {string}
+ */
+function shellView(raw) {
+  const blank = (c) => (/[\w./~$@:+,%={}-]/.test(c) ? c : '_');
+  let out = '';
+  let q = null;
+  let unsafe = false;
+  const pending = [];
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (q === "'") { if (c === q) { q = null; out += c; } else out += blank(c); continue; }
+    if (q === '"') {
+      if (c === '\\') { out += '__'; i++; continue; }
+      if (c === '`' || (c === '$' && raw[i + 1] === '(')) unsafe = true;
+      if (c === q) { q = null; out += c; } else out += blank(c);
+      continue;
+    }
+    if (c === '\\') { out += '_' + (raw[i + 1] === '\n' ? ' ' : blank(raw[i + 1] || '')); i++; continue; }
+    if (c === '$' && raw[i + 1] === "'") unsafe = true; // $'...' has its own escapes
+    if (c === "'" || c === '"') { q = c; out += c; continue; }
+    if (c === '`' || (c === '$' && raw[i + 1] === '(') || (/[<>]/.test(c) && raw[i + 1] === '(')) unsafe = true;
+    if (c === '#' && (i === 0 || /[\s;&|(]/.test(raw[i - 1]))) {
+      const end = raw.indexOf('\n', i);
+      const stop = end < 0 ? raw.length : end;
+      for (; i < stop; i++) out += blank(raw[i]);
+      i--;
+      continue;
+    }
+    const h = c === '<' && raw[i + 1] === '<' && raw[i + 2] !== '<' ? /^<<(-?)[ \t]*(['"]?)([A-Za-z_][\w-]*)\2/.exec(raw.slice(i)) : null;
+    if (h) {
+      pending.push({ strip: h[1] === '-', literal: Boolean(h[2]), delim: h[3] });
+      out += h[0];
+      i += h[0].length - 1;
+      continue;
+    }
+    out += c === '\n' && pending.length ? ' ' : c;
+    if (c === '\n' && pending.length) {
+      for (const d of pending.splice(0)) {
+        while (i + 1 < raw.length) {
+          const end = raw.indexOf('\n', i + 1);
+          const line = raw.slice(i + 1, end < 0 ? raw.length : end);
+          if ((d.strip ? line.replace(/^\t+/, '') : line) === d.delim) {
+            out += '_'.repeat(line.length);
+            i += line.length;
+            if (end >= 0) { out += '\n'; i++; }
+            break;
+          }
+          if (!d.literal && /`|\$\(/.test(line)) unsafe = true;
+          out += [...line].map(blank).join('') + (end >= 0 ? '_' : '');
+          i += line.length + (end >= 0 ? 1 : 0);
+        }
+      }
+    }
+  }
+  if (unsafe || q) return raw;
+  for (const s of subcommands(out)) {
+    const toks = tokenize(s.trim()).filter((t, k, a) => !(/^\w+=/.test(t) && a.slice(0, k).every((x) => /^\w+=/.test(x))));
+    const word = path.basename(toks[0] || '');
+    if (!LITERAL_SAFE.has(word)) return raw;
+    if (word === 'git' && toks.some((t) => /^-c|^--config-env|^--exec-path/.test(t))) return raw;
+  }
+  return out;
+}
+
 /** Redirection / tee targeting outside the project (recursive rm is in destructiveCheck). */
 function outsideWriteViolation(cmd, projectDir, cwd) {
   const redir = /(?<![=>\-<])\d*>>?\s*(?!&)("[^"]*"|'[^']*'|[^\s;&|<>()]+)/g;
@@ -602,10 +723,10 @@ function bashViolation(raw, projectDir, cwd) {
   const cmd = unquoteWords(raw);
   const x = destructiveCheck(cmd, projectDir, cwd);
   if (x) return `rule 7 — destructive: ${x} needs a human`;
-  for (const r of RULES) if (r.re.test(cmd)) return `rule 7 — ${r.name} is human-only`;
+  for (const r of RULES) if (ruleHits(r, cmd)) return `rule 7 — ${r.name} is human-only`;
   const n = networkViolation(cmd);
   if (n) return `rule 7 — ${n} is human-only`;
-  const d = outsideWriteViolation(cmd, projectDir, cwd);
+  const d = outsideWriteViolation(unquoteWords(shellView(raw)), projectDir, cwd);
   if (d) return `rule 7 — ${d} is human-only`;
   return null;
 }
@@ -637,7 +758,7 @@ const READER_DOC_PATH = /(?:^|[\s"'=/(,:[{])docs\/(?:compliance\b|(?:readme|arch
 function subagentBash(cmd, role) {
   const writes = WRITE_VERB.test(cmd) || RUN_VERB.test(cmd);
   if (GIT_DIR_PATH.test(cmd) && writes) return deny('rule 7 — .git (hooks, config, refs) is off limits to subagents');
-  if (GIT_EXEC_CONFIG.test(cmd)) return deny('rule 7 — git config that runs programs or reaches outside the project is human-only');
+  if (GIT_EXEC_CONFIG.test(cmd) && !gitConfigReadsOnly(cmd)) return deny('rule 7 — git config that runs programs or reaches outside the project is human-only');
   if (LEAD_LANE_PATH.test(cmd) && writes)
     return deny('rule 5 — .eng-team/** and docs/engineering/** are lead-owned; read them with Read, never write them from the shell');
   if (READER_DOC_PATH.test(cmd) && writes) return deny(`rule 5 — ${role} may not write tech-writer docs`);
@@ -656,7 +777,7 @@ const isEngProject = (root) =>
 
 /** Main-thread check: pushes, remote changes, PR create/merge and deploy CLIs. */
 function mainThreadAsk(cmd) {
-  if (RULES.some((r) => r.main && r.re.test(cmd))) return true;
+  if (RULES.some((r) => r.main && ruleHits(r, cmd))) return true;
   return new RegExp(`${B}gh\\s+pr\\s+(?:create|merge)(?![\\w-])`).test(cmd);
 }
 

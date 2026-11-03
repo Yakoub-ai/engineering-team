@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.16.1 — 2026-11-03
+
+### Fixed
+- **Guard false positives.** Read-only `git config` lookups (`--get`, `--list`, a single key, `git config get`) no longer count as remote or program-running config changes; writes, `--unset`, `--add`, `--file` and `-c` are still denied. A `>` or `tee` inside quotes, a `#` comment or a heredoc body is no longer read as a write outside the project, but only when every command word is one that never runs text as code (`cat`, `echo`, `printf`, `git`, ...) and there is no command or process substitution; anything else (`bash -c`, `bash <<EOF`, `$(...)`, `$'...'`) is scanned as before.
+
+### Changed
+- **Guard stops are never self-resumed.** The orchestrator may not judge a guard denial a false alarm and carry on (re-dispatching without the command or telling the agent to skip it), in any autonomy mode. The hard-stop message quotes the exact denied command; only that task and its dependents wait, and only the human's answer resumes.
+
 ## 3.16.0 — 2026-11-03
 
 ### Security
