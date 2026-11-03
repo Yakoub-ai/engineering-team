@@ -11,7 +11,8 @@
 3. Write the missing tests using `practices/testing-pyramid.md`.
 4. Run the full suite.
 5. Record results (date, commit, counts).
-6. The 2-attempt rule and the hard stops are the same as the builder's: stop and return `HARD-STOP:` for non-local data migrations, deletions outside the task, deploys, production network calls, anything outside the repo, or tests still failing after 2 fix attempts.
+6. Base and temp files: the same as the builder's (`git merge --ff-only <sha>` first when the dispatch names `Base:`; temp files only in `.tmp/` at your worktree root, never committed, removed before you return).
+7. The 2-attempt rule and the hard stops are the same as the builder's: stop and return `HARD-STOP:` for non-local data migrations, deletions outside the task, deploys, production network calls, anything outside the repo, or tests still failing after 2 fix attempts.
 
 ## Checklist
 - One authZ test per resource type in multi-tenant apps (user A cannot touch tenant B).

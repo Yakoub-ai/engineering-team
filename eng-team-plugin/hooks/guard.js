@@ -95,6 +95,21 @@ function laneDeny(rule) {
   };
 }
 
+/**
+ * A temp file aimed at /tmp or the session scratchpad: redirected into the
+ * worktree's `.tmp/`, no guard stop. Nothing outside the project is written.
+ * @param {string} role
+ * @param {string} filePath
+ */
+function tmpRedirect(role, filePath) {
+  return {
+    decision: 'deny',
+    reason:
+      `eng-team guard: rule 7 — ${role} may not write outside the project (${filePath}). Not a hard stop: do not retry this call. ` +
+      'Put temporary files in `.tmp/` at the root of your worktree (create it if needed), never commit them, remove them with `rm -r .tmp` before you return, and continue your task.',
+  };
+}
+
 // ---------------------------------------------------------------- paths
 
 /**
@@ -166,7 +181,11 @@ function checkWritePath(role, filePath, projectDir, cwd) {
   const root = realpathNearest(path.resolve(projectDir));
   const abs = realpathNearest(path.resolve(cwd || projectDir, filePath));
   const rel = relInside(root, abs);
-  if (rel === null) return deny(`rule 7 — ${role} may not write outside the project (${filePath})`);
+  if (rel === null) {
+    // Temp files belong in the worktree's .tmp/ (never committed, `rm -r .tmp` is allowed): redirect, nothing was written.
+    if (!outsideProject(path.resolve(cwd || projectDir, filePath), projectDir, cwd)) return tmpRedirect(role, filePath);
+    return deny(`rule 7 — ${role} may not write outside the project (${filePath})`);
+  }
   const lanes = laneRels(rel, root).map((r) => r.toLowerCase());
   if (lanes[0].split('/').includes('.git')) return deny(`rule 7 — .git is off limits to subagents (${filePath})`);
   if (lanes.some((l) => l.split('/')[0] === '.eng-team')) return laneDeny(`rule 5 — .eng-team/** is lead-owned (${filePath})`);
