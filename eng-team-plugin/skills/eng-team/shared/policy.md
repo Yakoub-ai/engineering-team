@@ -31,7 +31,7 @@ A missing or invalid file means gated with autonomous mode off; the SessionStart
 
 1. Infer the stack from the repo. Propose `human_required_paths` from what exists: CI and pipeline files, IaC, auth code, deploy configs, env samples. Propose `destructive_extra` from the stack packs (for example `databricks bundle destroy`, `wp db reset`).
 2. Ask at most two questions, one per message, each with a `(Recommended)` option: the highest mode this repo may use (recommend `gated`), and whether to add or drop any proposed path.
-3. Write `.eng-team/policy.json` with the Write tool. Creating it is allowed once; a `max_mode` of `autonomous` makes Claude Code ask the user to confirm.
+3. Write `.eng-team/policy.json` with the Write tool. Creating it is allowed once; a `max_mode` of `autonomous` makes Claude Code ask the user to confirm. Then commit it yourself, locally and on its own: `git add .eng-team/policy.json && git commit -m "eng-team: repo policy"` (the guard already checked its content; never push). Do the same after every `/eng-policy` change. Never ask the user to commit it.
 4. Print, do not run:
    - a CODEOWNERS line protecting `.eng-team/policy.json` and `.claude/`, with branch protection or required reviewers for the default branch (`az repos policy …` for Azure DevOps, repository rules for GitHub);
    - the stack's least-privilege checklist: a dev-only service principal or service account with read-only or no delete/permission rights for unattended runs (Databricks, Azure, GCP), and a note that purely local projects need nothing.

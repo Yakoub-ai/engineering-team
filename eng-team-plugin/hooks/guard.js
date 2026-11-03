@@ -80,6 +80,21 @@ function deny(rule) {
   };
 }
 
+/**
+ * A lane denial: the call went to the wrong place, nothing ran, and no human
+ * decision is needed. The agent takes the compliant route and carries on; no
+ * guard stop is opened.
+ * @param {string} rule
+ */
+function laneDeny(rule) {
+  return {
+    decision: 'deny',
+    reason:
+      `eng-team guard: ${rule}. Not a hard stop: do not retry this call. Use the compliant route (Read or a read-only shell command to read; ` +
+      "Write/Edit only for files in your lane; a `Hand-off: <role>` line for anyone else's files) and continue your task.",
+  };
+}
+
 // ---------------------------------------------------------------- paths
 
 /**
@@ -154,16 +169,16 @@ function checkWritePath(role, filePath, projectDir, cwd) {
   if (rel === null) return deny(`rule 7 — ${role} may not write outside the project (${filePath})`);
   const lanes = laneRels(rel, root).map((r) => r.toLowerCase());
   if (lanes[0].split('/').includes('.git')) return deny(`rule 7 — .git is off limits to subagents (${filePath})`);
-  if (lanes.some((l) => l.split('/')[0] === '.eng-team')) return deny(`rule 5 — .eng-team/** is lead-owned (${filePath})`);
+  if (lanes.some((l) => l.split('/')[0] === '.eng-team')) return laneDeny(`rule 5 — .eng-team/** is lead-owned (${filePath})`);
   if (lanes.some((l) => l === 'docs/engineering' || l.startsWith('docs/engineering/')))
-    return deny(`rule 5 — docs/engineering/** is lead-owned (${filePath})`);
+    return laneDeny(`rule 5 — docs/engineering/** is lead-owned (${filePath})`);
   const readerDoc = (l) => DOC_FILES.has(l) || l.startsWith('docs/compliance/');
   if (role === 'eng-tech-writer' && !readerDoc(lanes[0]))
-    return deny(
+    return laneDeny(
       `rule 5 — tech-writer may only write docs/README.md, docs/architecture.md, docs/testing.md, docs/runbook.md and docs/compliance/** (${filePath})`
     );
   if (role !== 'eng-tech-writer' && lanes.some(readerDoc))
-    return deny(`rule 5 — ${role} may not write tech-writer docs (${filePath})`);
+    return laneDeny(`rule 5 — ${role} may not write tech-writer docs (${filePath})`);
   return null;
 }
 
@@ -641,6 +656,16 @@ const LITERAL_SAFE = new Set([
  * @returns {string}
  */
 function shellView(raw) {
+  const p = shellParse(raw, sedSafe(raw) ? LITERAL_SAFE_SED : LITERAL_SAFE);
+  return p.safe ? p.text : raw;
+}
+
+/**
+ * shellView's parse. `words` are extra command words treated as never running
+ * their text as code (the lane check adds a script-checked `sed`).
+ * @returns {{text: string, safe: boolean}}
+ */
+function shellParse(raw, words = LITERAL_SAFE) {
   const blank = (c) => (/[\w./~$@:+,%={}-]/.test(c) ? c : '_');
   let out = '';
   let q = null;
@@ -692,14 +717,76 @@ function shellView(raw) {
       }
     }
   }
-  if (unsafe || q) return raw;
+  if (unsafe || q) return { text: raw, safe: false };
   for (const s of subcommands(out)) {
-    const toks = tokenize(s.trim()).filter((t, k, a) => !(/^\w+=/.test(t) && a.slice(0, k).every((x) => /^\w+=/.test(x))));
+    const toks = commandTokens(s);
     const word = path.basename(toks[0] || '');
-    if (!LITERAL_SAFE.has(word)) return raw;
-    if (word === 'git' && toks.some((t) => /^-c|^--config-env|^--exec-path/.test(t))) return raw;
+    if (!words.has(word)) return { text: raw, safe: false };
+    if (word === 'git' && toks.some((t) => /^-c|^--config-env|^--exec-path/.test(t))) return { text: raw, safe: false };
   }
-  return out;
+  return { text: out, safe: true };
+}
+
+/** Shell keywords that may open a simple command (`do sed …`, `then cat …`). */
+const SHELL_KEYWORDS = new Set(['do', 'then', 'else', 'elif', 'if', 'while', 'until', '!', '{', 'done', 'fi', 'esac']);
+
+/** Tokens of one simple command: leading keywords and VAR=value assignments dropped; `for x in …` is a read. */
+function commandTokens(s) {
+  const toks = tokenize(s.trim());
+  while (toks.length && (SHELL_KEYWORDS.has(toks[0]) || /^\w+=/.test(toks[0]))) toks.shift();
+  if (toks[0] === 'for') return ['true'];
+  return toks;
+}
+
+// ---------------------------------------------------------------- lane writes from the shell
+
+/** Commands that only read their operands (sed without -i and with a checked script). */
+const LANE_READ = new Set(['cat', 'head', 'tail', 'wc', 'grep', 'rg', 'ls', 'sort', 'uniq', 'diff', 'echo', 'printf', 'test', '[', 'true', 'false', 'pwd', 'file', 'stat', 'sed']);
+const LANE_WORDS = new Set([...LITERAL_SAFE, ...LANE_READ, 'tee', 'install', 'ln', 'rm', 'rmdir', 'unlink', 'truncate', 'chmod', 'chown', 'dd', 'rsync']);
+const GIT_READ = new Set(['log', 'show', 'diff', 'status', 'grep', 'ls-files', 'blame', 'cat-file', 'rev-parse', 'shortlog']);
+/** sed commands that write or execute: `w file`, `W file`, `e cmd`, and the s///w and s///e flags. */
+const SED_WRITE = /(?:^|[;{}\n\s'"]|\d|\$|\/)\s*[wWe](?:\s|$|['"])|\/[gpIiMm\d]*[we](?:\s|;|$|}|['"])/;
+/** Every sed in the command only reads: no -i, no w/W/e commands or flags. */
+const sedSafe = (raw) =>
+  [...raw.matchAll(/(?:^|[\s;&|(])sed\s+([^|;&\n]*)/g)].every((m) => !SED_WRITE.test(m[1]) && !/(?:^|\s)(?:-i|--in-place|-[a-zA-Z]*i)/.test(m[1]));
+const LITERAL_SAFE_SED = new Set([...LITERAL_SAFE, 'sed']);
+
+/**
+ * True when a shell command may write a path that `lane` matches. Looks at
+ * write targets (redirects, tee, the destination of cp/install/ln, any
+ * operand of mv/rm/touch/sed -i…), not at every path the command mentions,
+ * so reading a lane file with sed, grep or cat passes. Fails closed: an
+ * interpreter, an unknown command, `cd`, a variable target, or text the
+ * parser cannot read counts as a write whenever a lane path is mentioned.
+ * @param {string} raw
+ * @param {RegExp} lane
+ */
+function laneWrite(raw, lane) {
+  if (!lane.test(raw)) return false;
+  if (RUN_VERB.test(raw)) return true;
+  const sedOk = sedSafe(raw);
+  const words = new Set([...LANE_WORDS].filter((w) => w !== 'sed' || sedOk));
+  const p = shellParse(raw, words);
+  if (!p.safe) return WRITE_VERB.test(raw) || !sedOk;
+  const hits = (t) => lane.test(` ${t}`) || /[$`*?]/.test(t);
+  for (const s of subcommands(p.text)) {
+    for (const m of s.matchAll(/(?<![\d&])\d*>>?(?!&)\s*(\S+)/g)) if (hits(m[1])) return true;
+    const toks = commandTokens(s.replace(/(?<![\d&])\d*>>?(?!&)\s*\S+/g, ' '));
+    const word = path.basename(toks[0] || '');
+    const ops = toks.slice(1).filter((t) => !t.startsWith('-'));
+    const mentions = toks.some((t) => lane.test(` ${t}`));
+    if (word === 'cd' || word === 'pushd') { if (mentions) return true; continue; }
+    if (word === 'git') { if (mentions && !GIT_READ.has(ops[0])) return true; continue; }
+    if (word === 'cp' || word === 'install' || word === 'ln') {
+      if (toks.some((t) => /^-[a-zA-Z]*t$|^--target-directory/.test(t))) { if (toks.slice(1).some(hits)) return true; continue; }
+      if (ops.length && hits(ops[ops.length - 1])) return true;
+      continue;
+    }
+    if (word === 'tee') { if (ops.some(hits)) return true; continue; }
+    if (LANE_READ.has(word)) continue;
+    if (toks.slice(1).some(hits)) return true; // mv, rm, touch, mkdir, chmod, dd, rsync…
+  }
+  return false;
 }
 
 /** Redirection / tee targeting outside the project (recursive rm is in destructiveCheck). */
@@ -759,9 +846,9 @@ function subagentBash(cmd, role) {
   const writes = WRITE_VERB.test(cmd) || RUN_VERB.test(cmd);
   if (GIT_DIR_PATH.test(cmd) && writes) return deny('rule 7 — .git (hooks, config, refs) is off limits to subagents');
   if (GIT_EXEC_CONFIG.test(cmd) && !gitConfigReadsOnly(cmd)) return deny('rule 7 — git config that runs programs or reaches outside the project is human-only');
-  if (LEAD_LANE_PATH.test(cmd) && writes)
-    return deny('rule 5 — .eng-team/** and docs/engineering/** are lead-owned; read them with Read, never write them from the shell');
-  if (READER_DOC_PATH.test(cmd) && writes) return deny(`rule 5 — ${role} may not write tech-writer docs`);
+  if (laneWrite(cmd, LEAD_LANE_PATH))
+    return laneDeny('rule 5 — .eng-team/** and docs/engineering/** are lead-owned; read them with Read or the shell, never write them');
+  if (laneWrite(cmd, READER_DOC_PATH)) return laneDeny(`rule 5 — ${role} may not write tech-writer docs`);
   if (/x-eng-view/i.test(cmd)) return deny('rule 5 — the eng-view write API is for the human, not for subagents');
   return null;
 }
@@ -916,7 +1003,7 @@ function decide(input, { projectDir } = {}) {
   }
   if (!agent.startsWith(PREFIX)) return null;
   const r = decideAgent(input, root, agent, tool, ti, target, isMcp);
-  if (r && r.decision === 'deny' && !/queued as Q-/.test(r.reason) && isEngProject(root)) {
+  if (r && r.decision === 'deny' && !/queued as Q-|Not a hard stop/.test(r.reason) && isEngProject(root)) {
     try {
       const what = typeof ti.command === 'string' ? ti.command : `${tool} ${target || ''}`.trim();
       const id = recordStop(path.resolve(root), { agent: agent.slice(PREFIX.length), agentId: input.agent_id, tool, what, reason: r.reason });
@@ -938,7 +1025,7 @@ function decideAgent(input, root, agent, tool, ti, target, isMcp) {
       : deny(`rule 7 — ${tool} sends, publishes or deletes outside the project and is human-only`);
   }
   if (!WRITERS.has(role))
-    return deny(`rule 5 — ${role || 'this agent'} is read-only and may not use ${tool}`);
+    return laneDeny(`rule 5 — ${role || 'this agent'} is read-only and may not use ${tool}`);
   if (WRITE_TOOLS.has(tool)) {
     if (typeof target === 'string' && target) {
       const p = protectedPath(realpathNearest(path.resolve(input.cwd || root, target)), root);
@@ -947,10 +1034,11 @@ function decideAgent(input, root, agent, tool, ti, target, isMcp) {
     return checkWritePath(role, target, root, input.cwd);
   }
   if (typeof ti.command !== 'string') return null;
-  if (role === 'eng-tech-writer') return deny('rule 5 — tech-writer has no shell access');
+  if (role === 'eng-tech-writer') return laneDeny('rule 5 — tech-writer has no shell access');
   if (LEAD_ONLY.test(ti.command)) return deny('rule 7 — trash, worktree cleanup and queue closing are for the lead only');
   const lane = subagentBash(unquoteWords(ti.command), role);
-  if (lane) return lane;
+  // A destructive command on a lane path is handled as destructive (queued), not as a lane redirect.
+  if (lane && !(/Not a hard stop/.test(lane.reason) && destructiveCheck(ti.command, path.resolve(root), input.cwd))) return lane;
   const never = neverRule(ti.command);
   if (never) return deny(`rule 7 — ${never} is human-only`);
   const x = destructiveCheck(ti.command, path.resolve(root), input.cwd);
