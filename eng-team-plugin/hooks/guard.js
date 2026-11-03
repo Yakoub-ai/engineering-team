@@ -16,8 +16,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { readPolicy, validate, loosenings, hasGrant, engHome } = require('./policy.js');
-const { enqueue } = require('./queue.js');
+const { enqueue, useApproval } = require('./queue.js');
 const { losslessBranchDelete } = require('./gitref.js');
+const { recordStop } = require('./stops.js');
 
 const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
 const GUARDED_TOOLS = new Set(['Bash', ...WRITE_TOOLS]);
@@ -36,7 +37,7 @@ const MCP_ASK =
 const TRASH_JS = path.join(__dirname, '..', 'scripts', 'trash.js');
 
 function denyMain(what, queued) {
-  const q = queued ? ` Queued as ${queued}: pause only the work that needs it, continue the rest, and tell the user to run it and then type \`/eng-team:eng-queue done ${queued}\`.` : '';
+  const q = queued ? ` Queued as ${queued}: pause only the work that needs it, continue the rest, and ask the user to approve it (they type \`approve ${queued}\`); after that, run exactly this command once from the same directory. If they reject it, ask them what to do instead.` : '';
   if (/^recursive rm of project files/.test(what))
     return {
       decision: 'deny',
@@ -181,11 +182,11 @@ const NPM = `${B}(?:npm|pnpm|yarn|bun)`;
 const RULES = [
   { name: 'git push', re: new RegExp(`${GIT}\\s+push(?![\\w-])`), main: true },
   { name: 'git remote changes', re: new RegExp(`${GIT}\\s+remote\\s+(?:add|set-url|remove|rm|rename|set-head)(?![\\w-])`), main: true },
-  { name: 'git config of remote/url settings', re: new RegExp(`${GIT}\\s+config\\b${SEG}\\b(?:remote|url)\\.`), main: true },
+  { name: 'git config of remote/url settings', re: new RegExp(`${GIT}\\s+config\\b${SEG}\\b(?:remote|url)\\.`), main: true, gitConfig: true },
   { name: 'GitHub CLI (gh/hub)', re: new RegExp(`${B}(?:gh|hub)\\s+\\S`) },
-  { name: 'remote script piped to an interpreter', re: /\b(?:curl|wget)\b[^\n]*\|\s*(?:sudo\s+)?(?:\S*\/)?(?:sh|bash|zsh|dash|python3?|node|perl|ruby)(?![\w-])/ },
-  { name: 'remote script piped to an interpreter', re: /(?:sh|bash|zsh|dash)\s+<\(\s*(?:curl|wget)\b/ },
-  { name: 'privilege escalation (sudo/su/doas)', re: new RegExp(`${B}(?:sudo|doas)(?:\\s|$)|(?:^|[\\s;&|(){}\\x60'"=])su(?:\\s|$)`) },
+  { name: 'remote script piped to an interpreter', never: true, re: /\b(?:curl|wget)\b[^\n]*\|\s*(?:sudo\s+)?(?:\S*\/)?(?:sh|bash|zsh|dash|python3?|node|perl|ruby)(?![\w-])/ },
+  { name: 'remote script piped to an interpreter', never: true, re: /(?:sh|bash|zsh|dash)\s+<\(\s*(?:curl|wget)\b/ },
+  { name: 'privilege escalation (sudo/su/doas)', never: true, re: new RegExp(`${B}(?:sudo|doas)(?:\\s|$)|(?:^|[\\s;&|(){}\\x60'"=])su(?:\\s|$)`) },
   { name: 'package publish', re: new RegExp(`${NPM}\\s+${SEG}?publish(?![\\w-])`), main: true },
   { name: 'package publish', re: new RegExp(`${B}(?:cargo\\s+publish|twine\\s+upload)(?![\\w-])`), main: true },
   { name: 'docker push/login', re: new RegExp(`${B}docker\\b${SEG}?\\s(?:push|login)(?![\\w-])`), main: true },
@@ -580,6 +581,127 @@ function outsideProject(tok, projectDir, cwd) {
   return !roots.some((r, i) => inside(r, i > 0));
 }
 
+// ---------------------------------------------------------------- precision: reads and literal text
+
+/** git config flags that only read. Anything else (--add, --unset, --file, --edit, -c ...) is not a read. */
+const GIT_CONFIG_READ_FLAGS = new Set([
+  '--get', '--get-all', '--get-regexp', '--get-urlmatch', '-l', '--list', '--show-origin', '--show-scope',
+  '--name-only', '-z', '--null', '--includes', '--no-includes', '--global', '--system', '--local', '--worktree',
+  '--bool', '--int', '--bool-or-int', '--path', '--expiry-date', '--type', '--default', '--all', '--regexp',
+]);
+const GIT_CONFIG_READ_ANY = new Set(['--get', '--get-all', '--get-regexp', '--get-urlmatch', '-l', '--list']);
+const GIT_CONFIG_AT = new RegExp(`${GIT}\\s+config\\b`, 'g');
+
+/**
+ * True when every `git config` in the command only reads a value. Reads change
+ * nothing, and the guard does not police reads (a builder may already `cat`
+ * any file). A value-taking flag, `-c`, an expansion or two plain operands
+ * without a --get-style flag all count as writes, so unknown forms stay denied.
+ * @param {string} cmd
+ */
+function gitConfigReadsOnly(cmd) {
+  const hits = [...cmd.matchAll(GIT_CONFIG_AT)];
+  if (!hits.length) return false;
+  return hits.every((m) => {
+    if (/\s-c\s*\S|--config-env/.test(m[0])) return false;
+    const toks = tokenize(cmd.slice(m.index + m[0].length));
+    let sub = null;
+    if (toks[0] === 'get' || toks[0] === 'list') sub = toks.shift();
+    const ops = [];
+    let readFlag = Boolean(sub);
+    for (let i = 0; i < toks.length; i++) {
+      const t = toks[i];
+      if (/[$`(]/.test(t)) return false;
+      if (!t.startsWith('-')) { ops.push(t); continue; }
+      const flag = t.split('=')[0];
+      if (!GIT_CONFIG_READ_FLAGS.has(flag)) return false;
+      if (GIT_CONFIG_READ_ANY.has(flag)) readFlag = true;
+      if ((flag === '--type' || flag === '--default') && !t.includes('=')) i++;
+    }
+    return readFlag ? ops.length <= 2 : ops.length <= 1;
+  });
+}
+
+/** Pattern rule hit, minus read-only git config lookups. */
+const ruleHits = (r, cmd) => r.re.test(cmd) && !(r.gitConfig && gitConfigReadsOnly(cmd));
+
+/** Commands that never run their arguments or stdin as code. */
+const LITERAL_SAFE = new Set([
+  'cat', 'echo', 'printf', 'git', 'cd', 'mkdir', 'ls', 'pwd', 'true', 'false', 'test', '[', 'grep', 'rg',
+  'head', 'tail', 'wc', 'sort', 'uniq', 'diff', 'touch', 'cp', 'mv',
+]);
+
+/**
+ * The command as the shell sees its structure: text inside quotes, comments
+ * and heredoc bodies cannot redirect, so `>` and word breaks there are
+ * blanked. Only when every command word is one that never runs text as code
+ * and there is no command or process substitution; otherwise the raw command
+ * is returned and scanned as before (fail closed).
+ * @param {string} raw
+ * @returns {string}
+ */
+function shellView(raw) {
+  const blank = (c) => (/[\w./~$@:+,%={}-]/.test(c) ? c : '_');
+  let out = '';
+  let q = null;
+  let unsafe = false;
+  const pending = [];
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (q === "'") { if (c === q) { q = null; out += c; } else out += blank(c); continue; }
+    if (q === '"') {
+      if (c === '\\') { out += '__'; i++; continue; }
+      if (c === '`' || (c === '$' && raw[i + 1] === '(')) unsafe = true;
+      if (c === q) { q = null; out += c; } else out += blank(c);
+      continue;
+    }
+    if (c === '\\') { out += '_' + (raw[i + 1] === '\n' ? ' ' : blank(raw[i + 1] || '')); i++; continue; }
+    if (c === '$' && raw[i + 1] === "'") unsafe = true; // $'...' has its own escapes
+    if (c === "'" || c === '"') { q = c; out += c; continue; }
+    if (c === '`' || (c === '$' && raw[i + 1] === '(') || (/[<>]/.test(c) && raw[i + 1] === '(')) unsafe = true;
+    if (c === '#' && (i === 0 || /[\s;&|(]/.test(raw[i - 1]))) {
+      const end = raw.indexOf('\n', i);
+      const stop = end < 0 ? raw.length : end;
+      for (; i < stop; i++) out += blank(raw[i]);
+      i--;
+      continue;
+    }
+    const h = c === '<' && raw[i + 1] === '<' && raw[i + 2] !== '<' ? /^<<(-?)[ \t]*(['"]?)([A-Za-z_][\w-]*)\2/.exec(raw.slice(i)) : null;
+    if (h) {
+      pending.push({ strip: h[1] === '-', literal: Boolean(h[2]), delim: h[3] });
+      out += h[0];
+      i += h[0].length - 1;
+      continue;
+    }
+    out += c === '\n' && pending.length ? ' ' : c;
+    if (c === '\n' && pending.length) {
+      for (const d of pending.splice(0)) {
+        while (i + 1 < raw.length) {
+          const end = raw.indexOf('\n', i + 1);
+          const line = raw.slice(i + 1, end < 0 ? raw.length : end);
+          if ((d.strip ? line.replace(/^\t+/, '') : line) === d.delim) {
+            out += '_'.repeat(line.length);
+            i += line.length;
+            if (end >= 0) { out += '\n'; i++; }
+            break;
+          }
+          if (!d.literal && /`|\$\(/.test(line)) unsafe = true;
+          out += [...line].map(blank).join('') + (end >= 0 ? '_' : '');
+          i += line.length + (end >= 0 ? 1 : 0);
+        }
+      }
+    }
+  }
+  if (unsafe || q) return raw;
+  for (const s of subcommands(out)) {
+    const toks = tokenize(s.trim()).filter((t, k, a) => !(/^\w+=/.test(t) && a.slice(0, k).every((x) => /^\w+=/.test(x))));
+    const word = path.basename(toks[0] || '');
+    if (!LITERAL_SAFE.has(word)) return raw;
+    if (word === 'git' && toks.some((t) => /^-c|^--config-env|^--exec-path/.test(t))) return raw;
+  }
+  return out;
+}
+
 /** Redirection / tee targeting outside the project (recursive rm is in destructiveCheck). */
 function outsideWriteViolation(cmd, projectDir, cwd) {
   const redir = /(?<![=>\-<])\d*>>?\s*(?!&)("[^"]*"|'[^']*'|[^\s;&|<>()]+)/g;
@@ -600,13 +722,12 @@ function outsideWriteViolation(cmd, projectDir, cwd) {
  */
 function bashViolation(raw, projectDir, cwd) {
   const cmd = unquoteWords(raw);
-  const x = destructiveCheck(cmd, projectDir, cwd);
-  if (x) return `rule 7 — destructive: ${x} needs a human`;
-  for (const r of RULES) if (r.re.test(cmd)) return `rule 7 — ${r.name} is human-only`;
+  const hit = RULES.find((r) => ruleHits(r, cmd));
+  if (hit) return { rule: hit.name };
   const n = networkViolation(cmd);
-  if (n) return `rule 7 — ${n} is human-only`;
-  const d = outsideWriteViolation(cmd, projectDir, cwd);
-  if (d) return `rule 7 — ${d} is human-only`;
+  if (n) return { rule: n };
+  const d = outsideWriteViolation(unquoteWords(shellView(raw)), projectDir, cwd);
+  if (d) return { rule: d };
   return null;
 }
 
@@ -637,7 +758,7 @@ const READER_DOC_PATH = /(?:^|[\s"'=/(,:[{])docs\/(?:compliance\b|(?:readme|arch
 function subagentBash(cmd, role) {
   const writes = WRITE_VERB.test(cmd) || RUN_VERB.test(cmd);
   if (GIT_DIR_PATH.test(cmd) && writes) return deny('rule 7 — .git (hooks, config, refs) is off limits to subagents');
-  if (GIT_EXEC_CONFIG.test(cmd)) return deny('rule 7 — git config that runs programs or reaches outside the project is human-only');
+  if (GIT_EXEC_CONFIG.test(cmd) && !gitConfigReadsOnly(cmd)) return deny('rule 7 — git config that runs programs or reaches outside the project is human-only');
   if (LEAD_LANE_PATH.test(cmd) && writes)
     return deny('rule 5 — .eng-team/** and docs/engineering/** are lead-owned; read them with Read, never write them from the shell');
   if (READER_DOC_PATH.test(cmd) && writes) return deny(`rule 5 — ${role} may not write tech-writer docs`);
@@ -656,7 +777,7 @@ const isEngProject = (root) =>
 
 /** Main-thread check: pushes, remote changes, PR create/merge and deploy CLIs. */
 function mainThreadAsk(cmd) {
-  if (RULES.some((r) => r.main && r.re.test(cmd))) return true;
+  if (RULES.some((r) => r.main && ruleHits(r, cmd))) return true;
   return new RegExp(`${B}gh\\s+pr\\s+(?:create|merge)(?![\\w-])`).test(cmd);
 }
 
@@ -789,13 +910,33 @@ function decide(input, { projectDir } = {}) {
     }
     if (typeof ti.command !== 'string') return null;
     const x = destructiveCheck(ti.command, path.resolve(root), input.cwd);
+    if (x && !/^(?:changing|switching) /.test(x) && !neverRule(ti.command) && approvedRun(root, input)) return mainThreadAsk(ti.command) ? { decision: 'ask', reason: MAIN_ASK } : null;
     if (x) return denyMain(x, isEngProject(root) ? queueDenied(path.resolve(root), input, x) : null);
     return mainThreadAsk(ti.command) ? { decision: 'ask', reason: MAIN_ASK } : null;
   }
   if (!agent.startsWith(PREFIX)) return null;
+  const r = decideAgent(input, root, agent, tool, ti, target, isMcp);
+  if (r && r.decision === 'deny' && !/queued as Q-/.test(r.reason) && isEngProject(root)) {
+    try {
+      const what = typeof ti.command === 'string' ? ti.command : `${tool} ${target || ''}`.trim();
+      const id = recordStop(path.resolve(root), { agent: agent.slice(PREFIX.length), agentId: input.agent_id, tool, what, reason: r.reason });
+      r.reason = r.reason.split('eng-team guard: ').join(`eng-team guard: [${id}] `);
+    } catch {
+      /* the denial stands either way */
+    }
+  }
+  return r;
+}
 
+/** The subagent half of decide(). */
+function decideAgent(input, root, agent, tool, ti, target, isMcp) {
   const role = agent.slice(PREFIX.length);
-  if (isMcp) return mcpDestructive(tool) ? deny(`rule 7 — ${tool} sends, publishes or deletes outside the project and is human-only`) : null;
+  if (isMcp) {
+    if (!mcpDestructive(tool)) return null;
+    return ATTENDED.has(input.permission_mode)
+      ? { decision: 'ask', reason: `${APPROVE_ASK} (${tool} sends, publishes or deletes outside the project).` }
+      : deny(`rule 7 — ${tool} sends, publishes or deletes outside the project and is human-only`);
+  }
   if (!WRITERS.has(role))
     return deny(`rule 5 — ${role || 'this agent'} is read-only and may not use ${tool}`);
   if (WRITE_TOOLS.has(tool)) {
@@ -810,13 +951,43 @@ function decide(input, { projectDir } = {}) {
   if (LEAD_ONLY.test(ti.command)) return deny('rule 7 — trash, worktree cleanup and queue closing are for the lead only');
   const lane = subagentBash(unquoteWords(ti.command), role);
   if (lane) return lane;
+  const never = neverRule(ti.command);
+  if (never) return deny(`rule 7 — ${never} is human-only`);
   const x = destructiveCheck(ti.command, path.resolve(root), input.cwd);
+  const v = x ? null : bashViolation(ti.command, path.resolve(root), input.cwd);
+  if (!x && !v) return null;
+  // Never approvable: guard policy and settings, autonomy switches.
+  if (x && /^(?:changing|switching) /.test(x)) return deny(`rule 7 — destructive: ${x} needs a human`);
+  if (approvedRun(root, input)) return null;
   if (x) {
     const q = isEngProject(root) ? queueDenied(path.resolve(root), input, x) : null;
     return deny(`rule 7 — destructive: ${x} needs a human${q ? ` (queued as ${q}; your task waits for it)` : ''}`);
   }
-  const v = bashViolation(ti.command, path.resolve(root), input.cwd);
-  return v ? deny(v) : null;
+  if (ATTENDED.has(input.permission_mode)) return { decision: 'ask', reason: `${APPROVE_ASK} (${v.rule}).` };
+  const q = isEngProject(root) ? queueDenied(path.resolve(root), input, v.rule) : null;
+  return deny(`rule 7 — ${v.rule} needs your approval${q ? ` (queued as ${q}; your task waits for it)` : ''}`);
+}
+
+/** Rules no approval unlocks (sudo, remote scripts piped to an interpreter). @returns {string|null} */
+function neverRule(raw) {
+  const cmd = unquoteWords(raw);
+  const r = RULES.find((x) => x.never && x.re.test(cmd));
+  return r ? r.name : null;
+}
+
+/** Permission modes in which a human sees and answers an ask. Anything else (bypass, dontAsk, auto, unknown) queues. */
+const ATTENDED = new Set(['default', 'acceptEdits', 'plan']);
+const APPROVE_ASK =
+  'eng-team guard: rule 7 — an agent wants to run this outside its sandbox. Approve to let it run once; if you reject it, the agent stops and the lead asks you what to do instead';
+
+/** The human approved this exact command in this directory (`approve Q-n`): allow it once. */
+function approvedRun(root, input) {
+  if (!isEngProject(root)) return false;
+  try {
+    return Boolean(useApproval(path.resolve(root), input.tool_input.command, input.cwd || root));
+  } catch {
+    return false;
+  }
 }
 
 module.exports = { decide };

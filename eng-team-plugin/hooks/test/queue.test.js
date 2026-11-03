@@ -79,7 +79,8 @@ test('pending entries expire after approval_ttl_hours and can still be marked', 
   assert.equal(entries(proj)[0].status, 'expired');
   assert.equal(enqueue(proj, { command: 'pulumi destroy', reason: 'pulumi' }), 'Q-002');
   assert.equal(mark(proj, 'Q-001', 'done'), true);
-  assert.equal(mark(proj, 'Q-002', 'approved'), false);
+  assert.equal(mark(proj, 'Q-002', 'approved', Date.now(), 'agent-evidence'), false, 'only a human approves');
+  assert.equal(mark(proj, 'Q-002', 'bogus'), false);
 });
 
 test('several ids close in one command; malformed input records nothing', () => {
@@ -87,8 +88,9 @@ test('several ids close in one command; malformed input records nothing', () => 
   for (const c of ['az group delete -n a', 'az group delete -n b', 'az group delete -n c']) enqueue(proj, { command: c, reason: 'cloud delete' });
   assert.deepEqual(typed('done Q-001 & Q-002'), ['queue:Q-001', 'queue:Q-002']);
   assert.deepEqual(parseMark('done Q-001, Q-002 and Q-003'), { status: 'done', ids: ['Q-001', 'Q-002', 'Q-003'] });
-  assert.deepEqual(parseMark('reject q-1 q-1 Q-2').ids, ['Q-1', 'Q-2']);
-  for (const bad of ['done Q-001 & ', 'done Q-001; rm -rf /', 'done Q-001 Q-002 extra', 'done all', 'done', 'approve Q-001', `done ${Array.from({ length: 21 }, (_, i) => `Q-${i + 1}`).join(' ')}`])
+  assert.deepEqual(parseMark('reject q-1 q-1 Q-2').ids, ['Q-001', 'Q-002']);
+  assert.deepEqual(parseMark('approve Q-001'), { status: 'approved', ids: ['Q-001'] });
+  for (const bad of ['done Q-001 & ', 'done Q-001; rm -rf /', 'done Q-001 Q-002 extra', 'done all', 'done', 'approve', `done ${Array.from({ length: 21 }, (_, i) => `Q-${i + 1}`).join(' ')}`])
     assert.equal(parseMark(bad), null, bad);
   assert.deepEqual(typed('done Q-003 & nonsense'), []);
   assert.equal(entries(proj)[2].status, 'pending');

@@ -96,11 +96,31 @@ function enqueue(root, { command, cwd, reason, agent }, now = Date.now()) {
  * @returns {boolean}
  */
 function mark(root, id, status, now = Date.now(), by = 'human', extra = {}) {
-  if (!['done', 'rejected'].includes(status)) return false;
+  if (!['done', 'rejected', 'approved'].includes(status)) return false;
   const e = entries(root, now).find((x) => x.id === id);
   if (!e || !['pending', 'expired'].includes(e.status)) return false;
-  append(root, { id, status, [status === 'done' ? 'done_at' : 'rejected_at']: new Date(now).toISOString(), by, ...extra });
+  if (status === 'approved' && by !== 'human') return false;
+  append(root, { id, status, [`${status === 'rejected' ? 'rejected' : status === 'done' ? 'done' : 'approved'}_at`]: new Date(now).toISOString(), by, ...extra });
   return true;
+}
+
+/** How long an approval lets Claude run the entry's exact command (once). */
+const APPROVAL_WINDOW_MS = 60 * 60 * 1000;
+
+/**
+ * The human approved this exact command in this directory within the last
+ * hour: mark the entry used (`done`, `by: approved-run`) and return its id.
+ * Single use: a second run of the same command is queued again.
+ * @returns {string|null}
+ */
+function useApproval(root, command, cwd, now = Date.now()) {
+  const hash = hashOf(command, cwd || root);
+  const e = entries(root, now).find(
+    (x) => x.status === 'approved' && x.hash === hash && now - Date.parse(x.approved_at) <= APPROVAL_WINDOW_MS
+  );
+  if (!e) return null;
+  append(root, { id: e.id, status: 'done', done_at: new Date(now).toISOString(), by: 'approved-run' });
+  return e.id;
 }
 
 const humanOnly = (root, e) => e.needs_human_test || (e.needs_human_test === undefined && needsHumanTest(root, e.command || ''));
@@ -128,11 +148,28 @@ const MAX_BATCH = 20;
  * by spaces, commas, `&` or `and`. Anything else parses to null and records nothing.
  * @returns {{status: 'done'|'rejected', ids: string[]}|null}
  */
+const normId = (id) => `Q-${String(Number(id.slice(2))).padStart(3, '0')}`;
+const VERB = (v) => (/^reject/i.test(v) ? 'rejected' : /^approve/i.test(v) ? 'approved' : 'done');
+const IDS = 'Q-\\d{1,6}(?:(?:\\s*[,&]\\s*|\\s+and\\s+|\\s+)Q-\\d{1,6}){0,19}';
+
 function parseMark(args) {
-  const m = /^\s*(done|reject(?:ed)?)\s+(Q-\d{1,6}(?:(?:\s*[,&]\s*|\s+and\s+|\s+)Q-\d{1,6}){0,19})\s*$/i.exec(String(args));
+  const m = new RegExp(`^\\s*(done|reject(?:ed)?|approve)\\s+(${IDS})\\s*$`, 'i').exec(String(args));
   if (!m) return null;
-  const ids = [...new Set(m[2].toUpperCase().match(/Q-\d{1,6}/g))];
-  return ids.length <= MAX_BATCH ? { status: m[1].toLowerCase().startsWith('reject') ? 'rejected' : 'done', ids } : null;
+  const ids = [...new Set(m[2].toUpperCase().match(/Q-\d{1,6}/g).map(normId))];
+  return ids.length <= MAX_BATCH ? { status: VERB(m[1]), ids } : null;
+}
+
+/**
+ * `approve Q-3` or `reject Q-3 and Q-4` inside a message the human typed.
+ * @returns {{status: 'approved'|'rejected', ids: string[]}[]}
+ */
+function parseChat(text) {
+  const out = [];
+  for (const m of String(text).slice(0, 4000).matchAll(new RegExp(`(?:^|[\\s,.;:!(])(approve|reject)\\s+(${IDS})(?![\\w-])`, 'gi'))) {
+    const ids = [...new Set(m[2].toUpperCase().match(/Q-\d{1,6}/g).map(normId))];
+    if (ids.length <= MAX_BATCH) out.push({ status: VERB(m[1]), ids });
+  }
+  return out;
 }
 
 /**
@@ -190,7 +227,7 @@ function reconcile(root, now = Date.now(), by = 'hook-verified') {
   return out;
 }
 
-module.exports = { QUEUE_FILE, entries, enqueue, mark, parseMark, reconcile, closeWithEvidence, hashOf, needsHumanTest };
+module.exports = { QUEUE_FILE, entries, enqueue, mark, parseMark, parseChat, useApproval, APPROVAL_WINDOW_MS, reconcile, closeWithEvidence, hashOf, needsHumanTest };
 
 // `node queue.js close [project dir]`: the orchestrator closes what the hook can verify.
 // `node queue.js close <Q-n> --evidence "<text>"`: it closes one entry it checked itself.

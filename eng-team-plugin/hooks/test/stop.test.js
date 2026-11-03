@@ -77,3 +77,18 @@ test('stop.js prints a block decision and stays silent outside eng-team projects
   assert.equal(JSON.parse(r.stdout).decision, 'block');
   assert.equal(run(os.tmpdir()).stdout, '');
 });
+
+test('open guard stops must be listed in the receipt', () => {
+  const { recordStop, answerAll } = require('../stops.js');
+  log('eng-builder', 4000);
+  receipt(GOOD, '2026-10-29-stops.md');
+  for (let i = 0; i < 9; i++) {
+    recordStop(proj, { agent: 'eng-builder', tool: 'Bash', what: 'x', reason: 'r' });
+    answerAll(proj);
+  }
+  recordStop(proj, { agent: 'eng-builder', tool: 'Bash', what: 'echo > ~/.x', reason: 'r' });
+  receipt(GOOD.replace('none', 'Q-001; S-1 already answered'), '2026-10-29-stops.md');
+  assert.match(stop(), /open guard stops S-10 are not in the receipt/);
+  receipt(GOOD.replace('none', 'Q-001; S-10 guard stop: echo > ~/.x'), '2026-10-29-stops.md');
+  assert.equal(stop(), null);
+});

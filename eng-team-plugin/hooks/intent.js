@@ -12,11 +12,14 @@
  *   --skip …  or "skip the <gate|phase|task>"  → 10-minute window to mark a gate skipped
  *   --force … or "force the <gate|phase>"      → 10-minute window to mark a gate forced
  *   a message naming the policy                → 30-minute window to edit .eng-team/policy.json
+ *   any message                                → answers every open guard stop (stops.js)
+ *   `approve Q-n` / `reject Q-n` in a message  → approves (Claude may run that exact command once) or rejects
  * (loosening a policy still asks; autonomous mode and queue approvals stay command-only).
  * Grants are per session and live in ~/.eng-team/grants/ (guard-protected).
  */
 const { writeGrant } = require('./policy.js');
-const { mark, parseMark, reconcile } = require('./queue.js');
+const { entries, mark, parseMark, parseChat, reconcile } = require('./queue.js');
+const { answerAll } = require('./stops.js');
 
 /**
  * @param {object} input parsed hook stdin
@@ -36,7 +39,14 @@ function recordPrompt(input, now) {
 }
 
 function record(input, now = Date.now(), root = process.env.CLAUDE_PROJECT_DIR || (input && input.cwd)) {
-  if (input && input.hook_event_name === 'UserPromptSubmit') return recordPrompt(input, now);
+  if (input && input.hook_event_name === 'UserPromptSubmit') {
+    const out = recordPrompt(input, now);
+    if (root) {
+      for (const q of parseChat(input.prompt || '')) for (const id of q.ids) if (mark(root, id, q.status, now)) out.push(`queue:${id}`);
+      for (const id of answerAll(root, now)) out.push(`stop:${id}`);
+    }
+    return out;
+  }
   if (!input || input.hook_event_name !== 'UserPromptExpansion' || input.expansion_type !== 'slash_command') return [];
   const name = String(input.command_name || '');
   const args = String(input.command_args || '');
@@ -52,7 +62,19 @@ function record(input, now = Date.now(), root = process.env.CLAUDE_PROJECT_DIR |
   return out;
 }
 
-module.exports = { record };
+/** One line per queue entry the human just approved or rejected, with the exact command. */
+function approvalNote(root, out) {
+  const ids = out.filter((x) => x.startsWith('queue:')).map((x) => x.slice(6));
+  if (!root || !ids.length) return null;
+  const all = entries(root);
+  return ids
+    .map((id) => all.find((e) => e.id === id))
+    .filter(Boolean)
+    .map((e) => `eng-team: ${e.id} ${e.status}: \`${String(e.command).slice(0, 300)}\` in ${e.cwd}${e.status === 'approved' ? ' (runs once, within 60 minutes)' : ''}`)
+    .join('\n');
+}
+
+module.exports = { record, approvalNote };
 
 if (require.main === module) {
   let raw = '';
@@ -60,7 +82,11 @@ if (require.main === module) {
   process.stdin.on('data', (c) => (raw += c));
   process.stdin.on('end', () => {
     try {
-      record(JSON.parse(raw));
+      const input = JSON.parse(raw);
+      const root = process.env.CLAUDE_PROJECT_DIR || input.cwd;
+      const note = approvalNote(root, record(input, Date.now(), root));
+      // Shown to the human by Claude Code, so what they approved comes from the queue file, not from Claude's summary.
+      if (note) process.stdout.write(JSON.stringify({ systemMessage: note }) + '\n');
     } catch {
       /* no grant is the safe outcome */
     }
