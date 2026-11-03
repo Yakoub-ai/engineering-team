@@ -8,6 +8,10 @@
 ### Added
 - **Guard stops pause the run until you answer, enforced by hooks.** Every subagent guard denial that is not queued is recorded as `S-<n>` in `.eng-team/approvals/stops.jsonl` (hook-written, guard-protected) and its id appears in the denial. While a stop is open, the dispatch hook refuses `eng-builder`, `eng-tester` and `eng-tech-writer` dispatches under any task id; read-only reviewers still run and running agents finish. Your next typed message answers every open stop. The Stop hook requires open stops in the receipt's Approvals needed.
 
+- **Approve instead of running commands yourself.** With a human watching (permission mode `default`, `acceptEdits`, `plan`), an agent's push, deploy, cloud or package CLI call, network call, outside-project write or destructive MCP tool becomes a permission prompt showing the exact command (works from Remote Control). Rejecting it makes the agent return `HARD-STOP: user declined <command>` and the lead asks what to do instead. In unattended modes these are denied and queued.
+- **Queue approvals run the command for you.** Typing `approve Q-<n>` (any message, or `/eng-team:eng-queue approve Q-<n>`) lets Claude run that exact command once, from the same directory, within 60 minutes; the guard marks the entry `done` (`by: approved-run`). `reject Q-<n>` works the same way. Only a typed message approves; agents and tool output cannot.
+- **Never approvable:** `sudo`/`su`/`doas`, remote scripts piped to an interpreter, guard policy, settings and approvals, autonomy switches, `.git` code and lane violations. These stay denied and open a guard stop.
+
 ### Changed
 - **Guard stops are never self-resumed.** The orchestrator may not judge a guard denial a false alarm and carry on (re-dispatching without the command or telling the agent to skip it), in any autonomy mode. The hard-stop message quotes the exact denied command; only the human's answer resumes.
 

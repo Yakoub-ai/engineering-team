@@ -16,7 +16,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { readPolicy, validate, loosenings, hasGrant, engHome } = require('./policy.js');
-const { enqueue } = require('./queue.js');
+const { enqueue, useApproval } = require('./queue.js');
 const { losslessBranchDelete } = require('./gitref.js');
 const { recordStop } = require('./stops.js');
 
@@ -37,7 +37,7 @@ const MCP_ASK =
 const TRASH_JS = path.join(__dirname, '..', 'scripts', 'trash.js');
 
 function denyMain(what, queued) {
-  const q = queued ? ` Queued as ${queued}: pause only the work that needs it, continue the rest, and tell the user to run it and then type \`/eng-team:eng-queue done ${queued}\`.` : '';
+  const q = queued ? ` Queued as ${queued}: pause only the work that needs it, continue the rest, and ask the user to approve it (they type \`approve ${queued}\`); after that, run exactly this command once from the same directory. If they reject it, ask them what to do instead.` : '';
   if (/^recursive rm of project files/.test(what))
     return {
       decision: 'deny',
@@ -184,9 +184,9 @@ const RULES = [
   { name: 'git remote changes', re: new RegExp(`${GIT}\\s+remote\\s+(?:add|set-url|remove|rm|rename|set-head)(?![\\w-])`), main: true },
   { name: 'git config of remote/url settings', re: new RegExp(`${GIT}\\s+config\\b${SEG}\\b(?:remote|url)\\.`), main: true, gitConfig: true },
   { name: 'GitHub CLI (gh/hub)', re: new RegExp(`${B}(?:gh|hub)\\s+\\S`) },
-  { name: 'remote script piped to an interpreter', re: /\b(?:curl|wget)\b[^\n]*\|\s*(?:sudo\s+)?(?:\S*\/)?(?:sh|bash|zsh|dash|python3?|node|perl|ruby)(?![\w-])/ },
-  { name: 'remote script piped to an interpreter', re: /(?:sh|bash|zsh|dash)\s+<\(\s*(?:curl|wget)\b/ },
-  { name: 'privilege escalation (sudo/su/doas)', re: new RegExp(`${B}(?:sudo|doas)(?:\\s|$)|(?:^|[\\s;&|(){}\\x60'"=])su(?:\\s|$)`) },
+  { name: 'remote script piped to an interpreter', never: true, re: /\b(?:curl|wget)\b[^\n]*\|\s*(?:sudo\s+)?(?:\S*\/)?(?:sh|bash|zsh|dash|python3?|node|perl|ruby)(?![\w-])/ },
+  { name: 'remote script piped to an interpreter', never: true, re: /(?:sh|bash|zsh|dash)\s+<\(\s*(?:curl|wget)\b/ },
+  { name: 'privilege escalation (sudo/su/doas)', never: true, re: new RegExp(`${B}(?:sudo|doas)(?:\\s|$)|(?:^|[\\s;&|(){}\\x60'"=])su(?:\\s|$)`) },
   { name: 'package publish', re: new RegExp(`${NPM}\\s+${SEG}?publish(?![\\w-])`), main: true },
   { name: 'package publish', re: new RegExp(`${B}(?:cargo\\s+publish|twine\\s+upload)(?![\\w-])`), main: true },
   { name: 'docker push/login', re: new RegExp(`${B}docker\\b${SEG}?\\s(?:push|login)(?![\\w-])`), main: true },
@@ -722,13 +722,12 @@ function outsideWriteViolation(cmd, projectDir, cwd) {
  */
 function bashViolation(raw, projectDir, cwd) {
   const cmd = unquoteWords(raw);
-  const x = destructiveCheck(cmd, projectDir, cwd);
-  if (x) return `rule 7 — destructive: ${x} needs a human`;
-  for (const r of RULES) if (ruleHits(r, cmd)) return `rule 7 — ${r.name} is human-only`;
+  const hit = RULES.find((r) => ruleHits(r, cmd));
+  if (hit) return { rule: hit.name };
   const n = networkViolation(cmd);
-  if (n) return `rule 7 — ${n} is human-only`;
+  if (n) return { rule: n };
   const d = outsideWriteViolation(unquoteWords(shellView(raw)), projectDir, cwd);
-  if (d) return `rule 7 — ${d} is human-only`;
+  if (d) return { rule: d };
   return null;
 }
 
@@ -911,6 +910,7 @@ function decide(input, { projectDir } = {}) {
     }
     if (typeof ti.command !== 'string') return null;
     const x = destructiveCheck(ti.command, path.resolve(root), input.cwd);
+    if (x && !/^(?:changing|switching) /.test(x) && !neverRule(ti.command) && approvedRun(root, input)) return mainThreadAsk(ti.command) ? { decision: 'ask', reason: MAIN_ASK } : null;
     if (x) return denyMain(x, isEngProject(root) ? queueDenied(path.resolve(root), input, x) : null);
     return mainThreadAsk(ti.command) ? { decision: 'ask', reason: MAIN_ASK } : null;
   }
@@ -931,7 +931,12 @@ function decide(input, { projectDir } = {}) {
 /** The subagent half of decide(). */
 function decideAgent(input, root, agent, tool, ti, target, isMcp) {
   const role = agent.slice(PREFIX.length);
-  if (isMcp) return mcpDestructive(tool) ? deny(`rule 7 — ${tool} sends, publishes or deletes outside the project and is human-only`) : null;
+  if (isMcp) {
+    if (!mcpDestructive(tool)) return null;
+    return ATTENDED.has(input.permission_mode)
+      ? { decision: 'ask', reason: `${APPROVE_ASK} (${tool} sends, publishes or deletes outside the project).` }
+      : deny(`rule 7 — ${tool} sends, publishes or deletes outside the project and is human-only`);
+  }
   if (!WRITERS.has(role))
     return deny(`rule 5 — ${role || 'this agent'} is read-only and may not use ${tool}`);
   if (WRITE_TOOLS.has(tool)) {
@@ -946,13 +951,43 @@ function decideAgent(input, root, agent, tool, ti, target, isMcp) {
   if (LEAD_ONLY.test(ti.command)) return deny('rule 7 — trash, worktree cleanup and queue closing are for the lead only');
   const lane = subagentBash(unquoteWords(ti.command), role);
   if (lane) return lane;
+  const never = neverRule(ti.command);
+  if (never) return deny(`rule 7 — ${never} is human-only`);
   const x = destructiveCheck(ti.command, path.resolve(root), input.cwd);
+  const v = x ? null : bashViolation(ti.command, path.resolve(root), input.cwd);
+  if (!x && !v) return null;
+  // Never approvable: guard policy and settings, autonomy switches.
+  if (x && /^(?:changing|switching) /.test(x)) return deny(`rule 7 — destructive: ${x} needs a human`);
+  if (approvedRun(root, input)) return null;
   if (x) {
     const q = isEngProject(root) ? queueDenied(path.resolve(root), input, x) : null;
     return deny(`rule 7 — destructive: ${x} needs a human${q ? ` (queued as ${q}; your task waits for it)` : ''}`);
   }
-  const v = bashViolation(ti.command, path.resolve(root), input.cwd);
-  return v ? deny(v) : null;
+  if (ATTENDED.has(input.permission_mode)) return { decision: 'ask', reason: `${APPROVE_ASK} (${v.rule}).` };
+  const q = isEngProject(root) ? queueDenied(path.resolve(root), input, v.rule) : null;
+  return deny(`rule 7 — ${v.rule} needs your approval${q ? ` (queued as ${q}; your task waits for it)` : ''}`);
+}
+
+/** Rules no approval unlocks (sudo, remote scripts piped to an interpreter). @returns {string|null} */
+function neverRule(raw) {
+  const cmd = unquoteWords(raw);
+  const r = RULES.find((x) => x.never && x.re.test(cmd));
+  return r ? r.name : null;
+}
+
+/** Permission modes in which a human sees and answers an ask. Anything else (bypass, dontAsk, auto, unknown) queues. */
+const ATTENDED = new Set(['default', 'acceptEdits', 'plan']);
+const APPROVE_ASK =
+  'eng-team guard: rule 7 — an agent wants to run this outside its sandbox. Approve to let it run once; if you reject it, the agent stops and the lead asks you what to do instead';
+
+/** The human approved this exact command in this directory (`approve Q-n`): allow it once. */
+function approvedRun(root, input) {
+  if (!isEngProject(root)) return false;
+  try {
+    return Boolean(useApproval(path.resolve(root), input.tool_input.command, input.cwd || root));
+  } catch {
+    return false;
+  }
 }
 
 module.exports = { decide };
