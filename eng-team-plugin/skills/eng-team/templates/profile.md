@@ -36,6 +36,7 @@ build:
   max_parallel: 5              # optional — 1-8 independent builders at a time (phases/build.md → Waves)
   gate: auto                   # optional — auto | per-task | per-wave (security spot-check scope; full track is always per-task)
   gates_per_wave: 2            # optional — 1-5 security spot-checks per wave when gate is per-wave
+  lows: backlog                # optional — backlog | batch (one fix task for this run's Lows at the end of build; only the human sets it)
 coaching: on                   # optional — on | brief
 audiences: [engineers]         # optional — engineers, business, ops, compliance, executives
 standards:                     # optional — git URL or local path of federation standards repo; empty = none

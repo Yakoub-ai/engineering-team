@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.19.0 — 2026-11-03
+
+### Fixed
+- **Temp files no longer stop a run.** Builders and testers kept writing helper scripts and logs to `/tmp` or the session scratchpad, which the Write tool denied as a hard stop (17 stops over 9 real runs; since 3.17.0 each one paused every builder). Temp files now go in `.tmp/` at the worktree root: writable, removable with `rm -r .tmp`, never committed. A Write aimed at `/tmp` or the scratchpad is a redirect (`Not a hard stop`, no `S-<n>`); nothing outside the project is written. Other writes outside the project are still hard stops. This also ends queued `rm -r` entries for builders' own scratch folders.
+- **Builders start from the working branch.** Agent worktrees could start from the default branch, causing rebases, conflicts and queued `git reset --hard`. Each builder and tester dispatch now carries `Base: <sha>`, and the agent's first step is `git merge --ff-only <sha>` (`BLOCKED` if it fails, never a reset). Sweeps pass their branch head the same way.
+- **Merges use the worktree's HEAD**, not the branch name, so a detached worktree cannot merge older code.
+- **No junk queue entries from the lead's records.** The lead writes state, receipts, handovers, STATUS, plan and the findings ledger with Edit/Write, never the shell, because record text that quotes a destructive command or the word `autonomous` was denied and queued for the human to reject. Records are committed once per phase gate and at the end of the run.
+
+### Added
+- **`build.lows: batch`** (profile; default `backlog`). Low findings never send a task back or reopen a phase. With `batch`, one fix task for the run's Lows on code added in this run runs at the end of build, once. Only the human sets it; the lead asks once when they ask for polish and never infers it from a general remark.
+
+## 3.18.0 — 2026-11-03
+
+### Changed
+- **Lane checks look at write targets.** Reading lead-owned files from the shell (`cat`, `grep`, `sed` without `-i`) passes; writing them is denied.
+- **Lane denials are redirects, not stops.** A write to another role's files or a tool the role does not have says `Not a hard stop`, opens no `S-<n>`, and the agent takes the named route and continues. Red flags (`sudo`, piping a download into a shell, `.git` hooks, guard settings) still stop.
+- **The lead commits `.eng-team/policy.json` itself**, locally, after creating or changing it.
+- 3.18.0 was merged without its version bump; this entry and 3.19.0 ship it.
+
 ## 3.17.0 — 2026-11-03
 
 ### Fixed

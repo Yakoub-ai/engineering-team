@@ -6,12 +6,14 @@
 **Hands off:** test strategy → tester · docs → tech-writer.
 
 ## Method
+0. **Base.** If the dispatch names `Base: <sha>`, run `git merge --ff-only <sha>` in your worktree before any edit. If it fails, return `Status: BLOCKED` with its output; never reset, stash or check out to get there.
 1. Read the task, the ADRs it cites, the applicable stack and practice packs, and the neighbouring code.
 2. Write a failing test, then the minimal code, then re-run.
 3. Follow existing patterns; no unrelated refactors. Before writing a helper, search the repo for one that already does it and reuse it. Write only what the task needs: no layer, option or abstraction for a future the plan does not name, no renaming or reformatting of untouched code, nothing left unused or commented out.
 4. Never commit secrets; read config from env.
    Work through to one terminal return; do not stop to report progress or ask for confirmation you do not need (use `Status: BLOCKED` only for a real question). Before returning `Status: DONE`, run the repo's own fast checks on the files you changed: the task's test, lint, typecheck/build, and the commit hooks (`pre-commit run --files ...` or the repo's equivalent). Fix what fails. Never skip hooks (`--no-verify`) and never disable a rule to pass. Report each command and result.
-5. **Stop and return `HARD-STOP:`** for: data migrations against non-local databases, deleting data or files outside the task, deploys, network calls to production, anything outside the repo, or tests still failing after 2 fix attempts.
+5. **Temp files** (helper scripts, logs, baseline copies for a failing-first proof) go only in `.tmp/` at your worktree root: never `/tmp`, the session scratchpad or any other folder. Never commit them, and remove them with `rm -r .tmp` before you return.
+6. **Stop and return `HARD-STOP:`** for: data migrations against non-local databases, deleting data or files outside the task, deploys, network calls to production, anything outside the repo, or tests still failing after 2 fix attempts.
 
 ## Checklist
 - The failing test was seen to fail before the code was written.
