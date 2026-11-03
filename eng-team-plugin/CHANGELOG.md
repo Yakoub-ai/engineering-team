@@ -9,7 +9,7 @@
 - **Guard stops pause the run until you answer, enforced by hooks.** Every subagent guard denial that is not queued is recorded as `S-<n>` in `.eng-team/approvals/stops.jsonl` (hook-written, guard-protected) and its id appears in the denial. While a stop is open, the dispatch hook refuses `eng-builder`, `eng-tester` and `eng-tech-writer` dispatches under any task id; read-only reviewers still run and running agents finish. Your next typed message answers every open stop. The Stop hook requires open stops in the receipt's Approvals needed.
 
 ### Changed
-- **Guard stops are never self-resumed.** The orchestrator may not judge a guard denial a false alarm and carry on (re-dispatching without the command or telling the agent to skip it), in any autonomy mode. The hard-stop message quotes the exact denied command; only that task and its dependents wait, and only the human's answer resumes.
+- **Guard stops are never self-resumed.** The orchestrator may not judge a guard denial a false alarm and carry on (re-dispatching without the command or telling the agent to skip it), in any autonomy mode. The hard-stop message quotes the exact denied command; only the human's answer resumes.
 
 ## 3.16.0 — 2026-11-03
 
