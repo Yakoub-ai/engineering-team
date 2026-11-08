@@ -11,7 +11,6 @@ import { OUTPUTS, buildOutputs, presentStatus, setTheme, needsGroups } from './p
 const DEFAULT_UI_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'ui');
 const MAX_BODY = 1024 * 1024;
 const DEFAULT_PORT = 4777;
-const DEFAULT_REFRESH_MS = 3000;
 const HOST = '127.0.0.1';
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -97,13 +96,13 @@ function languageOf(rel) {
 /**
  * Create the viewer HTTP server (not listening). The index is loaded from the
  * cache (or built) in the background; requests wait for it.
- * @param {{projectDir: string, embedder?: object|null, uiDir?: string, refreshAfterMs?: number}} opts
- *   `refreshAfterMs` (default 3000) is how old the index may get before graph/search/timeline/node requests re-scan the project;
- *   `uiDir` is the static UI directory (default viewer/ui); `embedder` is the one optional semantic embedder ({embed, model}); it is
+ * @param {{projectDir: string, embedder?: object|null, uiDir?: string, rebuildOutputs?: boolean}} opts
+ *   `rebuildOutputs` re-renders already-built presentation outputs whose sources changed, at start and on refresh
+ *   (never creates new ones); `uiDir` is the static UI directory (default viewer/ui); `embedder` is the one optional semantic embedder ({embed, model}); it is
  *   passed to every index update, re-index and search call.
  * @returns {http.Server}
  */
-export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_DIR, refreshAfterMs = DEFAULT_REFRESH_MS }) {
+export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_DIR, rebuildOutputs = false }) {
   const root = fs.realpathSync(path.resolve(projectDir));
   let index = null;
   let indexError = null;
@@ -118,6 +117,24 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
       indexError = err;
       console.error(`eng-view: index build failed: ${err?.message ?? err}`);
     });
+  /** Reads wait only for the first load (and the stale-output rebuild); later refreshes run behind them. */
+  if (rebuildOutputs) queue = queue.then(rebuildStaleOutputs);
+  const loaded = queue;
+
+  /** Incremental: only outputs that exist and whose inputs changed are re-rendered. */
+  function rebuildStaleOutputs() {
+    const only = presentStatus(root).outputs.filter((o) => o.exists).map((o) => o.name);
+    if (!only.length) return [];
+    try {
+      const { results } = buildOutputs(root, { only });
+      const built = results.filter((r) => r.status === 'built').map((r) => r.file);
+      if (built.length) console.error(`eng-view: rebuilt ${built.join(', ')}`);
+      return built;
+    } catch (err) {
+      console.error(`eng-view: output rebuild failed: ${err?.message ?? err}`);
+      return [];
+    }
+  }
 
   /** Run fn after all earlier index work, serialising mutations. */
   const exclusive = (fn) => {
@@ -138,7 +155,7 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
     const url = new URL(req.url, 'http://localhost');
     checkHost(req, server);
     if (url.pathname.startsWith('/api/')) {
-      await queue;
+      await loaded;
       if (indexError) throw new HttpError(503, 'index unavailable');
       return api(req, res, url);
     }
@@ -147,21 +164,20 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
     return serveStatic(res, url.pathname, uiDir);
   }
 
-  /** Re-scan the project when the index is older than refreshAfterMs (serialised). */
-  async function refreshIfStale() {
-    if (Date.now() - indexedAt <= refreshAfterMs) return;
-    await exclusive(async () => {
-      if (Date.now() - indexedAt <= refreshAfterMs) return;
-      try {
-        index = await updateIndex(root, { embedder, previous: index });
-      } catch (err) {
-        console.error(`eng-view: index refresh failed: ${err?.message ?? err}`);
-      }
+  /**
+   * The index is a snapshot: built (incrementally, from the cache) when the
+   * server starts and again only on POST /api/refresh. Reads never re-scan.
+   * Edits made through the viewer re-index their file in putDoc.
+   */
+  async function postRefresh(req) {
+    if (req.headers['x-eng-view'] !== '1') throw new HttpError(403, 'missing X-Eng-View header');
+    return exclusive(async () => {
+      index = await updateIndex(root, { embedder, previous: index });
       indexedAt = Date.now();
+      const rebuilt = rebuildOutputs ? rebuildStaleOutputs() : [];
+      return { indexedAt, read: index.lastUpdate.read.length, nodes: index.nodes.length, rebuilt };
     });
   }
-
-  const LIVE_ROUTES = new Set(['/api/graph', '/api/search', '/api/timeline', '/api/node']);
 
   async function api(req, res, url) {
     const route = url.pathname;
@@ -169,11 +185,12 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
     if (route === '/api/doc' && req.method === 'PUT') return sendJson(res, 200, await putDoc(req, q.get('path')));
     if (route === '/api/present/build' && req.method === 'POST') return sendJson(res, 200, await postBuild(req));
     if (route === '/api/present/theme' && req.method === 'POST') return sendJson(res, 200, await postTheme(req));
+    if (route === '/api/refresh' && req.method === 'POST') return sendJson(res, 200, await postRefresh(req));
     if (req.method !== 'GET') throw new HttpError(405, 'method not allowed');
-    if (LIVE_ROUTES.has(route)) await refreshIfStale();
     switch (route) {
       case '/api/graph': return sendJson(res, 200, graph());
       case '/api/node': return sendJson(res, 200, nodeInfo(q.get('id')));
+      case '/api/links': return sendJson(res, 200, links(q.get('path')));
       case '/api/doc': return sendJson(res, 200, getDoc(q.get('path')));
       case '/api/code': return sendJson(res, 200, getCode(q.get('path')));
       case '/api/search': return sendJson(res, 200, await runSearch(q.get('q'), q.get('limit')));
@@ -188,6 +205,7 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
     return {
       project: root,
       semantic: index.semantic,
+      indexedAt,
       nodes: index.nodes.map(publicNode),
       edges: index.edges,
     };
@@ -203,8 +221,42 @@ export function createServer({ projectDir, embedder = null, uiDir = DEFAULT_UI_D
     };
   }
 
+  /** Every edge touching any node of one file (the file and its items), in one pass, plus the outputs built from it. */
+  function links(input) {
+    const rel = cleanRel(input);
+    if (!rel) throw new HttpError(403, 'invalid path');
+    const ids = index.nodes.filter((n) => n.path === rel).map((n) => n.id);
+    if (!ids.length) throw new HttpError(404, 'unknown path');
+    const mine = new Set(ids);
+    const outgoing = [];
+    const incoming = [];
+    for (const e of index.edges) {
+      if (mine.has(e.from)) outgoing.push(e);
+      if (mine.has(e.to)) incoming.push(e);
+    }
+    const outputs = presentStatus(root).outputs.filter((o) => o.sources.includes(rel)).map(({ name, kind }) => ({ name, kind }));
+    return { path: rel, ids, outgoing, incoming, outputs };
+  }
+
+  /**
+   * Everything dated, newest first: handovers and their revisions, receipts,
+   * decisions and recent commits. `handovers` keeps the phase order.
+   */
   function timeline() {
-    return { handovers: index.nodes.filter((n) => n.kind === 'handover').sort(handoverOrder).map(publicNode) };
+    const files = index.nodes.filter((n) => n.id === n.path);
+    const events = [];
+    for (const n of files) {
+      if (!['handover', 'receipt', 'decision'].includes(n.kind)) continue;
+      if (n.date) events.push({ date: n.date, type: n.kind, title: n.title, path: n.path, summary: n.summary || '' });
+      for (const r of n.revisions || []) events.push({ date: r.date, type: 'revision', title: n.title, path: n.path, summary: r.text });
+    }
+    for (const c of index.history || []) events.push({ date: c.date, type: 'commit', title: c.subject, sha: c.sha });
+    events.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    return {
+      events,
+      undated: files.filter((n) => ['handover', 'receipt', 'decision'].includes(n.kind) && !n.date).map(publicNode),
+      handovers: files.filter((n) => n.kind === 'handover').sort(handoverOrder).map(publicNode),
+    };
   }
 
   async function runSearch(query, rawLimit) {
@@ -407,8 +459,8 @@ function serveStatic(res, pathname, uiDir) {
  * @param {{projectDir: string, port?: number, embedder?: object|null}} opts port 0 = ephemeral
  * @returns {Promise<{server: http.Server, port: number, url: string}>}
  */
-export function start({ projectDir, port = DEFAULT_PORT, embedder = null, uiDir }) {
-  const server = createServer({ projectDir, embedder, uiDir });
+export function start({ projectDir, port = DEFAULT_PORT, embedder = null, uiDir, rebuildOutputs = false }) {
+  const server = createServer({ projectDir, embedder, uiDir, rebuildOutputs });
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(port, HOST, () => {

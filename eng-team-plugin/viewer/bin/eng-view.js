@@ -57,7 +57,7 @@ async function main() {
     const index = await updateIndex(projectDir, { embedder });
     process.stdout.write(`eng-view: indexed ${index.nodes.length} nodes, ${index.edges.length} edges (${index.semantic})\n`);
   } else if (opts.command === 'serve') {
-    const { url } = await start({ projectDir, port: opts.port, embedder });
+    const { url } = await start({ projectDir, port: opts.port, embedder, rebuildOutputs: true });
     process.stdout.write(`eng-view: ${url}\n`);
   }
 }

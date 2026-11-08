@@ -4,16 +4,17 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import os from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { createServer, start } from '../lib/server.js';
 import { copyFixture, cleanup } from './helpers.js';
 
 /** Start a server on an ephemeral port, run fn(ctx), always clean up. */
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
 
-async function withServer(fn, { embedder = null, setup, uiDir, refreshAfterMs } = {}) {
+async function withServer(fn, { embedder = null, setup, uiDir } = {}) {
   const dir = copyFixture();
   if (setup) setup(dir);
-  const server = createServer({ projectDir: dir, embedder, uiDir, refreshAfterMs });
+  const server = createServer({ projectDir: dir, embedder, uiDir });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
   const call = (method, url, { body, headers = {} } = {}) => new Promise((resolve, reject) => {
@@ -174,6 +175,31 @@ test('GET /api/timeline lists handovers in order', () => withServer(async ({ cal
   assert.deepEqual(res.json.handovers.map((n) => n.id), ['docs/engineering/handovers/0001-lead.md']);
 }));
 
+test('GET /api/timeline merges dated handovers, revisions, receipts, decisions and commits, newest first', () => withServer(async ({ call }) => {
+  const res = await call('GET', '/api/timeline');
+  assert.equal(res.status, 200);
+  const ev = res.json.events.map((e) => `${e.date} ${e.type}`);
+  assert.deepEqual(ev.filter((e) => !e.endsWith('commit')), [
+    '2026-03-20 receipt', '2026-03-10 revision', '2026-03-02 decision', '2026-03-01 handover',
+  ]);
+  const commits = res.json.events.filter((e) => e.type === 'commit');
+  assert.deepEqual(commits.map((c) => c.title), ['Add receipts']);
+  assert.match(commits[0].sha, /^[0-9a-f]{40}$/);
+}, {
+  setup(dir) {
+    const eng = path.join(dir, 'docs', 'engineering');
+    fs.mkdirSync(path.join(eng, 'receipts'), { recursive: true });
+    fs.writeFileSync(path.join(eng, 'handovers', '04-build.md'), '# Handover — build → test (2026-03-01)\n\n## Done\n- built\n\n## Revisions\n- 2026-03-10 re-opened for T9\n');
+    fs.writeFileSync(path.join(eng, 'receipts', '2026-03-20-feature.md'), '# Change receipt — feature\n\n## Objective\nShip it.\n');
+    fs.writeFileSync(path.join(eng, 'decisions', '0009-cache.md'), '# ADR-0009: Cache\n\nStatus: accepted\nDate: 2026-03-02\n');
+    const git = (...args) => execFileSync('git', args, { cwd: dir, stdio: 'ignore' });
+    git('init', '-q');
+    git('-c', 'user.email=t@example.invalid', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'AKIAABCDEFGHIJKLMNOP leaked');
+    git('add', '-A');
+    git('-c', 'user.email=t@example.invalid', '-c', 'user.name=t', 'commit', '-q', '-m', 'Add receipts');
+  },
+}));
+
 test('GET /api/search validates input', () => withServer(async ({ call }) => {
   assert.equal((await call('GET', '/api/search?q=zeppelin')).json.results[0].node.id, 'docs/guide.md');
   assert.deepEqual((await call('GET', '/api/search')).json.results, []);
@@ -278,13 +304,26 @@ test('GET /api/doc returns mtime; PUT with a stale baseMtime is 409 and writes n
   assert.equal(bad.status, 400);
 }));
 
-test('index is refreshed when older than refreshAfterMs', () => withServer(async ({ call, dir }) => {
-  await call('GET', '/api/graph');
+test('index is a snapshot: reads never re-scan, POST /api/refresh does', () => withServer(async ({ call, dir }) => {
+  const first = await call('GET', '/api/graph');
+  assert.equal(typeof first.json.indexedAt, 'number');
   fs.writeFileSync(path.join(dir, 'docs', 'late.md'), '# Late arrival\n');
-  await new Promise((r) => setTimeout(r, 120));
-  for (const route of ['/api/graph', '/api/timeline', '/api/search?q=late', '/api/node?id=docs%2Fguide.md']) {
-    assert.equal((await call('GET', route)).status, 200, route);
-  }
-  const g = await call('GET', '/api/graph');
-  assert.ok(g.json.nodes.some((n) => n.id === 'docs/late.md'));
-}, { refreshAfterMs: 50 }));
+  const has = async () => (await call('GET', '/api/graph')).json.nodes.some((n) => n.id === 'docs/late.md');
+  assert.equal(await has(), false, 'no rescan on read');
+  assert.equal((await call('POST', '/api/refresh')).status, 403, 'refresh needs the header');
+  const res = await call('POST', '/api/refresh', { headers: { 'X-Eng-View': '1' } });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.read, 1);
+  assert.equal(await has(), true);
+  assert.equal((await call('GET', '/api/refresh')).status, 404);
+}));
+
+test('GET /api/links returns every edge of a file and its items in one call', () => withServer(async ({ call }) => {
+  const res = await call('GET', '/api/links?path=src%2Fb.js');
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.json.ids, ['src/b.js']);
+  assert.ok(res.json.incoming.some((e) => e.from === 'src/a.js' && e.type === 'imports'));
+  assert.ok(Array.isArray(res.json.outgoing) && Array.isArray(res.json.outputs));
+  assert.equal((await call('GET', '/api/links?path=nope.md')).status, 404);
+  assert.equal((await call('GET', '/api/links?path=..%2Fetc%2Fpasswd')).status, 403);
+}));

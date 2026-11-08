@@ -6,7 +6,7 @@
   const KIND_COLORS = {
     doc: '#8a8a86', handover: '#e07b39', decision: '#9065b0', spec: '#2383e2', plan: '#0f9d76',
     'plan-task': '#7bc9ad', finding: '#d44c47', question: '#cb912f', 'use-case': '#d15796',
-    code: '#529cca', status: '#448361', 'team-plan': '#a0852a', state: '#b0b0ac',
+    code: '#529cca', status: '#448361', 'team-plan': '#a0852a', state: '#b0b0ac', receipt: '#5b8a72',
   };
   const ITEM_KINDS = new Set(['plan-task', 'finding', 'question', 'use-case']);
   const SEMANTIC = new Set(['semantic', 'lexical']);
@@ -17,6 +17,7 @@
     ['Plans', (n) => n.kind === 'plan'],
     ['Decisions', (n) => n.kind === 'decision'],
     ['Handovers', (n) => n.kind === 'handover'],
+    ['Receipts', (n) => n.kind === 'receipt'],
     ['Security & reviews', (n) => n.kind !== 'code' && /(^|\/)(security|reviews?|audits?)(\/|[-_.])/i.test(n.path)],
     ['Other docs', (n) => n.kind === 'doc' || n.kind === 'state'],
     ['Code', (n) => n.kind === 'code'],
@@ -121,7 +122,7 @@
       const members = files.filter((n) => !used.has(n.id) && test(n));
       members.forEach((n) => used.add(n.id));
       if (!members.length) continue;
-      members.sort(name === 'Handovers' ? byHandover : (a, b) => (a.path < b.path ? -1 : 1));
+      members.sort(name === 'Handovers' ? byHandover : name === 'Receipts' ? (a, b) => (a.path < b.path ? 1 : -1) : (a, b) => (a.path < b.path ? -1 : 1));
       const details = h('details', { class: 'group' },
         h('summary', {}, name, h('span', { class: 'count', text: ` (${members.length})` })),
         members.map((n) => treeItem(n)));
@@ -302,42 +303,40 @@
   /* ---------- backlinks / related ---------- */
 
   async function loadSide(p) {
-    const ids = state.graph.nodes.filter((n) => n.path === p).map((n) => n.id);
-    if (!ids.length) return setSide(null);
-    const infos = await Promise.all(ids.map((id) => api(`/api/node?id=${enc(id)}`).catch(() => null)));
+    let info;
+    try { info = await api(`/api/links?path=${enc(p)}`); } catch (err) { info = null; }
     if (state.current !== p) return;
-    const mine = new Set(ids);
+    if (!info) return setSide(null);
+    const mine = new Set(info.ids);
     const incoming = [];
     const outgoing = [];
     const related = new Map();
-    for (const info of infos.filter(Boolean)) {
-      for (const e of info.incoming) {
-        if (SEMANTIC.has(e.type)) addRelated(related, e.from, e);
-        else if (!mine.has(e.from)) incoming.push(e);
-      }
-      for (const e of info.outgoing) {
-        if (SEMANTIC.has(e.type)) addRelated(related, e.to, e);
-        else if (!mine.has(e.to) && e.type !== 'contains') outgoing.push(e);
-      }
+    for (const e of info.incoming) {
+      if (SEMANTIC.has(e.type)) { if (!mine.has(e.from)) addRelated(related, e.from, e); }
+      else if (!mine.has(e.from)) incoming.push(e);
     }
-    const usedIn = await outputsUsing(p);
-    if (state.current !== p) return;
+    for (const e of info.outgoing) {
+      if (SEMANTIC.has(e.type)) { if (!mine.has(e.to)) addRelated(related, e.to, e); }
+      else if (!mine.has(e.to) && e.type !== 'contains') outgoing.push(e);
+    }
     const root = h('div', { class: 'side-section' },
-      usedIn.length && sideList('Used in outputs', usedIn.map((o) => h('a', { class: 'item', href: `#/present/${enc(o.name)}`, text: o.kind }))),
+      info.outputs.length && sideList('Used in outputs', info.outputs.map((o) => h('a', { class: 'item', href: `#/present/${enc(o.name)}`, text: o.kind }))),
       sideList('Backlinks', dedupe(incoming, 'from').map((e) => edgeRow(e.from, e.type))),
       sideList('Links out', dedupe(outgoing, 'to').map((e) => edgeRow(e.to, e.type))),
-      sideList('Related', [...related.values()].sort((a, b) => b.score - a.score).slice(0, 12)
-        .map((r) => edgeRow(r.id, r.type, r.score))));
+      ...relatedLists(related));
     setSide(root);
   }
 
-  async function outputsUsing(p) {
-    try {
-      const status = await api('/api/present');
-      return status.outputs.filter((o) => o.sources.includes(p));
-    } catch (err) {
-      return [];
-    }
+  /** Documentation first; related code is listed separately, after it. */
+  function relatedLists(related) {
+    const ranked = [...related.values()].sort((a, b) => b.score - a.score);
+    const isCode = (r) => (state.byId.get(r.id) || {}).kind === 'code';
+    const docs = ranked.filter((r) => !isCode(r)).slice(0, 12);
+    const code = ranked.filter(isCode).slice(0, 5);
+    return [
+      sideList('Related docs', docs.map((r) => edgeRow(r.id, r.type, r.score))),
+      code.length && sideList('Related code', code.map((r) => edgeRow(r.id, r.type, r.score))),
+    ];
   }
 
   function addRelated(map, id, e) {
@@ -428,16 +427,49 @@
 
   /* ---------- timeline ---------- */
 
+  const TIMELINE_TYPES = [['handover', 'Handovers'], ['revision', 'Revisions'], ['receipt', 'Receipts'], ['decision', 'Decisions'], ['commit', 'Commits']];
+  const timelineShown = new Set(['handover', 'revision', 'receipt', 'decision', 'commit']);
+
   async function showTimeline() {
     state.current = null;
     const data = await api('/api/timeline');
-    const items = data.handovers.map((n) => h('li', {},
-      h('span', { class: 'num', text: (/^(\d+)/.exec(baseName(n.path)) || [])[1] || '' }),
-      h('a', { class: 'title', href: nodeHref(n), text: n.title || baseName(n.path) }),
-      h('span', { class: 'summary', text: n.summary || '' })));
-    setMain(h('h1', { text: 'Handover timeline' }),
-      items.length ? h('ol', { class: 'timeline' }, items) : h('p', { text: 'No handovers yet.' }));
+    const list = h('div', {});
+    const render = () => {
+      const days = new Map();
+      for (const e of data.events) {
+        if (!timelineShown.has(e.type)) continue;
+        if (!days.has(e.date)) days.set(e.date, []);
+        days.get(e.date).push(e);
+      }
+      const blocks = [...days].map(([date, evs]) => h('section', { class: 'day' },
+        h('h3', { class: 'day-date', text: date }),
+        h('ol', { class: 'timeline' }, evs.map(timelineRow))));
+      list.replaceChildren(...(blocks.length ? blocks : [h('p', { class: 'empty', text: 'Nothing dated yet.' })]));
+    };
+    const filters = h('div', { class: 'map-bar' }, TIMELINE_TYPES.map(([type, label]) => {
+      const box = h('input', { type: 'checkbox' });
+      box.checked = timelineShown.has(type);
+      box.addEventListener('change', () => { box.checked ? timelineShown.add(type) : timelineShown.delete(type); render(); });
+      const count = data.events.filter((e) => e.type === type).length;
+      return h('label', {}, box, `${label} (${count})`);
+    }));
+    const undated = data.undated.length
+      ? h('details', { class: 'group' }, h('summary', {}, `Undated records (${data.undated.length})`),
+        data.undated.map((n) => h('a', { class: 'item', href: nodeHref(n), text: n.title || baseName(n.path) })))
+      : null;
+    render();
+    setMain(h('h1', { text: 'Timeline' }), filters, list, undated);
     setSide(null);
+  }
+
+  function timelineRow(e) {
+    const label = h('span', { class: `badge t-${e.type}`, text: e.type });
+    if (e.type === 'commit') {
+      return h('li', { class: 'commit' }, label, h('span', { class: 'num', text: ` ${e.sha.slice(0, 7)} ` }), h('span', { class: 'title inline', text: e.title }));
+    }
+    return h('li', {}, label,
+      h('a', { class: 'title', href: `#/doc/${enc(e.path)}`, text: e.title || baseName(e.path) }),
+      h('span', { class: 'summary', text: e.summary || '' }));
   }
 
   /* ---------- map ---------- */
@@ -454,7 +486,9 @@
     const all = state.graph.nodes;
     const kinds = [...new Set(all.map((n) => n.kind))].sort();
     const hideItems = all.length > 300;
-    const enabled = new Set(kinds.filter((k) => !(hideItems && ITEM_KINDS.has(k))));
+    // Documentation is the point of the map; code is one click away.
+    const docCount = all.filter((n) => n.kind !== 'code' && n.id === n.path).length;
+    const enabled = new Set(kinds.filter((k) => !(hideItems && ITEM_KINDS.has(k)) && !(k === 'code' && docCount > 0)));
     const canvas = h('canvas', { class: 'map-canvas', tabindex: '0', 'aria-label': 'Project graph' });
     const bar = h('div', { class: 'map-bar' }, kinds.map((k) => {
       const box = h('input', { type: 'checkbox' });
@@ -502,10 +536,13 @@
 
     function rebuild() {
       const old = new Map(nodes.map((n) => [n.id, n]));
-      nodes = state.graph.nodes.filter((n) => enabled.has(n.kind)).map((n) => {
+      const shown = state.graph.nodes.filter((n) => enabled.has(n.kind));
+      // Start spread out in proportion to the node count, so the repulsion grid has work split across cells.
+      const spread = Math.max(120, 25 * Math.sqrt(shown.length));
+      nodes = shown.map((n) => {
         const prev = old.get(n.id);
         const a = Math.random() * Math.PI * 2;
-        const r = 60 + Math.random() * 120;
+        const r = 60 + Math.sqrt(Math.random()) * spread;
         return prev || { id: n.id, kind: n.kind, title: n.title || n.id, x: Math.cos(a) * r, y: Math.sin(a) * r, vx: 0, vy: 0, deg: 0 };
       });
       const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -521,21 +558,34 @@
       kick();
     }
 
+    const CELL = 300; // repulsion is cut off at 300px, so only neighbouring cells matter
+    function repel(a, b) {
+      let dx = a.x - b.x;
+      let dy = a.y - b.y;
+      let d2 = dx * dx + dy * dy;
+      if (d2 > 90000) return;
+      if (d2 < 1) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 1; }
+      const f = (1800 / d2) * alpha;
+      const d = Math.sqrt(d2);
+      a.vx += (dx / d) * f; a.vy += (dy / d) * f;
+      b.vx -= (dx / d) * f; b.vy -= (dy / d) * f;
+    }
+
     function step() {
-      const n = nodes.length;
-      for (let i = 0; i < n; i++) {
-        const a = nodes[i];
-        for (let j = i + 1; j < n; j++) {
-          const b = nodes[j];
-          let dx = a.x - b.x;
-          let dy = a.y - b.y;
-          let d2 = dx * dx + dy * dy;
-          if (d2 > 90000) continue;
-          if (d2 < 1) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 1; }
-          const f = (1800 / d2) * alpha;
-          const d = Math.sqrt(d2);
-          a.vx += (dx / d) * f; a.vy += (dy / d) * f;
-          b.vx -= (dx / d) * f; b.vy -= (dy / d) * f;
+      const grid = new Map();
+      for (const a of nodes) {
+        const key = `${Math.floor(a.x / CELL)},${Math.floor(a.y / CELL)}`;
+        if (!grid.has(key)) grid.set(key, []);
+        grid.get(key).push(a);
+      }
+      for (const [key, cell] of grid) {
+        const [cx, cy] = key.split(',').map(Number);
+        for (let i = 0; i < cell.length; i++) for (let j = i + 1; j < cell.length; j++) repel(cell[i], cell[j]);
+        // Half the neighbourhood, so each pair of cells is visited once.
+        for (const [ox, oy] of [[1, 0], [-1, 1], [0, 1], [1, 1]]) {
+          const other = grid.get(`${cx + ox},${cy + oy}`);
+          if (!other) continue;
+          for (const a of cell) for (const b of other) repel(a, b);
         }
       }
       for (const e of edges) {
@@ -561,7 +611,6 @@
     const sy = (y) => h2 / 2 + view.y + y * view.k;
 
     function draw() {
-      readColors();
       ctx.clearRect(0, 0, w, h2);
       ctx.lineWidth = 1;
       for (const soft of [false, true]) {
@@ -594,7 +643,7 @@
       ctx.font = '11px system-ui, sans-serif';
       ctx.fillStyle = colors['--fg'];
       for (const n of nodes) {
-        const show = n === hover || state.highlight.has(n.id) || (view.k > 1.4 && n.deg > 1);
+        const show = n === hover || state.highlight.has(n.id) || (view.k > 1.4 && n.deg > 1) || (n.kind !== 'code' && n.deg > 3 && view.k > 0.8);
         if (show) ctx.fillText(n.title.slice(0, 40), sx(n.x) + 8, sy(n.y) + 4);
       }
     }
@@ -668,6 +717,10 @@
 
     const onResize = () => resize();
     window.addEventListener('resize', onResize);
+    const scheme = window.matchMedia('(prefers-color-scheme: dark)');
+    const onScheme = () => { readColors(); draw(); };
+    scheme.addEventListener('change', onScheme);
+    readColors();
     rebuild();
     requestAnimationFrame(resize);
 
@@ -679,6 +732,7 @@
         raf = 0;
         alpha = 0;
         window.removeEventListener('resize', onResize);
+        scheme.removeEventListener('change', onScheme);
       },
     };
   }
@@ -696,6 +750,23 @@
     indexGraph(await api('/api/graph'));
     buildTree();
     markCurrent();
+    const at = new Date(state.graph.indexedAt);
+    $('indexed-at').textContent = Number.isNaN(at.getTime()) ? '' : `Indexed ${at.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}`;
+  }
+
+  async function reindex() {
+    const btn = $('refresh');
+    btn.disabled = true;
+    $('indexed-at').textContent = 'Indexing...';
+    try {
+      await api('/api/refresh', { method: 'POST', headers: { 'X-Eng-View': '1' } });
+      await refreshGraph();
+      await route();
+    } catch (err) {
+      $('indexed-at').textContent = `Refresh failed: ${err.message}`;
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   function onContentClick(ev) {
@@ -744,6 +815,7 @@
     $('nav-map').addEventListener('click', () => { location.hash = '#/map'; });
     $('nav-timeline').addEventListener('click', () => { location.hash = '#/timeline'; });
     $('nav-present').addEventListener('click', () => { location.hash = '#/present'; });
+    $('refresh').addEventListener('click', reindex);
     try {
       await refreshGraph();
       $('project-name').textContent = baseName(state.graph.project);

@@ -6,12 +6,12 @@ import path from 'node:path';
 import { createServer } from '../lib/server.js';
 import { copyFixture, cleanup } from './helpers.js';
 
-async function withServer(fn) {
+async function withServer(fn, { rebuildOutputs = false } = {}) {
   const dir = copyFixture();
   fs.mkdirSync(path.join(dir, 'docs/engineering/product'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'docs/engineering/product/product.md'), '# Acme — Product\n\n## Purpose\nQuick approvals.\n\n## Use cases\n| ID | Actor |\n|---|---|\n| UC-1 | Staff |\n');
   process.env.ENG_TEAM_HOME = path.join(dir, 'no-home');
-  const server = createServer({ projectDir: dir });
+  const server = createServer({ projectDir: dir, rebuildOutputs });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
   const call = (method, url, { body, headers = {} } = {}) => new Promise((resolve, reject) => {
@@ -86,3 +86,16 @@ test('needs: groups come from the product doc and flag empty ones', async () => 
     assert.equal(groups.find((g) => g.title === 'Non-goals').html, '');
   });
 });
+
+test('refresh re-renders already-built outputs whose sources changed, and never creates new ones', () => withServer(async ({ dir, call, post }) => {
+  assert.equal((await post('/api/present/build', { only: ['cheatsheet'] })).status, 200);
+  const file = path.join(dir, 'docs/present/cheatsheet.html');
+  const before = fs.readFileSync(file, 'utf8');
+  const product = path.join(dir, 'docs/engineering/product/product.md');
+  fs.writeFileSync(product, fs.readFileSync(product, 'utf8').replace('Quick approvals.', 'Same-day approvals.'));
+  const res = await call('POST', '/api/refresh', { headers: { 'X-Eng-View': '1' } });
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.json.rebuilt, ['docs/present/cheatsheet.html']);
+  assert.notEqual(fs.readFileSync(file, 'utf8'), before);
+  assert.ok(!fs.existsSync(path.join(dir, 'docs/present/deck.html')), 'unbuilt outputs stay unbuilt');
+}, { rebuildOutputs: true }));
