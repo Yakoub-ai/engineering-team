@@ -95,30 +95,49 @@ export function cosine(a, b) {
  * @returns {Map<string, {id: string, score: number}[]>}
  */
 export function topNeighbours(vectors, { k = 5, threshold = 0.35, filter } = {}) {
+  // Integer ids and flat arrays: this runs on every index rebuild and is the
+  // hot path for large projects. Iteration order matches the vectors map, so
+  // scores (and tie-breaks) are deterministic.
+  const ids = [...vectors.keys()];
+  const vecs = ids.map((id) => Object.entries(vectors.get(id)));
   const postings = new Map();
-  for (const [id, vec] of vectors) {
-    for (const [term, w] of Object.entries(vec)) {
-      if (!postings.has(term)) postings.set(term, []);
-      postings.get(term).push([id, w]);
+  vecs.forEach((entries, i) => {
+    for (const [term, w] of entries) {
+      let list = postings.get(term);
+      if (!list) postings.set(term, (list = { idx: [], w: [] }));
+      list.idx.push(i);
+      list.w.push(w);
     }
-  }
+  });
   // Very common terms add little signal and make candidate generation O(N^2).
-  const maxDf = vectors.size * 0.5;
-  for (const [term, list] of postings) if (list.length > maxDf) postings.delete(term);
+  const maxDf = ids.length * 0.5;
+  for (const [term, list] of postings) if (list.idx.length > maxDf) postings.delete(term);
+  const acc = new Float64Array(ids.length);
+  const seen = new Uint8Array(ids.length);
+  const touched = [];
   const result = new Map();
-  for (const [id, vec] of vectors) {
-    const acc = new Map();
-    for (const [term, w] of Object.entries(vec)) {
-      for (const [other, ow] of postings.get(term) || []) {
-        if (other !== id) acc.set(other, (acc.get(other) || 0) + w * ow);
+  vecs.forEach((entries, i) => {
+    for (const [term, w] of entries) {
+      const list = postings.get(term);
+      if (!list) continue;
+      const { idx, w: ws } = list;
+      for (let p = 0; p < idx.length; p++) {
+        const o = idx[p];
+        if (o === i) continue;
+        if (!seen[o]) { seen[o] = 1; touched.push(o); }
+        acc[o] += w * ws[p];
       }
     }
     const hits = [];
-    for (const [other, score] of acc) {
-      if (score >= threshold && (!filter || filter(id, other))) hits.push({ id: other, score });
+    for (const o of touched) {
+      const score = acc[o];
+      acc[o] = 0;
+      seen[o] = 0;
+      if (score >= threshold && (!filter || filter(ids[i], ids[o]))) hits.push({ id: ids[o], score });
     }
+    touched.length = 0;
     hits.sort((a, b) => b.score - a.score || (a.id < b.id ? -1 : 1));
-    result.set(id, hits.slice(0, k));
-  }
+    result.set(ids[i], hits.slice(0, k));
+  });
   return result;
 }

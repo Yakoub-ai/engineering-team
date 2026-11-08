@@ -3,15 +3,21 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { scanProject, readIndexable } from './scan.js';
+import { containsSecret } from './secrets.js';
 import { extractItems, extractMentions, extractImports } from './links.js';
 import { tokenize, termFreq, buildTfidf, queryVector, cosine, topNeighbours } from './similarity.js';
 
-const INDEX_VERSION = 1;
+const INDEX_VERSION = 2;
+const HISTORY_MAX = 300;
 const LEXICAL_THRESHOLD = 0.35;
 const LEXICAL_K = 5;
 const SEMANTIC_THRESHOLD = 0.6;
 const SEMANTIC_K = 5;
-const EMBED_CHARS = 1500;
+/** Documentation ranks above code: doc-code pairs need a higher score and at most CODE_K per file. */
+const CODE_MARGIN = 0.1;
+const CODE_K = 2;
+const EMBED_CHARS = 1000;
+const EMBED_CHUNKS = 4;
 const JS_EXT = new Set(['js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx']);
 const JS_RESOLVE_EXT = ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.json'];
 
@@ -27,11 +33,41 @@ function collapse(text, max) {
   return text.replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
+const ISO_DATE = /\b(20\d{2}-[01]\d-[0-3]\d)\b/;
+
+/**
+ * The date a record is about: the `(YYYY-MM-DD)` in its heading (handovers,
+ * receipts), a `Date:` line (ADRs), or a leading date in the file name.
+ */
+function docDate(rel, heading, text) {
+  return ISO_DATE.exec(heading || '')?.[1]
+    || /^Date:\s*(20\d{2}-[01]\d-[0-3]\d)\b/m.exec(text)?.[1]
+    || /^(20\d{2}-[01]\d-[0-3]\d)/.exec(path.posix.basename(rel))?.[1]
+    || null;
+}
+
+/** Dated lines under a `## Revisions` heading (re-opened phases), oldest first as written. */
+function revisions(text) {
+  const m = /^##\s+Revisions\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(text);
+  if (!m) return [];
+  const out = [];
+  for (const line of m[1].split(/\r?\n/)) {
+    const date = ISO_DATE.exec(line)?.[1];
+    if (date) out.push({ date, text: collapse(line.replace(/^[\s*-]+/, ''), 200) });
+  }
+  return out.slice(0, 50);
+}
+
 function markdownMeta(rel, text) {
   const heading = /^#\s+(.+)$/m.exec(text);
   const title = heading ? heading[1].trim() : path.posix.basename(rel, '.md');
-  const para = text.split(/\r?\n\s*\r?\n/).map((p) => p.trim()).find((p) => p && !p.startsWith('#'));
-  return { title, summary: collapse(para || '', 300) };
+  const para = text.split(/\r?\n\s*\r?\n/).map((p) => p.trim()).find((p) => p && !p.startsWith('#') && !p.startsWith('<!--'));
+  const meta = { title, summary: collapse(para || '', 300) };
+  const date = docDate(rel, heading?.[1], text);
+  if (date) meta.date = date;
+  const revs = revisions(text);
+  if (revs.length) meta.revisions = revs;
+  return meta;
 }
 
 function codeMeta(rel, text) {
@@ -39,16 +75,32 @@ function codeMeta(rel, text) {
   return { title: path.posix.basename(rel), summary: collapse(lines.slice(0, 3).join(' '), 200) };
 }
 
-function makeNode(fields, text) {
+/** Up to EMBED_CHUNKS windows of the text, each prefixed with the title, so long docs are embedded beyond their opening. */
+function chunksOf(title, text, many) {
+  const body = text.replace(/\s+/g, ' ').trim();
+  const out = [];
+  for (let i = 0; i < body.length && out.length < (many ? EMBED_CHUNKS : 1); i += EMBED_CHARS) {
+    out.push(`${title}. ${body.slice(i, i + EMBED_CHARS)}`);
+  }
+  return out.length ? out : [title];
+}
+
+function makeNode(fields, text, many = false) {
   const tf = termFreq([...tokenize(fields.title), ...tokenize(fields.title), ...tokenize(text)]);
-  // `_text` is transient: consumed (and removed) by embedNodes during build.
-  return { ...fields, tokens: tf, _text: `${fields.title}. ${text}`.slice(0, EMBED_CHARS) };
+  // `_chunks` is transient: consumed (and removed) by embedNodes during build.
+  return { ...fields, tokens: tf, _chunks: chunksOf(fields.title, text, many) };
+}
+
+/** Template guidance and other HTML comments repeat across every doc and drown real similarity. */
+function stripComments(text) {
+  return text.replace(/<!--[\s\S]*?-->/g, '');
 }
 
 function parseFile(entry, text) {
   const isCode = entry.type === 'code';
   const meta = isCode ? codeMeta(entry.path, text) : markdownMeta(entry.path, text);
-  const nodes = [makeNode({ id: entry.path, kind: entry.kind, path: entry.path, ...meta }, text)];
+  const content = isCode ? text : stripComments(text);
+  const nodes = [makeNode({ id: entry.path, kind: entry.kind, path: entry.path, ...meta }, content, !isCode)];
   const raw = {};
   if (isCode) {
     const lang = langOf(entry.path);
@@ -184,14 +236,14 @@ function lexicalEdges(nodes, explicit) {
   const pairKey = (a, b) => (a < b ? `${a}\0${b}` : `${b}\0${a}`);
   const linkedPairs = new Set([...explicit.values()].map((e) => pairKey(e.from, e.to)));
   const neighbours = topNeighbours(vectors, {
-    k: LEXICAL_K,
+    k: LEXICAL_K * 3,
     threshold: LEXICAL_THRESHOLD,
     filter: (a, b) => !(kindOf.get(a) === 'code' && kindOf.get(b) === 'code'),
   });
   const seen = new Set();
   const out = [];
   for (const [from, hits] of neighbours) {
-    for (const { id: to, score } of hits) {
+    for (const { id: to, score } of docsFirst(from, hits, kindOf, LEXICAL_THRESHOLD, LEXICAL_K)) {
       const key = pairKey(from, to);
       if (seen.has(key) || linkedPairs.has(key)) continue;
       seen.add(key);
@@ -199,6 +251,22 @@ function lexicalEdges(nodes, explicit) {
     }
   }
   return out;
+}
+
+/**
+ * Pick at most k neighbours from score-sorted hits: documentation first, then
+ * at most CODE_K code files, and only those clearing threshold + CODE_MARGIN.
+ */
+function docsFirst(from, hits, kindOf, threshold, k) {
+  const fromCode = kindOf.get(from) === 'code';
+  const docs = [];
+  const code = [];
+  for (const h of hits) {
+    const pairHasCode = fromCode || kindOf.get(h.id) === 'code';
+    if (!pairHasCode) docs.push(h);
+    else if (h.score >= threshold + CODE_MARGIN && code.length < CODE_K) code.push(h);
+  }
+  return [...docs.slice(0, k), ...code].slice(0, k);
 }
 
 /* ---------- build / update ---------- */
@@ -213,6 +281,29 @@ function gitCommit(root) {
   } catch {
     return null;
   }
+}
+
+/**
+ * The last HISTORY_MAX commits as {sha, date, subject}. Subjects that look like
+ * a credential are dropped (same rules as file content). No shell is involved.
+ */
+function gitHistory(root) {
+  let out;
+  try {
+    out = execFileSync('git', ['log', `-n${HISTORY_MAX}`, '--no-merges', '--date=short', '--format=%H%x1f%ad%x1f%s'], {
+      cwd: root, stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 4 * 1024 * 1024,
+    }).toString();
+  } catch {
+    return [];
+  }
+  const history = [];
+  for (const line of out.split('\n')) {
+    const [sha, date, subject = ''] = line.split('\x1f');
+    if (!/^[0-9a-f]{40}$/.test(sha || '') || !ISO_DATE.test(date || '')) continue;
+    if (containsSecret(subject, { generic: false })) continue;
+    history.push({ sha, date, subject: subject.slice(0, 200) });
+  }
+  return history;
 }
 
 function groupByPath(nodes) {
@@ -232,14 +323,31 @@ const round4 = (x) => Math.round(x * 1e4) / 1e4;
  */
 async function embedNodes(nodes, embedder) {
   const todo = nodes.filter((n) => !n.vec);
+  const texts = todo.flatMap((n) => n._chunks || [n.title]);
   try {
-    const vecs = todo.length ? await embedder.embed(todo.map((n) => n._text || n.title)) : [];
-    if (vecs.length !== todo.length) return false;
-    todo.forEach((n, i) => { n.vec = Array.from(vecs[i], round4); });
+    const vecs = texts.length ? await embedder.embed(texts) : [];
+    if (vecs.length !== texts.length) return false;
+    let at = 0;
+    for (const n of todo) {
+      const parts = vecs.slice(at, at += (n._chunks || [n.title]).length);
+      n.vec = Array.from(meanUnit(parts), round4);
+    }
     return true;
   } catch {
     return false;
   }
+}
+
+/** Mean of unit-normalised vectors, normalised again (one vector for a multi-chunk doc). */
+function meanUnit(parts) {
+  if (parts.length === 1) return parts[0];
+  const out = new Array(parts[0].length).fill(0);
+  for (const v of parts) {
+    const n = Math.sqrt(dot(v, v)) || 1;
+    for (let i = 0; i < out.length; i++) out[i] += v[i] / n;
+  }
+  const n = Math.sqrt(dot(out, out)) || 1;
+  return out.map((x) => x / n);
 }
 
 function dot(a, b) {
@@ -256,6 +364,7 @@ function pairKeyOf(a, b) {
 
 function semanticEdges(nodes, explicit) {
   const files = nodes.filter((n) => !n.id.includes('#') && Array.isArray(n.vec));
+  const kindOf = new Map(files.map((n) => [n.id, n.kind]));
   const norms = new Map(files.map((n) => [n.id, norm(n.vec)]));
   const linked = new Set([...explicit.values()].map((e) => pairKeyOf(e.from, e.to)));
   const seen = new Set();
@@ -268,7 +377,7 @@ function semanticEdges(nodes, explicit) {
       if (score >= SEMANTIC_THRESHOLD) hits.push({ id: b.id, score });
     }
     hits.sort((x, y) => y.score - x.score || (x.id < y.id ? -1 : 1));
-    for (const { id, score } of hits.slice(0, SEMANTIC_K)) {
+    for (const { id, score } of docsFirst(a.id, hits, kindOf, SEMANTIC_THRESHOLD, SEMANTIC_K)) {
       const key = pairKeyOf(a.id, id);
       if (seen.has(key) || linked.has(key)) continue;
       seen.add(key);
@@ -279,6 +388,26 @@ function semanticEdges(nodes, explicit) {
 }
 
 /* ---------- build ---------- */
+
+function computeEdges(nodes, files, embedded) {
+  const explicit = explicitEdges(nodes, files);
+  const similar = embedded ? semanticEdges(nodes, explicit) : lexicalEdges(nodes, explicit);
+  return [...explicit.values(), ...similar];
+}
+
+/**
+ * Edges depend only on the nodes, the files' raw link data and the similarity
+ * mode. When no file was re-parsed and the file set and mode are unchanged,
+ * the previous edges are still exact, so the expensive passes are skipped.
+ */
+function sameInputs(previous, files, read, embedded, embedder) {
+  if (read.length || previous?.version !== INDEX_VERSION || !Array.isArray(previous.edges)) return false;
+  if ((previous.semantic === 'embeddings') !== embedded) return false;
+  if (embedded && embedder && previous.model !== embedder.model) return false;
+  const prev = Object.keys(previous.files);
+  const next = Object.keys(files);
+  return prev.length === next.length && next.every((f) => Object.hasOwn(previous.files, f));
+}
 
 /** Files skipped as binary/secret, by abs path -> mtime:size, so refreshes don't re-read them. */
 const refused = new Map();
@@ -327,17 +456,22 @@ async function build(root, previous, force, embedder = null, keepEmbeddings = fa
   }
   const embedded = keepVecs || (Boolean(embedder) && await embedNodes(nodes, embedder));
   for (const n of nodes) {
-    delete n._text;
+    delete n._chunks;
     if (!embedded) delete n.vec;
   }
-  const explicit = explicitEdges(nodes, files);
-  const similar = embedded ? semanticEdges(nodes, explicit) : lexicalEdges(nodes, explicit);
-  const edges = [...explicit.values(), ...similar];
+  const edges = sameInputs(previous, files, read, embedded, embedder)
+    ? previous.edges
+    : computeEdges(nodes, files, embedded);
+  const commit = gitCommit(root);
+  const history = previous?.version === INDEX_VERSION && previous.commit === commit && Array.isArray(previous.history)
+    ? previous.history
+    : gitHistory(root);
   return {
     version: INDEX_VERSION,
     project: root,
     builtAt: new Date().toISOString(),
-    commit: gitCommit(root),
+    commit,
+    history,
     nodes,
     edges,
     files,
@@ -452,7 +586,8 @@ function validShape(idx, root) {
     && Array.isArray(idx.nodes) && Array.isArray(idx.edges)
     && idx.files !== null && typeof idx.files === 'object' && !Array.isArray(idx.files)
     && idx.nodes.every((n) => n && isStr(n.id) && isStr(n.path))
-    && idx.edges.every((e) => e && isStr(e.from) && isStr(e.to));
+    && idx.edges.every((e) => e && isStr(e.from) && isStr(e.to))
+    && (idx.history === undefined || (Array.isArray(idx.history) && idx.history.every((c) => c && isStr(c.sha) && isStr(c.date) && isStr(c.subject))));
 }
 
 /**

@@ -240,6 +240,12 @@ details.group > summary {
 .timeline .num { font-family: ui-monospace, Menlo, monospace; color: var(--fg-soft); font-size: 12px; }
 .timeline .title { font-weight: 600; display: block; }
 .timeline .summary { color: var(--fg-soft); font-size: 13px; }
+.timeline .title.inline { display: inline; font-weight: 400; }
+.timeline .badge { margin-right: 6px; }
+.timeline li.commit::before { background: var(--border); }
+.day-date { font-size: 13px; color: var(--fg-soft); margin: 14px 0 6px; font-family: ui-monospace, Menlo, monospace; }
+.indexed { font-size: 12px; color: var(--fg-soft); display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 4px 0 8px; }
+.indexed button { font-size: 12px; padding: 2px 8px; }
 
 @media (max-width: 1000px) {
   #app { grid-template-columns: 230px minmax(0, 1fr); }

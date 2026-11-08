@@ -38,7 +38,7 @@ test('kinds are assigned per spec', async () => {
     assert.equal(kind('docs/security/report.md#SEC-001'), 'finding');
     assert.equal(kind('docs/engineering/questions.md#Q-1'), 'question');
     assert.equal(node(idx, 'docs/security/report.md#SEC-001').line, 3);
-    assert.equal(idx.version, 1);
+    assert.equal(idx.version, 2);
     assert.equal(idx.semantic, 'lexical');
   } finally {
     cleanup(dir);
@@ -90,7 +90,7 @@ test('index saved at .eng-team/.cache/index/index.json and loadable', async () =
     const file = path.join(dir, '.eng-team', '.cache', 'index', 'index.json');
     assert.ok(fs.existsSync(file));
     const loaded = loadIndex(dir);
-    assert.equal(loaded.version, 1);
+    assert.equal(loaded.version, 2);
     assert.ok(loaded.nodes.length > 5);
     assert.ok(!fs.existsSync(path.join(FIXTURE, '.eng-team', '.cache')), 'fixture untouched');
   } finally {
@@ -110,6 +110,8 @@ test('updateIndex re-reads only the changed file', async () => {
     assert.equal(loadIndex(dir).lastUpdate, undefined);
     const again = await updateIndex(dir, {});
     assert.deepEqual(again.lastUpdate.read, []);
+    const inMemory = await updateIndex(dir, { previous: again, persist: false });
+    assert.equal(inMemory.edges, again.edges, 'unchanged project reuses edges without recomputing');
   } finally {
     cleanup(dir);
   }
@@ -291,6 +293,20 @@ test('reindexFile without an embedder keeps existing vectors and the embeddings 
     assert.ok(Array.isArray(node(idx, 'src/a.js').vec), 'unchanged node keeps its vector');
     assert.equal(node(idx, 'docs/guide.md').vec, undefined, 're-read node has no vector until the next embedder-backed update');
     assert.equal((await search(idx, 'narwhalword'))[0].node.id, 'docs/guide.md');
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test('template guidance comments do not make docs look related', async () => {
+  const dir = copyFixture();
+  try {
+    const guidance = '<!-- guidance: ' + 'write the rollback plan with owners deadlines checklist evidence verification '.repeat(20) + '-->';
+    fs.writeFileSync(path.join(dir, 'docs/alpha.md'), `# Alpha\n\n${guidance}\n\nPenguins migrate across glaciers.\n`);
+    fs.writeFileSync(path.join(dir, 'docs/beta.md'), `# Beta\n\n${guidance}\n\nInvoices reconcile against ledgers.\n`);
+    const idx = await buildIndex(dir);
+    assert.ok(!hasEdge(idx, 'docs/alpha.md', 'docs/beta.md', 'lexical') && !hasEdge(idx, 'docs/beta.md', 'docs/alpha.md', 'lexical'));
+    assert.equal(node(idx, 'docs/alpha.md').summary, 'Penguins migrate across glaciers.');
   } finally {
     cleanup(dir);
   }

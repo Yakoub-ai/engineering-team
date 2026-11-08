@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.20.0 — 2026-11-08
+
+### Fixed
+- **Viewer lag.** Every request more than 3 s after the last one re-scanned the project and rebuilt every related-content edge, even with nothing changed (about 250 ms on a 450-file repo, 4.5 s on 2,200 files). The viewer now works from a snapshot taken when `/eng-view` starts; requests never re-scan, and a Refresh button (with an "Indexed at" label) re-scans on demand. An unchanged re-scan reuses the previous edges (4.5 s to about 30 ms), and the similarity pass is about 4x faster with identical results.
+- **Timeline missed recent work.** It listed only phase handovers (one per phase, overwritten on re-open). It now shows, newest first and grouped by day, handovers and their Revisions, change receipts, decisions and the last 300 commits, with type filters; undated records are listed separately.
+- **Related links were skewed by templates.** HTML comments (template guidance repeated in every doc) are no longer counted, so docs written from the same template no longer look related.
+
+### Changed
+- **Documentation over code** in Related links and the Map: a doc-code pair needs a higher score and at most 2 code neighbours per file; the side panel lists Related docs, then Related code; the Map hides code by default (one checkbox to show it) and labels well-linked docs.
+- **Better semantic vectors.** Long docs are embedded as up to four windows, averaged, instead of only their first 1,500 characters. The index format moved to version 2, so the first start after updating re-reads every file once.
+- **Opening a doc is one request** (`/api/links`) instead of one per item in it plus a present-status call.
+- **Smoother Map.** Layout repulsion uses a spatial grid instead of comparing every pair each frame, nodes start spread by graph size, and theme colours are read once (and on a light/dark switch) instead of every frame.
+- **Presentation outputs stay current.** `/eng-view` re-renders already-built outputs in `docs/present/` whose sources changed, at start and on Refresh. It never creates an output that was not built before; Build all and `/eng-present` still do that.
+
 ## 3.19.0 — 2026-11-03
 
 ### Fixed

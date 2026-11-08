@@ -34,7 +34,7 @@ export function classify(rel) {
 function docKind(rel) {
   if (rel === 'docs/engineering/STATUS.md') return 'status';
   if (rel === 'docs/engineering/team-plan.md') return 'team-plan';
-  const dirs = [['handovers', 'handover'], ['decisions', 'decision'], ['specs', 'spec'], ['plans', 'plan']];
+  const dirs = [['handovers', 'handover'], ['decisions', 'decision'], ['specs', 'spec'], ['plans', 'plan'], ['receipts', 'receipt']];
   for (const [dir, kind] of dirs) {
     if (new RegExp(`^docs/engineering/${dir}/[^/]+\\.md$`).test(rel)) return kind;
   }

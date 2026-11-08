@@ -17,25 +17,29 @@ Requires Node 18 or newer. No required npm dependencies: it works offline right 
 
 ```
 node bin/eng-view.js index  [--project <dir>] [--no-semantic]            build or update the index, print counts
-node bin/eng-view.js serve  [--project <dir>] [--port <n>] [--no-semantic]   index, then serve (default port 4777); prints eng-view: http://127.0.0.1:<port>
+node bin/eng-view.js serve  [--project <dir>] [--port <n>] [--no-semantic]   index, rebuild stale outputs, then serve (default port 4777); prints eng-view: http://127.0.0.1:<port>
 node bin/eng-view.js build  [--project <dir>] [--only <cheatsheet,brief,summary,deck,onboarding>] [--force]   write docs/present/*.html (deterministic, no network); prints gap lines
 node bin/eng-view.js mcp    [--project <dir>] [--no-semantic]            stdio MCP server
 ```
 
 Project directory: `--project`, else `CLAUDE_PROJECT_DIR`, else the current directory. In Claude Code use `/eng-view`.
 
+`serve` works from a snapshot: the index (and any already-built presentation output whose sources changed) is computed once at start, incrementally from the cache. Requests never re-scan the project; the Refresh button (`POST /api/refresh`) does. Edits saved in the viewer re-index their file at once.
+
 ## HTTP API
 
 | Route | Result |
 |---|---|
 | `GET /`, `GET /ui/*` | the single-page UI |
-| `GET /api/graph` | `{nodes, edges}` |
+| `GET /api/graph` | `{nodes, edges, indexedAt}` |
 | `GET /api/node?id=` | node plus outgoing and incoming edges |
+| `GET /api/links?path=` | every edge of a file and its items, plus the outputs built from it |
+| `POST /api/refresh` | re-scan (incremental) and rebuild stale outputs (needs `X-Eng-View: 1`) |
 | `GET /api/doc?path=` | `{path, markdown, html, editable}` |
 | `PUT /api/doc?path=` | body `{markdown}`; writes an editable doc and re-indexes it (403 otherwise) |
 | `GET /api/code?path=` | `{path, text, language}`, read-only |
 | `GET /api/search?q=&limit=` | ranked nodes |
-| `GET /api/timeline` | handovers in order |
+| `GET /api/timeline` | `{events, undated, handovers}`: handovers and their Revisions, receipts, decisions and the last 300 commits, newest first (commit subjects that look like a credential are dropped) |
 | `GET /api/present` | `{outputs: [{name, file, kind, exists, sources}], theme, presets}` |
 | `POST /api/present/build` | body `{only?, force?}`; builds `docs/present/*.html` (needs `X-Eng-View: 1`) |
 | `POST /api/present/theme` | body `{preset}` or `{use: "shared"}`; writes `.eng-team/theme.json` (needs `X-Eng-View: 1`) |
@@ -55,7 +59,7 @@ Tool failures are returned as results with `isError: true`; unknown methods retu
 
 ## Optional semantic layer
 
-Without it, "related" links use TF-IDF cosine similarity (edges labelled `lexical`). To use local embeddings (edges labelled `semantic`):
+Without it, "related" links use TF-IDF cosine similarity (edges labelled `lexical`). HTML comments (template guidance) are ignored. Documentation ranks above code: a doc-code pair needs a score 0.1 above the threshold and counts toward at most 2 code neighbours per file; code-code pairs are never linked. Long docs are embedded as up to four 1000-character windows, averaged. To use local embeddings (edges labelled `semantic`):
 
 ```
 npm install --prefix ${CLAUDE_PLUGIN_DATA}/viewer-deps --no-save --no-fund --no-audit --ignore-scripts @huggingface/transformers@3.8.1
