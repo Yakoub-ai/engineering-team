@@ -38,6 +38,15 @@ const TRASH_JS = path.join(__dirname, '..', 'scripts', 'trash.js');
 
 function denyMain(what, queued) {
   const q = queued ? ` Queued as ${queued}: pause only the work that needs it, continue the rest, and ask the user to approve it (they type \`approve ${queued}\`); after that, run exactly this command once from the same directory. If they reject it, ask them what to do instead.` : '';
+  // Not destructive: the shell can't be checked, the Edit tool can (grant + max_mode). Never ask the user to run it either: that skips their confirmation.
+  if (/^switching to autonomous mode from the shell/.test(what))
+    return {
+      decision: 'deny',
+      reason:
+        'eng-team guard: switching to autonomous mode from the shell is not allowed. Not destructive, nothing for the user to run. ' +
+        'Make the change with the Edit tool on .eng-team/state.md (autonomy: autonomous); the guard allows it there only if the user typed --autonomous or --auto on an eng-team command and the policy allows it. ' +
+        'If that Edit is denied too, stay gated and start your next message with "Autonomous mode is OFF:" and the reason.',
+    };
   if (/^recursive rm of project files/.test(what))
     return {
       decision: 'deny',

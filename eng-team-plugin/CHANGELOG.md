@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.20.1 — 2026-11-09
+
+### Fixed
+- **`--auto` could fail to switch on.** The lead flipped `autonomy` in `state.md` with `sed`; the guard refused it (correctly) but with the generic "destructive, let the user run it, no other tools" text, which ruled out the allowed Edit path, so the run stayed gated with only a passing mention. The shell switch is still always refused, but the denial now says it is not destructive, names the Edit tool (where your `--auto` grant and `max_mode` are still checked) and never asks you to run the command yourself. `shared/policy.md` says to use the Edit tool, and when autonomous mode you asked for does not start, the lead's next message opens with `Autonomous mode is OFF:`, the reason and the fix, and asks before continuing gated.
+
 ## 3.20.0 — 2026-11-08
 
 ### Fixed
