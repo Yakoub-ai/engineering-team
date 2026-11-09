@@ -148,6 +148,12 @@ test('autonomous: needs policy, max_mode, and the user-typed flag', () => {
   assert.equal(main('Write', { file_path: path.join(proj, '.eng-team', 'profile.md'), content: 'owner: x\nautonomy: autonomous  # stated\n' }, { session_id: 'other' })?.decision, 'deny');
   assert.equal(main('Edit', { file_path: STATE, old_string: 'current_phase: build', new_string: 'current_phase: test' }), null);
   assert.equal(main('Bash', { command: "sed -i 's/autonomy: gated/autonomy: autonomous/' .eng-team/state.md" })?.decision, 'deny');
+  // Even with the grant, the shell stays denied, and the denial points to the Edit path instead of the generic destructive text.
+  const shell = main('Bash', { command: "sed -i 's/autonomy: gated/autonomy: autonomous/' .eng-team/state.md" }, { session_id: s });
+  assert.equal(shell?.decision, 'deny');
+  assert.match(shell.reason, /Edit tool on \.eng-team\/state\.md/);
+  assert.match(shell.reason, /Autonomous mode is OFF:/);
+  assert.doesNotMatch(shell.reason, /destructive —|let them run it/);
   fs.writeFileSync(STATE, '# state\nautonomy: autonomous\n');
   assert.equal(main('Edit', { file_path: STATE, old_string: 'autonomy: autonomous', new_string: 'autonomy: gated' }), null);
   fs.writeFileSync(STATE, '# state\ncurrent_phase: build\nautonomy: gated\n');

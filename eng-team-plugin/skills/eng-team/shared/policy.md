@@ -44,11 +44,12 @@ The user typing `/eng-team:eng-policy` opens a 30-minute window in which you may
 ## Activating autonomous mode
 
 Only the user can start it, by typing `--autonomous` (or `--auto`) on an eng-team command. When `state.md` already says `autonomy: autonomous` (the user activated it earlier) and the policy still allows it, continue without asking again; if the policy no longer allows it, set `autonomy: gated` and say why. Otherwise:
-1. If `policy.json` is missing or invalid, or `max_mode` is `gated`, say so and continue gated; offer `/eng-team:eng-policy`.
+1. If `policy.json` is missing or invalid, or `max_mode` is `gated`, follow step 4 and offer `/eng-team:eng-policy`.
 2. Otherwise ask one question before anything else, with the AskUserQuestion tool when available: **"Activate autonomous mode for this run?"** Options `Yes, run autonomously` and `No, stay gated (Recommended)`. List the risks first, in at most 5 lines:
    - no approval stops at discover, architect and review: agents decide and record ADRs with `Decided by: agent`;
    - interview questions become Assumptions you review later;
    - destructive actions, pushes and deploys still stop for you;
    - changes under `human_required_paths` still wait for your approval;
    - when `credentials_scoped` is false: "the credentials this session can reach are not scoped; a missed guard pattern could act with your full rights".
-3. On yes, set `autonomy: autonomous` in `.eng-team/state.md` (and the profile when the user asked for it to stick). The guard allows that edit only when the user typed the flag this session and the policy allows it. On no, no answer, or a guard denial, stay gated.
+3. On yes, set `autonomy: autonomous` in `.eng-team/state.md` (and the profile when the user asked for it to stick) with the Edit tool, never the shell (the guard always refuses a shell switch). The guard allows that edit only when the user typed the flag this session and the policy allows it. On no or no answer, stay gated.
+4. If the user asked for autonomous mode and it did not start (policy missing or capped, or the Edit denied), do not bury it: start your next message with `Autonomous mode is OFF:` and the reason in one line, then the fix (for example `/eng-team:eng-policy`, or retype the command with `--auto`), and ask whether to continue gated before doing any phase work.
