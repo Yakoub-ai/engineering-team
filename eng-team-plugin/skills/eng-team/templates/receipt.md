@@ -23,4 +23,4 @@ Mode: <gated | autonomous> (policy max_mode: <gated | autonomous>)
 <!-- guidance: open findings by id and severity, accepted risks with the human's name, findings the verifier rejected (count), or "none". -->
 
 ## Approvals needed
-<!-- guidance: required. Every approval queue entry of this run as `Q-<n> | status | command`, every open guard stop as `S-<n> | open | denied command`, changes under human_required_paths waiting for approval, and gate approvals pending. "none" only if the queue has no pending entry. -->
+<!-- guidance: required. Every approval queue entry of this run as `Q-<n> | status | command` (add the reason for `withdrawn` and the evidence for `agent-evidence`), every open guard stop as `S-<n> | open | denied command`, changes under human_required_paths waiting for approval, and gate approvals pending. "none" only if the queue has no pending entry. -->

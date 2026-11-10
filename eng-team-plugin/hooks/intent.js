@@ -6,7 +6,7 @@
  *   /eng-team:eng-policy …              → 30-minute window to edit .eng-team/policy.json
  *   /eng-team:eng… --autonomous|--auto  → this session may switch to autonomous mode
  *   /eng-team:eng-queue done|reject Q-n [Q-m …] → the human ran (or refused) queued commands
- *   /eng-team:eng-queue (any arguments)         → entries whose `rm` is verifiably already done close themselves
+ *   /eng-team:eng-queue (any arguments)         → entries verifiably already done close themselves; expired ones are withdrawn
  * UserPromptSubmit fires for every message the human types (never for file
  * contents, tool output or subagent reports), so it grants the narrow overrides:
  *   --skip …  or "skip the <gate|phase|task>"  → 10-minute window to mark a gate skipped
@@ -18,7 +18,7 @@
  * Grants are per session and live in ~/.eng-team/grants/ (guard-protected).
  */
 const { writeGrant } = require('./policy.js');
-const { entries, mark, parseMark, parseChat, reconcile } = require('./queue.js');
+const { entries, mark, parseMark, parseChat, reconcile, withdrawExpired } = require('./queue.js');
 const { answerAll } = require('./stops.js');
 
 /**
@@ -56,6 +56,7 @@ function record(input, now = Date.now(), root = process.env.CLAUDE_PROJECT_DIR |
     out.push('autonomous');
   if (root && /^(?:eng-team:)?eng-queue$/.test(name)) {
     for (const id of reconcile(root, now)) out.push(`auto:${id}`);
+    for (const id of withdrawExpired(root, now)) out.push(`expired:${id}`);
     const q = parseMark(args);
     if (q) for (const id of q.ids) if (mark(root, id, q.status, now)) out.push(`queue:${id}`);
   }

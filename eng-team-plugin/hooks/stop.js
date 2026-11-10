@@ -93,6 +93,10 @@ function check(input, root) {
   if (!/`[^`\n]+`/.test(section(r.text, 'Verified'))) return `eng-team: the receipt's Verified section names no command you ran (\`command\` → result). ${how}`;
   const unlisted = entries(root).filter((e) => e.status === 'pending' && !r.text.includes(e.id)).map((e) => e.id);
   if (unlisted.length) return `eng-team: pending approvals ${unlisted.join(', ')} are not in the receipt's Approvals needed. ${how}`;
+  const closedNow = entries(root)
+    .filter((e) => (e.status === 'withdrawn' || e.by === 'agent-evidence') && Date.parse(e.withdrawn_at || e.done_at) >= start && !r.text.includes(e.id))
+    .map((e) => e.id);
+  if (closedNow.length) return `eng-team: queue entries ${closedNow.join(', ')} were withdrawn or closed on evidence this session but are not in the receipt's Approvals needed (list them with status and reason). ${how}`;
   const stopped = openStops(root).filter((e) => !new RegExp(`\\b${e.id}\\b`).test(r.text)).map((e) => e.id);
   if (stopped.length) return `eng-team: open guard stops ${stopped.join(', ')} are not in the receipt's Approvals needed. ${how}`;
   return null;

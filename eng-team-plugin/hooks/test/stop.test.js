@@ -92,3 +92,12 @@ test('open guard stops must be listed in the receipt', () => {
   receipt(GOOD.replace('none', 'Q-001; S-10 guard stop: echo > ~/.x'), '2026-10-29-stops.md');
   assert.equal(stop(), null);
 });
+
+test('entries withdrawn this session must be listed in the receipt', () => {
+  const { withdraw } = require('../queue.js');
+  enqueue(proj, { command: 'az group delete -n old', reason: 'cloud delete' });
+  assert.equal(withdraw(proj, 'Q-002', 'task T4 dropped from the plan').ok, true);
+  assert.match(stop(), /entries Q-002 were withdrawn or closed on evidence/);
+  receipt(GOOD.replace('none', 'Q-001 | pending | terraform destroy\nQ-002 | withdrawn | az group delete -n old (task T4 dropped)\nS-10 guard stop'));
+  assert.equal(stop(), null);
+});
