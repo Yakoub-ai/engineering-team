@@ -12,7 +12,10 @@
  * close entries whose effect this hook can verify itself, and
  * `node queue.js close <Q-n> --evidence "<what shows it is done>"` to close one
  * it has checked itself (recorded as `by: agent-evidence`). Neither closes an
- * entry flagged needs_human_test. Zero dependencies, Node 18+.
+ * entry flagged needs_human_test. `node queue.js close <Q-n> --withdraw
+ * "<reason>"` withdraws an entry that is no longer needed: nothing runs, so
+ * any entry may be withdrawn, and the reason is recorded. Zero dependencies,
+ * Node 18+.
  */
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -73,6 +76,50 @@ function needsHumanTest(root, command) {
 }
 
 /**
+ * Where a plain `git push [-u] [<remote> [<src>[:<dst>]]]` sends which commit:
+ * `{ref: 'refs/remotes/<remote>/<dst>', sha}`. Flags other than -u (force,
+ * delete, mirror…), URLs and anything git cannot resolve give null.
+ */
+const PUSH = /^\s*git\s+push(?:\s+(?:-u|--set-upstream))?(?:\s+([A-Za-z0-9][\w.-]{0,100})(?:\s+(HEAD|[A-Za-z0-9][\w./-]{0,200})(?::([A-Za-z0-9][\w./-]{0,200}))?)?)?\s*$/;
+function pushTarget(cwd, command) {
+  const m = PUSH.exec(String(command || ''));
+  if (!m || !cwd) return null;
+  const [, remote, src, dst] = m;
+  const sha = git(cwd, ['rev-parse', '--verify', '--quiet', `${src && src !== 'HEAD' ? `refs/heads/${src}` : 'HEAD'}^{commit}`]);
+  if (sha.code !== 0 || !/^[0-9a-f]{40,64}$/.test(sha.out)) return null;
+  let ref;
+  if (src) {
+    if (git(cwd, ['remote']).out.split('\n').indexOf(remote) < 0) return null;
+    let name = dst || src;
+    if (name === 'HEAD') {
+      const h = git(cwd, ['symbolic-ref', '--quiet', '--short', 'HEAD']);
+      if (h.code !== 0) return null;
+      name = h.out;
+    }
+    if (git(cwd, ['check-ref-format', '--branch', name]).code !== 0) return null;
+    ref = `refs/remotes/${remote}/${name}`;
+  } else {
+    const p = git(cwd, ['rev-parse', '--symbolic-full-name', '@{push}']);
+    if (p.code !== 0 || !/^refs\/remotes\/[\w.-]+\/[\w./-]+$/.test(p.out)) return null;
+    if (remote && !p.out.startsWith(`refs/remotes/${remote}/`)) return null;
+    ref = p.out;
+  }
+  return { ref, sha: sha.out };
+}
+
+/** The push already landed: the remote-tracking ref holds the commit (recorded when queued, else the current one). */
+function pushLanded(e) {
+  const m = PUSH.exec(String(e.command || ''));
+  if (!m) return false;
+  // Entries from before 3.21.0 carry no target: only a named, non-HEAD branch can be resolved later.
+  const named = m[2] && m[2] !== 'HEAD' && m[3] !== 'HEAD';
+  const t = e.push && typeof e.push.ref === 'string' && typeof e.push.sha === 'string' ? e.push : named ? pushTarget(e.cwd, e.command) : null;
+  if (!t || !/^refs\/remotes\//.test(t.ref) || !/^[0-9a-f]{40,64}$/.test(t.sha)) return false;
+  if (git(e.cwd, ['rev-parse', '--verify', '--quiet', `${t.ref}^{commit}`]).code !== 0) return false;
+  return git(e.cwd, ['merge-base', '--is-ancestor', t.sha, t.ref]).code === 0;
+}
+
+/**
  * Queue a denied destructive command, or return the pending entry that
  * already holds the same command and directory.
  * @returns {string} entry id
@@ -84,9 +131,11 @@ function enqueue(root, { command, cwd, reason, agent }, now = Date.now()) {
   if (same) return same.id;
   const n = all.reduce((m, e) => Math.max(m, Number(/^Q-(\d+)$/.exec(e.id)?.[1] || 0)), 0) + 1;
   const id = `Q-${String(n).padStart(3, '0')}`;
+  const push = pushTarget(cwd || root, command);
   append(root, {
     id, status: 'pending', created: new Date(now).toISOString(), command, cwd: cwd || root,
     reason, requested_by: agent || 'main', hash, needs_human_test: needsHumanTest(root, command),
+    ...(push ? { push } : {}),
   });
   return id;
 }
@@ -139,6 +188,31 @@ function closeWithEvidence(root, id, evidence, now = Date.now()) {
   if (!['pending', 'expired'].includes(e.status)) return { ok: false, why: `${id} is already ${e.status}` };
   if (humanOnly(root, e)) return { ok: false, why: `${id} needs a human test; only the user closes it` };
   return mark(root, id, 'done', now, 'agent-evidence', { evidence: ev }) ? { ok: true } : { ok: false, why: 'could not record it' };
+}
+
+/**
+ * The orchestrator withdraws an entry that is no longer needed (task dropped,
+ * replaced, or already done another way). Nothing runs, so any open entry may
+ * be withdrawn, needs_human_test included; an approved one loses its approval.
+ * @returns {{ok: boolean, why?: string}}
+ */
+function withdraw(root, id, reason, now = Date.now(), by = 'agent') {
+  const why = String(reason || '').replace(/\s+/g, ' ').trim();
+  if (why.length < 10 || why.length > 300) return { ok: false, why: 'reason must be 10-300 characters saying why it is no longer needed' };
+  const e = entries(root, now).find((x) => x.id === id);
+  if (!e) return { ok: false, why: `no entry ${id}` };
+  if (!['pending', 'expired', 'approved'].includes(e.status)) return { ok: false, why: `${id} is already ${e.status}` };
+  append(root, { id, status: 'withdrawn', withdrawn_at: new Date(now).toISOString(), by, reason: why });
+  return { ok: true };
+}
+
+/** Expired entries were never answered: withdraw them (running the command again queues a fresh entry). @returns {string[]} */
+function withdrawExpired(root, now = Date.now()) {
+  const hours = readPolicy(root).policy.approval_ttl_hours;
+  return entries(root, now)
+    .filter((e) => e.status === 'expired')
+    .filter((e) => withdraw(root, e.id, `expired: unanswered for over ${hours} h`, now, 'hook-expired').ok)
+    .map((e) => e.id);
 }
 
 const MAX_BATCH = 20;
@@ -213,7 +287,8 @@ function worktreesGone(e) {
 /**
  * Mark pending or expired entries done when their effect is already there.
  * The hook decides from the filesystem or git, never Claude; only `rm`, plain
- * single-branch `git branch -d|-D` and agent-worktree cleanup are understood.
+ * single-branch `git branch -d|-D`, agent-worktree cleanup and plain
+ * `git push` are understood.
  * `by: 'agent-verified'` (the orchestrator's `close`) skips needs_human_test entries.
  * @returns {string[]} ids closed
  */
@@ -222,37 +297,40 @@ function reconcile(root, now = Date.now(), by = 'hook-verified') {
   for (const e of entries(root, now)) {
     if (!['pending', 'expired'].includes(e.status)) continue;
     if (by === 'agent-verified' && humanOnly(root, e)) continue;
-    if ((verifiedGone(root, e) || branchGone(e.command, e.cwd) || worktreesGone(e)) && mark(root, e.id, 'done', now, by)) out.push(e.id);
+    if ((verifiedGone(root, e) || branchGone(e.command, e.cwd) || worktreesGone(e) || pushLanded(e)) && mark(root, e.id, 'done', now, by)) out.push(e.id);
   }
   return out;
 }
 
-module.exports = { QUEUE_FILE, entries, enqueue, mark, parseMark, parseChat, useApproval, APPROVAL_WINDOW_MS, reconcile, closeWithEvidence, hashOf, needsHumanTest };
+module.exports = { QUEUE_FILE, entries, enqueue, mark, parseMark, parseChat, useApproval, APPROVAL_WINDOW_MS, reconcile, closeWithEvidence, withdraw, withdrawExpired, pushTarget, hashOf, needsHumanTest };
 
-// `node queue.js close [project dir]`: the orchestrator closes what the hook can verify.
+// `node queue.js close [project dir]`: the orchestrator closes what the hook can verify and withdraws expired entries.
 // `node queue.js close <Q-n> --evidence "<text>"`: it closes one entry it checked itself.
+// `node queue.js close <Q-n> --withdraw "<reason>"`: it withdraws one entry that is no longer needed.
 if (require.main === module) {
   const args = process.argv.slice(2);
-  const usage = 'usage: node queue.js close [project dir] | node queue.js close <Q-n> --evidence "<what shows it is done>"';
+  const usage = 'usage: node queue.js close [project dir] | node queue.js close <Q-n> --evidence "<what shows it is done>" | node queue.js close <Q-n> --withdraw "<why it is no longer needed>"';
   if (args[0] !== 'close') {
     console.error(usage);
     process.exit(2);
   }
   if (/^Q-\d{1,6}$/.test(args[1] || '')) {
-    const i = args.indexOf('--evidence');
-    if (i < 0 || args.length !== 4 || i !== 2) {
+    if (args.length !== 4 || !['--evidence', '--withdraw'].includes(args[2])) {
       console.error(usage);
       process.exit(2);
     }
     const root = path.resolve(process.env.CLAUDE_PROJECT_DIR || process.cwd());
-    const r = closeWithEvidence(root, args[1], args[3]);
-    console.log(r.ok ? `Closed ${args[1]} (agent-evidence).` : `Not closed: ${r.why}`);
+    const out = args[2] === '--withdraw';
+    const r = out ? withdraw(root, args[1], args[3]) : closeWithEvidence(root, args[1], args[3]);
+    console.log(r.ok ? `${out ? 'Withdrew' : 'Closed'} ${args[1]} (${out ? 'agent' : 'agent-evidence'}).` : `Not ${out ? 'withdrawn' : 'closed'}: ${r.why}`);
     process.exit(r.ok ? 0 : 1);
   }
   const dir = args[1];
   const root = path.resolve(dir || process.env.CLAUDE_PROJECT_DIR || process.cwd());
   const closed = reconcile(root, Date.now(), 'agent-verified');
+  const expired = withdrawExpired(root);
   const open = entries(root).filter((e) => e.status === 'pending');
   console.log(closed.length ? `Closed (verified): ${closed.join(', ')}` : 'Nothing could be verified as done.');
+  if (expired.length) console.log(`Withdrawn (expired): ${expired.join(', ')}`);
   for (const e of open) console.log(`Still open: ${e.id}${e.needs_human_test ? ' (needs human test)' : ''} — ${e.command}`);
 }

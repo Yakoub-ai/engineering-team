@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.21.0 — 2026-11-10
+
+### Fixed
+- **Stale queue entries waited for you.** A queued push stayed pending after the push had landed, and entries for dropped tasks or expired ones stayed until you rejected them by hand.
+
+### Added
+- **Pushes verify themselves.** A queued plain `git push` (no force, delete or URL) records the commit and remote branch it targets; `queue.js close` and your `/eng-queue` mark it `done` once the remote-tracking branch holds that commit. Entries queued before this version are checked only when they name a branch.
+- **Withdrawing.** `node <plugin>/hooks/queue.js close Q-<n> --withdraw "<why>"` (lead only) marks an entry `withdrawn` with the reason. Nothing runs, so any open entry may be withdrawn, and an approved one loses its approval. Expired entries are withdrawn automatically by the sweep and by `/eng-queue`.
+- **The lead sweeps the queue** at the start and end of every run, and the Stop hook requires every entry withdrawn or closed on evidence this session to be in the receipt.
+
+Unchanged: only you approve; nothing is ever approved or run by the lead, and entries needing a human test are still closed as `done` only by you.
+
 ## 3.20.1 — 2026-11-09
 
 ### Fixed
