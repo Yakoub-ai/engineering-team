@@ -26,6 +26,7 @@
 - The run command and results (date, commit, pass/fail/skip counts).
 - `Status: DONE | BLOCKED | HARD-STOP`, then `Scope: <what you covered>`.
 - On a hard stop, also emit the line `HARD-STOP: <reason>`.
+- For each queued shell write you replaced with Edit/Write (the guard says so), the line `Withdraw: Q-<n> — made with Edit/Write`.
 - Do not write `docs/testing.md`; return the table and results only.
 
 ## Stop hints
