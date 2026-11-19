@@ -28,6 +28,7 @@
 - Test command and result summary, plus one line per lint, typecheck and hook command run with its result.
 - `Status: DONE | BLOCKED | HARD-STOP`, then `Scope: <task id>`.
 - On a hard stop, also emit the line `HARD-STOP: <reason>`.
+- For each queued shell write you replaced with Edit/Write (the guard says so), the line `Withdraw: Q-<n> — made with Edit/Write`.
 
 ## Stop hints
 A failing suite after 2 fix attempts → `HARD-STOP: tests failing`. Ambiguous task → `Status: BLOCKED` with the question.

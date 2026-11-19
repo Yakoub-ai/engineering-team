@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.22.0 — 2026-11-19
+
+### Fixed
+- **Quoted text read as a write outside the project.** The guard scanned the raw text of any command it could not classify, so a `>` inside a quoted test string (for example `'<3>'` in `sed -i … && npx vitest`, or `perl -pi -e 's/<3>/x/'`) was read as a redirect, queued, and stopped the run. The outside-write scan now judges each simple command on its own: quoted text, comments and heredoc bodies are ignored for commands that never run their text as shell (the existing read-only list, `sed` without `w`/`e`, and `node`/`python`/`deno`/`bun`/`perl` code with no shell call, and for perl no `open` or pipe). Anything else, and any `$(`, backtick or `$'`, keeps the raw scan.
+
+### Changed
+- **A queued shell write outside the project no longer stops the run.** Nothing ran, so the guard tells a builder or tester to make a project-file change with Edit or Write (checked by exact path: an outside path is refused there too) and continue, reporting `Withdraw: Q-<n> — made with Edit/Write`. The lead withdraws the entry with that reason, in every autonomy mode, without asking you, and it is listed in the receipt. Only a task that truly needs the outside write returns `HARD-STOP: needs Q-<n>` and waits for you.
+
+Unchanged: nothing is ever approved or run automatically, and real redirects or `tee` outside the project (including through `bash -c`, `os.system`, `child_process`, perl `open`, `awk` print) are still queued.
+
 ## 3.21.0 — 2026-11-10
 
 ### Fixed

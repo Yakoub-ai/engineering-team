@@ -119,6 +119,25 @@ function tmpRedirect(role, filePath) {
   };
 }
 
+/**
+ * A shell write outside the project, queued. Nothing ran. If the agent meant
+ * to change a project file, the Edit/Write tools do it and the guard checks
+ * their path exactly (an outside path is refused there too), so the agent
+ * takes that route and continues; the lead withdraws the entry. Only a task
+ * that truly needs the outside write waits for the human.
+ * @param {string} rule
+ * @param {string} q queue id
+ */
+function outsideWriteQueued(rule, q) {
+  return {
+    decision: 'deny',
+    reason:
+      `eng-team guard: rule 7 — ${rule} (queued as ${q}). Nothing ran. Do not retry this command or write the file another way from the shell. ` +
+      'If the change is to a file inside the project, make it with the Edit or Write tool instead, continue your task, and add the line ' +
+      `\`Withdraw: ${q} — made with Edit/Write\` to your hand-off. Only if the task truly needs to write outside the project, return \`HARD-STOP: needs ${q}\` to the lead.`,
+  };
+}
+
 // ---------------------------------------------------------------- paths
 
 /**
@@ -694,6 +713,26 @@ function shellView(raw) {
  * @returns {{text: string, safe: boolean}}
  */
 function shellParse(raw, words = LITERAL_SAFE) {
+  const b = blankLiterals(raw);
+  if (!b) return { text: raw, safe: false };
+  const out = b;
+  for (const s of subcommands(out)) {
+    const toks = commandTokens(s);
+    const word = path.basename(toks[0] || '');
+    if (!words.has(word)) return { text: raw, safe: false };
+    if (word === 'git' && toks.some((t) => /^-c|^--config-env|^--exec-path/.test(t))) return { text: raw, safe: false };
+  }
+  return { text: out, safe: true };
+}
+
+/**
+ * Blank text inside quotes, comments and heredoc bodies (same length as raw,
+ * so offsets line up). Null when the shell itself could expand that text into
+ * code (`$(`, backticks, `$'`, process substitution, an unclosed quote).
+ * @param {string} raw
+ * @returns {string|null}
+ */
+function blankLiterals(raw) {
   const blank = (c) => (/[\w./~$@:+,%={}-]/.test(c) ? c : '_');
   let out = '';
   let q = null;
@@ -745,14 +784,61 @@ function shellParse(raw, words = LITERAL_SAFE) {
       }
     }
   }
-  if (unsafe || q) return { text: raw, safe: false };
-  for (const s of subcommands(out)) {
-    const toks = commandTokens(s);
-    const word = path.basename(toks[0] || '');
-    if (!words.has(word)) return { text: raw, safe: false };
-    if (word === 'git' && toks.some((t) => /^-c|^--config-env|^--exec-path/.test(t))) return { text: raw, safe: false };
+  return unsafe || q ? null : out;
+}
+
+/** Interpreters whose quoted code has no shell redirect syntax: a `>` there is a comparison or text, not a write. */
+const CODE_SAFE = new Set(['node', 'python', 'python3', 'deno', 'bun']);
+/** Code that can hand text to a shell (os.system, child_process, Deno.Command …): its `>` may still be a redirect. */
+const SHELL_EXEC_HINT = /system|popen|exec|spawn|subprocess|child_process|shell|eval|Function\s*\(|Deno\s*\.\s*(?:run|Command)|Bun\s*\.\s*\$|\bsh\b|\bbash\b|\bzsh\b/i;
+
+/** perl's open(F, ">file") and pipes write through quoted text, so any file or pipe call keeps the raw scan. */
+const PERL_IO_HINT = /\b(?:open|sysopen|qx|syscall|pipe)\b|`|\|/;
+
+/** Spans of a command split on ; & | and newlines outside quotes (text must be blankLiterals output). */
+function spans(text) {
+  const out = [];
+  let start = 0;
+  let q = null;
+  for (let i = 0; i <= text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === q) q = null; continue; }
+    if (ch === '"' || ch === "'") { q = ch; continue; }
+    if (i === text.length || ch === ';' || ch === '&' || ch === '|' || ch === '\n') {
+      if (text.slice(start, i).trim()) out.push([start, i]);
+      start = i + 1;
+    }
   }
-  return { text: out, safe: true };
+  return out;
+}
+
+/**
+ * The command for the outside-write scan. Per simple command: quoted text,
+ * comments and heredoc bodies are blanked when that command never runs its
+ * text as shell code (LITERAL_SAFE words, sed without w/e, or node/python/
+ * deno/bun/perl code with no way to call a shell or open a file). Any other command keeps its
+ * raw text, and shell expansions anywhere keep the whole command raw (fail
+ * closed). So `sed -i 's/<3>/♥/' a.test.ts && npx vitest` no longer reads
+ * `3>/♥/` as a write, while `bash -c 'echo > ~/.x'` still does.
+ * @param {string} raw
+ */
+function writeView(raw) {
+  const b = blankLiterals(raw);
+  if (!b) return raw;
+  let out = '';
+  let at = 0;
+  for (const [s, e] of spans(b)) {
+    const seg = raw.slice(s, e);
+    const word = path.basename(commandTokens(b.slice(s, e))[0] || '');
+    const literal =
+      (LITERAL_SAFE.has(word) && !(word === 'git' && /\s(?:-c|--config-env|--exec-path)/.test(b.slice(s, e)))) ||
+      (word === 'sed' && !SED_WRITE.test(seg)) ||
+      (CODE_SAFE.has(word) && !SHELL_EXEC_HINT.test(seg)) ||
+      (word === 'perl' && !SHELL_EXEC_HINT.test(seg) && !PERL_IO_HINT.test(seg));
+    out += raw.slice(at, s) + (literal ? b.slice(s, e) : seg);
+    at = e;
+  }
+  return out + raw.slice(at);
 }
 
 /** Shell keywords that may open a simple command (`do sed …`, `then cat …`). */
@@ -841,7 +927,7 @@ function bashViolation(raw, projectDir, cwd) {
   if (hit) return { rule: hit.name };
   const n = networkViolation(cmd);
   if (n) return { rule: n };
-  const d = outsideWriteViolation(unquoteWords(shellView(raw)), projectDir, cwd);
+  const d = outsideWriteViolation(unquoteWords(writeView(raw)), projectDir, cwd);
   if (d) return { rule: d };
   return null;
 }
@@ -1081,6 +1167,7 @@ function decideAgent(input, root, agent, tool, ti, target, isMcp) {
   }
   if (ATTENDED.has(input.permission_mode)) return { decision: 'ask', reason: `${APPROVE_ASK} (${v.rule}).` };
   const q = isEngProject(root) ? queueDenied(path.resolve(root), input, v.rule) : null;
+  if (q && /^(?:redirection|tee) writes outside the project/.test(v.rule)) return outsideWriteQueued(v.rule, q);
   return deny(`rule 7 — ${v.rule} needs your approval${q ? ` (queued as ${q}; your task waits for it)` : ''}`);
 }
 
